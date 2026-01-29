@@ -34383,7 +34383,7 @@ bjO(a){var s,r,q,p,o,n="teacher"
 if(a==null||a.length===0)return"student"
 s=a.toLowerCase()
 if(B.c.rD(s,"@dut.udn.vn")){A.ad("\ud83c\udf93 Email domain @dut.udn.vn detected -> likely teacher")
-return n}r=["teacher","admin","gv","giangvien","giaovien","instructor","professor","ddtuan"]
+return n}r=["teacher","admin","gv","giangvien","giaovien","instructor","nvhieu.dtvt","ddtuan"]
 for(q=0;q<8;++q){p=r[q]
 if(A.ef(s,p,0)){A.Rr("\ud83d\udc68\u200d\ud83c\udfeb Detected teacher keyword: "+p)
 return n}}o=A.xe(a).length
