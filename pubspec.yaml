@@ -1,0 +1,56 @@
+name: new_student_dash_board
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase packages
+  firebase_core: ^4.2.1
+  cloud_firestore: ^6.1.0
+  firebase_storage: ^13.0.4
+  firebase_auth: ^6.1.2
+  shared_preferences: ^2.2.2
+
+  # File handling
+  file_picker: ^10.3.7
+  path_provider: ^2.1.1
+
+  # PDF handling
+  pdf: ^3.10.7
+  printing: ^5.12.0
+
+  excel: ^4.0.3  # excel
+
+  # Document parsing
+  syncfusion_flutter_pdf: ^31.2.15
+
+  # State management & utilities
+  provider: ^6.1.1
+  intl: ^0.20.2
+
+  # Unicode normalization for Vietnamese text
+  unorm_dart: ^0.2.0
+
+  # UI components
+  cupertino_icons: ^1.0.8
+  fl_chart: ^0.65.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Uncomment nếu bạn cần thêm assets
+  # assets:
+  #   - assets/images/
+  #   - assets/files/
