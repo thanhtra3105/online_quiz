@@ -12,7 +12,7 @@ class QuizListPage extends StatelessWidget {
   final String classId;
 
   const QuizListPage({Key? key, required this.studentId, required this.classId})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -49,67 +49,106 @@ class QuizListPage extends StatelessWidget {
                 .where((quiz) => !completedQuizIds.contains(quiz.id))
                 .toList();
 
-            if (availableQuizzes.isEmpty) {
-              return Center(
+            return Container(
+              color: Theme.of(context).colorScheme.background,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.celebration,
-                      size: 80,
-                      color: Colors.green.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Bạn đã hoàn thành tất cả bài thi!',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                    // Page Header & Filters
+                    Text(
+                      'Exam Library',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Browse and select from our comprehensive collection of practice exams to prepare for your next big test.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Filter Chips (Dummy UI to match prototype)
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFilterChip(context, 'All Subjects', true),
+                          _buildFilterChip(context, 'Biology', false),
+                          _buildFilterChip(context, 'Chemistry', false),
+                          _buildFilterChip(context, 'Physics', false),
+                          _buildFilterChip(context, 'Mathematics', false),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    if (availableQuizzes.isEmpty)
+                      _buildEmptyState(context)
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = constraints.maxWidth > 1200
+                              ? 3
+                              : constraints.maxWidth > 800
+                                  ? 2
+                                  : 1;
+                          final cardWidth =
+                              (constraints.maxWidth - (crossAxisCount - 1) * 24) /
+                                  crossAxisCount;
+
+                          return Wrap(
+                            spacing: 24,
+                            runSpacing: 24,
+                            children: availableQuizzes.map((quiz) {
+                              final quizId = quiz.id;
+                              final data = quiz.data() as Map<String, dynamic>;
+
+                              return FutureBuilder<QuizSchedule?>(
+                                future: QuizScheduleService.getSchedule(
+                                    classId, quizId),
+                                builder: (context, scheduleSnapshot) {
+                                  if (scheduleSnapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return SizedBox(
+                                      width: cardWidth,
+                                      child: _buildLoadingCard(),
+                                    );
+                                  }
+
+                                  final schedule = scheduleSnapshot.data;
+                                  final canTake = _checkCanTakeQuiz(schedule);
+                                  final statusInfo = _getStatusInfo(schedule);
+
+                                  // KHÔNG HIỂN THỊ NẾU ĐÃ ĐÓNG
+                                  if (schedule != null && schedule.isClosed) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return SizedBox(
+                                    width: cardWidth,
+                                    child: _buildQuizCard(
+                                      context,
+                                      quizId,
+                                      data,
+                                      canTake,
+                                      statusInfo,
+                                      schedule,
+                                    ),
+                                  );
+                                },
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
                   ],
                 ),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: availableQuizzes.length,
-              itemBuilder: (context, index) {
-                final quiz = availableQuizzes[index];
-                final quizId = quiz.id;
-                final data = quiz.data() as Map<String, dynamic>;
-
-                // ✅ KIỂM TRA SCHEDULE CHO MỖI QUIZ
-                return FutureBuilder<QuizSchedule?>(
-                  future: QuizScheduleService.getSchedule(classId, quizId),
-                  builder: (context, scheduleSnapshot) {
-                    if (scheduleSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return _buildLoadingCard();
-                    }
-
-                    final schedule = scheduleSnapshot.data;
-                    final canTake = _checkCanTakeQuiz(schedule);
-                    final statusInfo = _getStatusInfo(schedule);
-
-                    // ❌ KHÔNG HIỂN THỊ NẾU ĐÃ ĐÓNG
-                    if (schedule != null && schedule.isClosed) {
-                      return const SizedBox.shrink(); // Ẩn hoàn toàn
-                    }
-
-                    return _buildQuizCard(
-                      context,
-                      index,
-                      quizId,
-                      data,
-                      canTake,
-                      statusInfo,
-                      schedule,
-                    );
-                  },
-                );
-              },
+              ),
             );
           },
         );
@@ -117,9 +156,83 @@ class QuizListPage extends StatelessWidget {
     );
   }
 
+  Widget _buildFilterChip(BuildContext context, String label, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 64),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.celebration,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Bạn đã hoàn thành tất cả bài thi!',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Hiện tại không có bài thi nào mới dành cho bạn.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuizCard(
     BuildContext context,
-    int index,
     String quizId,
     Map<String, dynamic> data,
     bool canTake,
@@ -128,182 +241,153 @@ class QuizListPage extends StatelessWidget {
   ) {
     final statusColor = statusInfo['color'] as Color;
     final statusText = statusInfo['text'] as String;
-    final statusIcon = statusInfo['icon'] as IconData;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      height: 220,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: canTake ? Colors.grey.shade200 : Colors.orange.shade200,
-          width: canTake ? 1 : 2,
-        ),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
+        border: Border.all(
+          color: canTake
+              ? Theme.of(context).colorScheme.outlineVariant
+              : Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header với số thứ tự và status
-            Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: canTake
-                        ? AppConstants.primaryColor.withOpacity(0.1)
-                        : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: canTake
-                            ? AppConstants.primaryColor
-                            : Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data['title'] ?? 'Bài thi chưa được đặt tên',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.help_outline,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${data['questionCount'] ?? 0} câu hỏi',
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.schedule,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${data['duration'] ?? 0} phút',
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            // Status badge (nếu có schedule)
-            if (schedule != null) ...[
-              const SizedBox(height: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: statusColor),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 16, color: statusColor),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
+                child: Text(
+                  'QUIZ / EXAM',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
                       ),
-                    ),
-                  ],
                 ),
+              ),
+              Icon(
+                Icons.science,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 24,
               ),
             ],
-
-            const SizedBox(height: 12),
-
-            // Action button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canTake
-                      ? AppConstants.primaryColor
-                      : Colors.grey.shade400,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            data['title'] ?? 'Bài thi chưa được đặt tên',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
                 ),
-                onPressed: canTake
-                    ? () => _startQuiz(context, quizId, data)
-                    : null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      canTake ? Icons.play_arrow_rounded : Icons.lock_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      canTake ? 'Làm bài' : 'Chưa mở',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'A practice exam to test your knowledge.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.only(top: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
               ),
             ),
-          ],
-        ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.format_list_bulleted,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${data['questionCount'] ?? 0} Qs',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.timer,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${data['duration'] ?? 0}m',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+                canTake
+                    ? TextButton(
+                        onPressed: () => _startQuiz(context, quizId, data),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Start',
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: statusColor),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -313,29 +397,21 @@ class QuizListPage extends StatelessWidget {
   // ============================================
 
   bool _checkCanTakeQuiz(QuizSchedule? schedule) {
-    // Nếu không có schedule → có thể làm
     if (schedule == null) return true;
-
     final now = DateTime.now();
-
-    // Kiểm tra đã đóng chưa
     if (schedule.closeTime != null && now.isAfter(schedule.closeTime!)) {
       return false;
     }
-
-    // Kiểm tra đã mở chưa
     if (schedule.openTime != null && now.isBefore(schedule.openTime!)) {
       return false;
     }
-
-    // Kiểm tra status
     return schedule.status == 'open';
   }
 
   Map<String, dynamic> _getStatusInfo(QuizSchedule? schedule) {
     if (schedule == null) {
       return {
-        'text': 'Sẵn sàng làm bài',
+        'text': 'Ready',
         'color': Colors.green,
         'icon': Icons.check_circle_outline,
       };
@@ -343,62 +419,51 @@ class QuizListPage extends StatelessWidget {
 
     final now = DateTime.now();
 
-    // Đã đóng
     if (schedule.closeTime != null && now.isAfter(schedule.closeTime!)) {
-      return {'text': 'Đã đóng', 'color': Colors.red, 'icon': Icons.lock};
+      return {'text': 'Closed', 'color': Colors.red, 'icon': Icons.lock};
     }
 
-    // Chưa mở
     if (schedule.openTime != null && now.isBefore(schedule.openTime!)) {
       final timeUntil = schedule.openTime!.difference(now);
       String timeText;
-
       if (timeUntil.inDays > 0) {
-        timeText = 'Mở sau ${timeUntil.inDays} ngày';
+        timeText = 'Opens in ${timeUntil.inDays}d';
       } else if (timeUntil.inHours > 0) {
-        timeText = 'Mở sau ${timeUntil.inHours} giờ';
+        timeText = 'Opens in ${timeUntil.inHours}h';
       } else {
-        // ✅ LÀM TRÒN LÊN: 4 phút 1 giây → hiển thị 5 phút
         final minutes = (timeUntil.inSeconds / 60).ceil();
-        timeText = 'Mở sau $minutes phút';
+        timeText = 'Opens in ${minutes}m';
       }
-
       return {'text': timeText, 'color': Colors.orange, 'icon': Icons.schedule};
     }
 
-    // Đang mở
     if (schedule.status == 'open') {
       if (schedule.closeTime != null) {
         final timeLeft = schedule.closeTime!.difference(now);
         String timeText;
-
         if (timeLeft.inDays > 0) {
-          timeText = 'Còn ${timeLeft.inDays} ngày';
+          timeText = '${timeLeft.inDays}d left';
         } else if (timeLeft.inHours > 0) {
-          timeText = 'Còn ${timeLeft.inHours} giờ';
+          timeText = '${timeLeft.inHours}h left';
         } else {
-          // ✅ LÀM TRÒN LÊN: 4 phút 1 giây → hiển thị 5 phút
           final minutes = (timeLeft.inSeconds / 60).ceil();
-          timeText = 'Còn $minutes phút';
+          timeText = '${minutes}m left';
         }
-
         return {
           'text': timeText,
           'color': Colors.green,
           'icon': Icons.lock_open,
         };
       }
-
       return {
-        'text': 'Đang mở',
+        'text': 'Open',
         'color': Colors.green,
         'icon': Icons.lock_open,
       };
     }
 
-    // Đã lên lịch
     return {
-      'text': 'Đã lên lịch',
+      'text': 'Scheduled',
       'color': Colors.orange,
       'icon': Icons.schedule,
     };
@@ -413,7 +478,6 @@ class QuizListPage extends StatelessWidget {
     String quizId,
     Map<String, dynamic> data,
   ) async {
-    // Kiểm tra lần cuối trước khi vào trang làm bài
     final canTake = await QuizScheduleService.canTakeQuiz(classId, quizId);
 
     if (!canTake) {
@@ -438,7 +502,6 @@ class QuizListPage extends StatelessWidget {
       return;
     }
 
-    // Vào trang làm bài
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -459,7 +522,7 @@ class QuizListPage extends StatelessWidget {
 
   Widget _buildLoadingCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      height: 220,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,

@@ -1,7 +1,6 @@
 // lib/screens/student/result_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/constants.dart';
 
@@ -9,202 +8,720 @@ class ResultDetailPage extends StatelessWidget {
   final String submissionId;
 
   const ResultDetailPage({Key? key, required this.submissionId})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('Chi tiết kết quả'),
-        backgroundColor: AppConstants.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseService.getSubmissionById(submissionId),
-        builder: (context, snapshot) {
-          if (snapshot.hasError)
-            return Center(child: Text('Lỗi: ${snapshot.error}'));
-          if (!snapshot.hasData)
-            return const Center(child: CircularProgressIndicator());
+      backgroundColor: AppConstants.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: FutureBuilder<DocumentSnapshot>(
+                future: FirebaseService.getSubmissionById(submissionId),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _buildErrorState(context, snapshot.error);
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppConstants.primary),
+                    );
+                  }
 
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          final answers = Map<String, dynamic>.from(data['answers'] ?? {});
-          final quizId = data['quizId'] ?? '';
-          final classId =
-              data['classId'] ?? ''; // Cần lấy classId để truy vấn Quiz Setting
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  final answers = Map<String, dynamic>.from(data['answers'] ?? {});
+                  final quizId = data['quizId'] ?? '';
+                  final classId = data['classId'] ?? '';
 
-          // --- SỬA ĐỔI CHÍNH Ở ĐÂY ---
-          // Sử dụng Future.wait để lấy song song:
-          // 1. Danh sách câu hỏi (để tính điểm)
-          // 2. Thông tin bài thi (để check quyền xem chi tiết)
-          return FutureBuilder<List<dynamic>>(
-            future: Future.wait([
-              FirebaseService.getQuizQuestionsOnce(quizId),
-              FirebaseFirestore.instance
-                  .collection('classes')
-                  .doc(classId)
-                  .collection('quizzes')
-                  .doc(quizId)
-                  .get(),
-            ]),
-            builder: (context, compositeSnapshot) {
-              if (!compositeSnapshot.hasData)
-                return const Center(child: CircularProgressIndicator());
+                  return FutureBuilder<List<dynamic>>(
+                    future: Future.wait([
+                      FirebaseService.getQuizQuestionsOnce(quizId),
+                      FirebaseFirestore.instance
+                          .collection('classes')
+                          .doc(classId)
+                          .collection('quizzes')
+                          .doc(quizId)
+                          .get(),
+                    ]),
+                    builder: (context, compositeSnapshot) {
+                      if (!compositeSnapshot.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: AppConstants.primary),
+                        );
+                      }
 
-              // Lấy dữ liệu từ kết quả Future.wait
-              final questionSnapshot =
-                  compositeSnapshot.data![0] as QuerySnapshot;
-              final quizDocSnapshot =
-                  compositeSnapshot.data![1] as DocumentSnapshot;
+                      final questionSnapshot =
+                          compositeSnapshot.data![0] as QuerySnapshot;
+                      final quizDocSnapshot =
+                          compositeSnapshot.data![1] as DocumentSnapshot;
 
-              // Check quyền xem chi tiết (Mặc định là FALSE nếu chưa setup)
-              final quizData = quizDocSnapshot.data() as Map<String, dynamic>?;
-              final bool allowViewDetail =
-                  quizData?['allowViewDetail'] ?? false;
+                      final quizData =
+                          quizDocSnapshot.data() as Map<String, dynamic>?;
+                      final bool allowViewDetail =
+                          quizData?['allowViewDetail'] ?? false;
+                      final String quizTitle =
+                          quizData?['title'] ?? 'Exam Results';
 
-              final questions = questionSnapshot.docs;
+                      final questions = questionSnapshot.docs;
 
-              // --- TÍNH TOÁN LẠI (Giữ nguyên logic tính điểm) ---
-              double calculatedTotalScore = 0.0;
-              int correctQuestionsCount = 0;
-              Map<String, double> questionScores = {};
+                      double calculatedTotalScore = 0.0;
+                      int correctQuestionsCount = 0;
+                      Map<String, double> questionScores = {};
 
-              for (var doc in questions) {
-                final qData = doc.data() as Map<String, dynamic>;
-                final rawCorrect = qData['correctAnswer'];
-                final rawUser = answers[doc.id];
+                      for (var doc in questions) {
+                        final qData = doc.data() as Map<String, dynamic>;
+                        final rawCorrect = qData['correctAnswer'];
+                        final rawUser = answers[doc.id];
+                        double points =
+                            _calculateQuestionScore(rawCorrect, rawUser);
+                        questionScores[doc.id] = points;
+                        calculatedTotalScore += points;
+                        if (points >= 0.99) correctQuestionsCount++;
+                      }
 
-                double points = _calculateQuestionScore(rawCorrect, rawUser);
-                questionScores[doc.id] = points;
-                calculatedTotalScore += points;
+                      double maxScore = questions.length.toDouble();
+                      String percentage = maxScore > 0
+                          ? ((calculatedTotalScore / maxScore) * 100)
+                              .toStringAsFixed(0)
+                          : '0';
+                      String scorePoints = maxScore > 0
+                          ? ((calculatedTotalScore / maxScore) * 100)
+                              .toStringAsFixed(2)
+                              .replaceAll(RegExp(r'\.?0+$'), '')
+                          : '0';
 
-                if (points >= 0.99) {
-                  correctQuestionsCount++;
-                }
-              }
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 24),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints:
+                                const BoxConstraints(maxWidth: 800),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Hero Score Section
+                                _buildScoreCard(
+                                  context,
+                                  data: data,
+                                  correctCount: correctQuestionsCount,
+                                  totalCount: questions.length,
+                                  scorePoints: scorePoints,
+                                  percentage: percentage,
+                                  quizTitle: quizTitle,
+                                ),
+                                const SizedBox(height: 32),
 
-              double maxPossibleScore = questions.length.toDouble();
-              String percentage = maxPossibleScore > 0
-                  ? ((calculatedTotalScore / maxPossibleScore) * 100)
-                        .toStringAsFixed(0)
-                  : '0';
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Luôn hiển thị bảng điểm tổng quát
-                    _buildScoreCard(
-                      context,
-                      data,
-                      correctQuestionsCount,
-                      questions.length,
-                      percentage,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // --- ĐIỀU KIỆN HIỂN THỊ CHI TIẾT ---
-                    if (allowViewDetail) ...[
-                      const Text(
-                        'Chi tiết bài làm',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                                // Question Breakdown section
+                                if (allowViewDetail) ...[
+                                  _buildSectionHeader(
+                                      context, 'Question Breakdown'),
+                                  const SizedBox(height: 20),
+                                  ...questions.asMap().entries.map((entry) {
+                                    return _buildQuestionDetail(
+                                      context,
+                                      entry.key,
+                                      entry.value,
+                                      answers[entry.value.id],
+                                      questionScores[entry.value.id] ?? 0.0,
+                                    );
+                                  }),
+                                ] else ...[
+                                  _buildHiddenDetailMessage(context),
+                                ],
+                                const SizedBox(height: 32),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Column(
-                        children: questions.asMap().entries.map((entry) {
-                          return _buildQuestionDetail(
-                            entry.key,
-                            entry.value,
-                            answers[entry.value.id],
-                            questionScores[entry.value.id] ?? 0.0,
-                          );
-                        }).toList(),
-                      ),
-                    ] else ...[
-                      // UI khi bị ẩn chi tiết
-                      _buildHiddenDetailMessage(),
-                    ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                    const SizedBox(height: 30),
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: const BoxDecoration(
+        color: AppConstants.surface,
+        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(Icons.arrow_back_rounded,
+                  color: AppConstants.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Exam Results',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppConstants.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreCard(
+    BuildContext context, {
+    required Map<String, dynamic> data,
+    required int correctCount,
+    required int totalCount,
+    required String scorePoints,
+    required String percentage,
+    required String quizTitle,
+  }) {
+    final pct = double.tryParse(percentage) ?? 0;
+    final scoreColor = pct >= 80
+        ? AppConstants.secondary
+        : pct >= 50
+            ? const Color(0xFFB86200)
+            : AppConstants.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: AppConstants.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.outlineVariant),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 580;
+
+          final scoreCircle = SizedBox(
+            width: 160,
+            height: 160,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 160,
+                  height: 160,
+                  child: CircularProgressIndicator(
+                    value: pct / 100,
+                    strokeWidth: 10,
+                    backgroundColor: AppConstants.surfaceContainerHigh,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppConstants.primary),
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          percentage,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: AppConstants.primary,
+                            height: 1,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            '%',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppConstants.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'SCORE',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppConstants.onSurfaceVariant,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
                   ],
                 ),
-              );
-            },
+              ],
+            ),
           );
+
+          final textSection = Column(
+            crossAxisAlignment: isMobile
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
+            children: [
+              Text(
+                pct >= 80
+                    ? 'Excellent Work!'
+                    : pct >= 60
+                        ? 'Good Job!'
+                        : 'Keep Practicing!',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppConstants.onSurface,
+                ),
+                textAlign: isMobile ? TextAlign.center : TextAlign.left,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'You have completed $quizTitle.',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppConstants.onSurfaceVariant,
+                ),
+                textAlign: isMobile ? TextAlign.center : TextAlign.left,
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment:
+                    isMobile ? WrapAlignment.center : WrapAlignment.start,
+                children: [
+                  _buildStatChip(
+                    icon: Icons.check_circle_outline,
+                    iconColor: AppConstants.secondary,
+                    value: '$correctCount',
+                    label: 'Correct',
+                  ),
+                  _buildStatChip(
+                    icon: Icons.cancel_outlined,
+                    iconColor: AppConstants.error,
+                    value: '${totalCount - correctCount}',
+                    label: 'Incorrect',
+                  ),
+                  _buildStatChip(
+                    icon: Icons.schedule_outlined,
+                    iconColor: AppConstants.outline,
+                    value: _formatTime(data['timeSpent'] ?? 0),
+                    label: 'Time',
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          final actionSection = SizedBox(
+            width: isMobile ? double.infinity : null,
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Quay lại'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppConstants.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+                textStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          );
+
+          if (isMobile) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                scoreCircle,
+                const SizedBox(height: 24),
+                textSection,
+                const SizedBox(height: 24),
+                actionSection,
+              ],
+            );
+          } else {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                scoreCircle,
+                const SizedBox(width: 32),
+                Expanded(child: textSection),
+                const SizedBox(width: 24),
+                actionSection,
+              ],
+            );
+          }
         },
       ),
     );
   }
 
-  // Widget hiển thị thông báo khi giáo viên ẩn kết quả
-  Widget _buildHiddenDetailMessage() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        margin: const EdgeInsets.only(top: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+  Widget _buildStatChip({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppConstants.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppConstants.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppConstants.onSurface,
+                  height: 1.1,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  color: AppConstants.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Container(
+      padding: const EdgeInsets.only(bottom: 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppConstants.outlineVariant),
         ),
+      ),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: AppConstants.onSurface,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHiddenDetailMessage(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: AppConstants.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppConstants.errorContainer.withValues(alpha: 0.4),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.visibility_off_outlined,
+              size: 44,
+              color: AppConstants.error,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Chi tiết chưa được công bố',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppConstants.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Giáo viên tạm thời ẩn đáp án chi tiết của bài thi này.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppConstants.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, dynamic error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: AppConstants.errorContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.visibility_off_rounded,
-                size: 40,
-                color: Colors.orange.shade400,
-              ),
+              child: const Icon(Icons.error_outline,
+                  size: 40, color: AppConstants.error),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Chi tiết chưa được công bố',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
+            const Text('Không thể tải kết quả',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppConstants.onSurface)),
             const SizedBox(height: 8),
-            Text(
-              'Giáo viên tạm thời ẩn đáp án chi tiết của bài thi này.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
+            Text('$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: AppConstants.onSurfaceVariant)),
           ],
         ),
       ),
     );
   }
 
-  // --- CÁC HÀM LOGIC CŨ (GIỮ NGUYÊN) ---
+  Widget _buildQuestionDetail(
+    BuildContext context,
+    int index,
+    DocumentSnapshot questionDoc,
+    dynamic userAnswer,
+    double earnedScore,
+  ) {
+    final data = questionDoc.data() as Map<String, dynamic>;
+    final options = List<String>.from(data['options'] ?? []);
+    final List<String> correctList = _normalizeToList(data['correctAnswer']);
+    final List<String> userList = _normalizeToList(userAnswer);
+    final isMultiple = data['correctAnswer'] is List;
 
-  // Logic tính điểm giữ nguyên
+    final Color statusColor = earnedScore >= 0.99
+        ? AppConstants.secondary
+        : (earnedScore > 0
+            ? const Color(0xFFB86200)
+            : AppConstants.error);
+    final Color statusBg = earnedScore >= 0.99
+        ? const Color(0xFFEDF7ED)
+        : (earnedScore > 0
+            ? const Color(0xFFFFF3E0)
+            : AppConstants.errorContainer);
+    final IconData statusIcon = earnedScore >= 0.99
+        ? Icons.check_circle_outline
+        : (earnedScore > 0
+            ? Icons.warning_amber_outlined
+            : Icons.cancel_outlined);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppConstants.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppConstants.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, color: statusColor, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Câu ${index + 1}',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_formatScore(earnedScore)} pts',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            data['question'] ?? '',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppConstants.onSurface,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...options.asMap().entries.map((optEntry) {
+            final letter = String.fromCharCode(65 + optEntry.key);
+            final text = optEntry.value;
+            final bool isCorrectOption = correctList.contains(letter);
+            final bool isUserSelected = userList.contains(letter);
+
+            Color optBg = AppConstants.surface;
+            Color optBorder = AppConstants.outlineVariant;
+            Color optText = AppConstants.onSurface;
+            IconData? optIcon;
+
+            if (isCorrectOption) {
+              optBg = const Color(0xFFEDF7ED);
+              optBorder = AppConstants.secondary;
+              optText = AppConstants.secondary;
+              optIcon = Icons.check_circle_outline;
+            }
+            if (isUserSelected && !isCorrectOption) {
+              optBg = const Color(0xFFFFEDED);
+              optBorder = AppConstants.error;
+              optText = AppConstants.error;
+              optIcon = Icons.cancel_outlined;
+            }
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: optBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: optBorder,
+                    width: (isCorrectOption || isUserSelected) ? 1.5 : 1),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: isCorrectOption
+                          ? AppConstants.secondary
+                          : isUserSelected
+                              ? AppConstants.error
+                              : AppConstants.surfaceContainerHigh,
+                      shape: isMultiple ? BoxShape.rectangle : BoxShape.circle,
+                      borderRadius: isMultiple ? BorderRadius.circular(6) : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        letter,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: (isCorrectOption || isUserSelected)
+                              ? Colors.white
+                              : AppConstants.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: optText,
+                        fontWeight: (isCorrectOption || isUserSelected)
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  if (optIcon != null)
+                    Icon(optIcon, color: optBorder, size: 18),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ===================== Logic =====================
+
   double _calculateQuestionScore(dynamic rawCorrect, dynamic rawUser) {
     if (rawUser == null) return 0.0;
     List<String> correctList = _normalizeToList(rawCorrect);
     List<String> userList = _normalizeToList(rawUser);
-
     if (correctList.isEmpty) return 0.0;
-
     if (correctList.length > 1 || rawCorrect is List) {
       double unitScore = 1.0 / correctList.length;
       double penaltyScore = 2.0 * unitScore;
@@ -215,13 +732,11 @@ class ResultDetailPage extends StatelessWidget {
         else
           currentScore -= penaltyScore;
       }
-      if (currentScore < 0) return 0.0;
-      if (currentScore > 1.0) return 1.0;
-      return currentScore;
+      return currentScore.clamp(0.0, 1.0);
     } else {
-      if (userList.isNotEmpty && correctList.contains(userList.first))
-        return 1.0;
-      return 0.0;
+      return (userList.isNotEmpty && correctList.contains(userList.first))
+          ? 1.0
+          : 0.0;
     }
   }
 
@@ -231,274 +746,12 @@ class ResultDetailPage extends StatelessWidget {
     return [input.toString().trim()];
   }
 
-  // --- UI THẺ ĐIỂM (Giữ nguyên) ---
-  Widget _buildScoreCard(
-    BuildContext context,
-    Map<String, dynamic> data,
-    int correctCount,
-    int totalCount,
-    String scorePoints,
-  ) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade700, Colors.blue.shade500],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Text(
-            data['quizTitle'] ?? 'Kết quả',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatColumn('Câu đúng', '$correctCount/$totalCount'),
-              Container(width: 1, height: 40, color: Colors.white24),
-              _buildStatColumn('Điểm số', '$scorePoints/100'),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Nộp bài: ${_formatTimestamp(data['timestamp'])}',
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatColumn(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.8)),
-        ),
-      ],
-    );
-  }
-
-  // --- UI CHI TIẾT CÂU HỎI (Giữ nguyên) ---
-  Widget _buildQuestionDetail(
-    int index,
-    DocumentSnapshot questionDoc,
-    dynamic userAnswer,
-    double earnedScore,
-  ) {
-    final data = questionDoc.data() as Map<String, dynamic>;
-    final questionText = data['question'] ?? '';
-    final options = List<String>.from(data['options'] ?? []);
-    final List<String> correctList = _normalizeToList(data['correctAnswer']);
-    final List<String> userList = _normalizeToList(userAnswer);
-
-    Color statusColor = earnedScore >= 0.99
-        ? Colors.green
-        : (earnedScore > 0 ? Colors.orange : Colors.red);
-    IconData statusIcon = earnedScore >= 0.99
-        ? Icons.check_circle
-        : (earnedScore > 0 ? Icons.warning_rounded : Icons.cancel);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.05),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Câu ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    questionText,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Icon(statusIcon, color: statusColor, size: 24),
-                    Text(
-                      '${_formatScore(earnedScore)}đ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey.shade200),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: options.asMap().entries.map((optEntry) {
-                final letter = String.fromCharCode(65 + optEntry.key);
-                final text = optEntry.value;
-                bool isCorrectOption = correctList.contains(letter);
-                bool isUserSelected = userList.contains(letter);
-
-                Color bgColor = Colors.transparent;
-                Color borderColor = Colors.grey.shade200;
-                IconData? icon;
-
-                if (isCorrectOption) {
-                  borderColor = Colors.green.shade300;
-                  bgColor = Colors.green.shade50;
-                  icon = Icons.check_circle_outline;
-                }
-                if (isUserSelected) {
-                  if (isCorrectOption) {
-                    bgColor = Colors.green.shade100;
-                    borderColor = Colors.green;
-                    icon = Icons.check_circle;
-                  } else {
-                    bgColor = Colors.red.shade50;
-                    borderColor = Colors.red.shade300;
-                    icon = Icons.cancel;
-                  }
-                }
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(
-                            color: isUserSelected || isCorrectOption
-                                ? borderColor
-                                : Colors.grey.shade400,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            letter,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          text,
-                          style: TextStyle(
-                            color: isUserSelected && !isCorrectOption
-                                ? Colors.red.shade900
-                                : Colors.black87,
-                            fontWeight: isUserSelected
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      if (icon != null)
-                        Icon(
-                          icon,
-                          color: isUserSelected && !isCorrectOption
-                              ? Colors.red
-                              : Colors.green,
-                          size: 20,
-                        ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _formatScore(double score) =>
       score.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
-  String _formatTimestamp(dynamic timestamp) {
-    if (timestamp is Timestamp)
-      return DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate());
-    return 'N/A';
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes}:${secs.toString().padLeft(2, '0')}';
   }
 }

@@ -9,6 +9,8 @@ import 'screens/teacher/teacher_panel.dart';
 import 'services/user_service.dart';
 import 'services/auth_sync_service.dart';
 import 'services/quiz_schedule_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'utils/constants.dart';
 
 // IMPORT CÁC TRANG NGÂN HÀNG CÂU HỎI
 import 'screens/teacher/quiz_bank_list_page.dart';
@@ -34,7 +36,38 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Student Quiz App',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      theme: ThemeData(
+        colorScheme: ColorScheme(
+          brightness: Brightness.light,
+          primary: AppConstants.primary,
+          onPrimary: AppConstants.onPrimary,
+          primaryContainer: AppConstants.primaryContainer,
+          onPrimaryContainer: AppConstants.onPrimaryContainer,
+          secondary: AppConstants.secondary,
+          onSecondary: AppConstants.onSecondary,
+          secondaryContainer: AppConstants.secondaryContainer,
+          onSecondaryContainer: AppConstants.onSecondaryContainer,
+          tertiary: AppConstants.tertiary,
+          onTertiary: AppConstants.onTertiary,
+          tertiaryContainer: AppConstants.tertiaryContainer,
+          onTertiaryContainer: AppConstants.onTertiaryContainer,
+          error: AppConstants.error,
+          onError: AppConstants.onError,
+          errorContainer: AppConstants.errorContainer,
+          onErrorContainer: AppConstants.onErrorContainer,
+          background: AppConstants.background,
+          onBackground: AppConstants.onBackground,
+          surface: AppConstants.surface,
+          onSurface: AppConstants.onSurface,
+          surfaceVariant: AppConstants.surfaceVariant,
+          onSurfaceVariant: AppConstants.onSurfaceVariant,
+          outline: AppConstants.outline,
+          outlineVariant: AppConstants.outlineVariant,
+        ),
+        scaffoldBackgroundColor: AppConstants.background,
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+        useMaterial3: true,
+      ),
       home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
 

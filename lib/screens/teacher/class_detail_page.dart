@@ -325,8 +325,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   ),
                 ],
               ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
                 leading: Container(
                   width: 56,
                   height: 56,
@@ -407,6 +409,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     }
                   },
                 ),
+              ),
               ),
             );
           },
@@ -506,8 +509,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               ),
             ],
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
             onTap: () {
               Navigator.push(
                 context,
@@ -603,6 +608,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               icon: Icon(Icons.delete_rounded, color: Colors.red.shade700),
               onPressed: () => _removeQuizFromClass(quizId, data),
             ),
+          ),
           ),
         );
       },
@@ -1701,8 +1707,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                               ),
                             ],
                           ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
                             leading: Container(
                               width: 56,
                               height: 56,
@@ -1745,6 +1753,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                               ),
                               child: const Text('Gán'),
                             ),
+                          ),
                           ),
                         );
                       },
