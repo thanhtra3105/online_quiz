@@ -57,6 +57,16 @@
       ]
     },
     {
+      "name": "google_fonts",
+      "version": "6.3.3",
+      "dependencies": [
+        "crypto",
+        "flutter",
+        "http",
+        "path_provider"
+      ]
+    },
+    {
       "name": "fl_chart",
       "version": "0.65.0",
       "dependencies": [
@@ -259,7 +269,7 @@
     },
     {
       "name": "meta",
-      "version": "1.18.0",
+      "version": "1.17.0",
       "dependencies": []
     },
     {
@@ -310,7 +320,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.19",
+      "version": "0.12.17",
       "dependencies": [
         "async",
         "meta",
@@ -321,7 +331,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.11",
+      "version": "0.7.7",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -332,6 +342,23 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "http",
+      "version": "1.6.0",
+      "dependencies": [
+        "async",
+        "http_parser",
+        "meta",
+        "web"
+      ]
+    },
+    {
+      "name": "crypto",
+      "version": "3.0.7",
+      "dependencies": [
+        "typed_data"
       ]
     },
     {
@@ -358,25 +385,8 @@
       ]
     },
     {
-      "name": "http",
-      "version": "1.6.0",
-      "dependencies": [
-        "async",
-        "http_parser",
-        "meta",
-        "web"
-      ]
-    },
-    {
       "name": "convert",
       "version": "3.1.2",
-      "dependencies": [
-        "typed_data"
-      ]
-    },
-    {
-      "name": "crypto",
-      "version": "3.0.7",
       "dependencies": [
         "typed_data"
       ]
@@ -705,14 +715,14 @@
     },
     {
       "name": "material_color_utilities",
-      "version": "0.13.0",
+      "version": "0.11.1",
       "dependencies": [
         "collection"
       ]
     },
     {
       "name": "characters",
-      "version": "1.4.1",
+      "version": "1.4.0",
       "dependencies": []
     },
     {
@@ -845,16 +855,6 @@
       "name": "vm_service",
       "version": "15.0.2",
       "dependencies": []
-    },
-    {
-      "name": "google_fonts",
-      "version": "6.3.3",
-      "dependencies": [
-        "crypto",
-        "flutter",
-        "http",
-        "path_provider"
-      ]
     }
   ],
   "configVersion": 1

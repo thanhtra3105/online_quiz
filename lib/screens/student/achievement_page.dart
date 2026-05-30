@@ -104,15 +104,6 @@ class AchievementPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => Navigator.pop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Icon(Icons.arrow_back_rounded, color: AppConstants.onSurfaceVariant),
-            ),
-          ),
-          const SizedBox(width: 8),
           const Icon(Icons.emoji_events, color: AppConstants.primary, size: 24),
           const SizedBox(width: 8),
           const Text(

@@ -11,6 +11,8 @@ import 'services/auth_sync_service.dart';
 import 'services/quiz_schedule_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'utils/constants.dart';
+import 'package:provider/provider.dart';
+import 'utils/theme_provider.dart';
 
 // IMPORT CÁC TRANG NGÂN HÀNG CÂU HỎI
 import 'screens/teacher/quiz_bank_list_page.dart';
@@ -26,7 +28,12 @@ void main() async {
   // Từ giờ, mọi thay đổi trong Authentication sẽ tự động sync sang Firestore
   AuthSyncService.initialize();
   QuizScheduleService.startScheduler();
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -34,42 +41,64 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Student Quiz App',
-      theme: ThemeData(
-        colorScheme: ColorScheme(
-          brightness: Brightness.light,
-          primary: AppConstants.primary,
-          onPrimary: AppConstants.onPrimary,
-          primaryContainer: AppConstants.primaryContainer,
-          onPrimaryContainer: AppConstants.onPrimaryContainer,
-          secondary: AppConstants.secondary,
-          onSecondary: AppConstants.onSecondary,
-          secondaryContainer: AppConstants.secondaryContainer,
-          onSecondaryContainer: AppConstants.onSecondaryContainer,
-          tertiary: AppConstants.tertiary,
-          onTertiary: AppConstants.onTertiary,
-          tertiaryContainer: AppConstants.tertiaryContainer,
-          onTertiaryContainer: AppConstants.onTertiaryContainer,
-          error: AppConstants.error,
-          onError: AppConstants.onError,
-          errorContainer: AppConstants.errorContainer,
-          onErrorContainer: AppConstants.onErrorContainer,
-          background: AppConstants.background,
-          onBackground: AppConstants.onBackground,
-          surface: AppConstants.surface,
-          onSurface: AppConstants.onSurface,
-          surfaceVariant: AppConstants.surfaceVariant,
-          onSurfaceVariant: AppConstants.onSurfaceVariant,
-          outline: AppConstants.outline,
-          outlineVariant: AppConstants.outlineVariant,
-        ),
-        scaffoldBackgroundColor: AppConstants.background,
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
-        useMaterial3: true,
-      ),
-      home: const AuthWrapper(),
-      debugShowCheckedModeBanner: false,
+    return ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: 'Student Quiz App',
+            themeMode: themeProvider.themeMode,
+            theme: ThemeData(
+              colorScheme: ColorScheme(
+                brightness: Brightness.light,
+                primary: AppConstants.primary,
+                onPrimary: AppConstants.onPrimary,
+                primaryContainer: AppConstants.primaryContainer,
+                onPrimaryContainer: AppConstants.onPrimaryContainer,
+                secondary: AppConstants.secondary,
+                onSecondary: AppConstants.onSecondary,
+                secondaryContainer: AppConstants.secondaryContainer,
+                onSecondaryContainer: AppConstants.onSecondaryContainer,
+                tertiary: AppConstants.tertiary,
+                onTertiary: AppConstants.onTertiary,
+                tertiaryContainer: AppConstants.tertiaryContainer,
+                onTertiaryContainer: AppConstants.onTertiaryContainer,
+                error: AppConstants.error,
+                onError: AppConstants.onError,
+                errorContainer: AppConstants.errorContainer,
+                onErrorContainer: AppConstants.onErrorContainer,
+                background: AppConstants.background,
+                onBackground: AppConstants.onBackground,
+                surface: AppConstants.surface,
+                onSurface: AppConstants.onSurface,
+                surfaceVariant: AppConstants.surfaceVariant,
+                onSurfaceVariant: AppConstants.onSurfaceVariant,
+                outline: AppConstants.outline,
+                outlineVariant: AppConstants.outlineVariant,
+              ),
+              scaffoldBackgroundColor: AppConstants.background,
+              textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+              useMaterial3: true,
+            ),
+            darkTheme: ThemeData(
+              brightness: Brightness.dark,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: AppConstants.primary,
+                brightness: Brightness.dark,
+              ),
+              textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+              useMaterial3: true,
+            ),
+            builder: (context, child) {
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(themeProvider.textScaleFactor),
+                ),
+                child: child!,
+              );
+            },
+            home: const AuthWrapper(),
+            debugShowCheckedModeBanner: false,
 
       // ✨ THÊM ROUTES Ở ĐÂY
       routes: {
@@ -109,6 +138,9 @@ class MyApp extends StatelessWidget {
         // Route không tìm thấy
         return null;
       },
+          );
+        },
+      ),
     );
   }
 }
@@ -122,11 +154,22 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  Future<String?>? _roleFuture;
+  String? _lastUserId;
+
   @override
   void dispose() {
     // Cleanup khi app đóng
     AuthSyncService.dispose();
     super.dispose();
+  }
+
+  Future<String?> _getRoleCached(User user, String studentId) {
+    if (_roleFuture == null || _lastUserId != user.uid) {
+      _lastUserId = user.uid;
+      _roleFuture = _syncAndGetRole(user, studentId);
+    }
+    return _roleFuture!;
   }
 
   @override
@@ -178,7 +221,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         // Đã đăng nhập - đồng bộ với Firestore và lấy role
         return FutureBuilder<String?>(
-          future: _syncAndGetRole(user, studentId),
+          future: _getRoleCached(user, studentId),
           builder: (context, roleSnapshot) {
             // Đang đồng bộ và lấy role
             if (roleSnapshot.connectionState == ConnectionState.waiting) {

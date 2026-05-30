@@ -34,88 +34,54 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blue.shade50, Colors.white, Colors.cyan.shade50],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue.shade400, Colors.blue.shade600],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add_circle_rounded,
-                        size: 28,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tạo đề thi mới',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Tạo và gán trực tiếp vào lớp',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+      backgroundColor: const Color(0xFFF4F5F7),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Nav / Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8F9FA),
+                border: Border(bottom: BorderSide(color: Color(0xFFE8EAED))),
               ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFF434654)),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Quản lí lớp học',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0B57D0)),
+                  ),
+                  const SizedBox(width: 24),
+                  const Text(
+                    'Chi tiết lớp học',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B57D0)),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Tạo đề thi mới',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF737685)),
+                  ),
+                  const Spacer(),
+                  IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_outlined, color: Color(0xFF434654))),
+                  const SizedBox(width: 8),
+                  IconButton(onPressed: () {}, icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF434654), size: 28)),
+                ],
+              ),
+            ),
 
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -123,111 +89,151 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                       children: [
                         // Instructions card
                         Container(
-                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.blue.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            color: const Color(0xFFF1F3FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFD7E2FF)),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      Icons.info_rounded,
-                                      color: Colors.blue.shade700,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Hướng dẫn định dạng file',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
+                              // Header
                               Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
-                                  ),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0052CC),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
                                 ),
-                                child: const Text(
-                                  'File PDF hoặc TXT phải có định dạng như các câu hỏi sau:\n'
-                                  'Câu 1: 2 là số chẵn hay lẻ? (Câu hỏi đúng sai)\n'
-                                  'A. Đúng\n'
-                                  'B. Sai\n'
-                                  'Đáp án: A\n\n'
-                                  'Câu 2: Ai là cầu thủ xuất sắc nhất thế giới? (Câu hỏi 3 đáp án)\n'
-                                  'A. Ronaldo\n'
-                                  'B. Messi\n'
-                                  'C. Cả hai\n'
-                                  'Đáp án: C\n\n'
-                                  'Câu 3: Thủ đô Việt Nam là? (Câu hỏi 4 đáp án)\n'
-                                  'A. Hà Nội\n'
-                                  'B. Đà Nẵng\n'
-                                  'C. TP.HCM\n'
-                                  'D. Hải Phòng\n'
-                                  'Đáp án: A\n\n'
-                                  'Câu 3: Những màu nào sau đây là màu nóng? (Câu hỏi nhiều đáp án)\n'
-                                  'A. Đỏ\n'
-                                  'B. Xanh lá\n'
-                                  'C. Vàng\n'
-                                  'D. Xanh dương\n'
-                                  'E. Cam\n'
-                                  'F. Tím\n'
-                                  'Đáp án: A, C, E\n\n'
-                                  'Lưu ý:\n'
-                                  '- Mỗi câu hỏi bắt đầu bằng "Câu X:"\n'
-                                  '- Đáp án đúng bắt đầu bằng "Đáp án:"\n'
-                                  '- Hỗ trợ cả dấu chấm (.) và dấu hai chấm (:) sau số câu và chữ đáp án.\n'
-                                  '- Đối với câu hỏi nhiều đáp án, các đáp án đúng cách nhau bằng dấu phẩy.\n',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    height: 1.5,
-                                    fontFamily: 'monospace',
-                                  ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.info_outline, color: Colors.white, size: 20),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Hướng dẫn định dạng file',
+                                      style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Content
+                              Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Left Column
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'File PDF hoặc TXT phải có định dạng như các câu hỏi sau:',
+                                            style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654)),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF9F9FF),
+                                              border: Border.all(color: const Color(0xFFC3C6D6)),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: const Text.rich(
+                                              TextSpan(
+                                                style: TextStyle(fontFamily: 'monospace', fontSize: 14, height: 1.6),
+                                                children: [
+                                                  TextSpan(text: 'Câu 1: 2 là số chẵn hay lẻ? (Câu hỏi đúng sai)\n', style: TextStyle(color: Color(0xFF003D9B), fontWeight: FontWeight.bold)),
+                                                  TextSpan(text: 'A. Đúng\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'B. Sai\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'Đáp án: A\n\n', style: TextStyle(color: Color(0xFF006C47), fontWeight: FontWeight.bold)),
+                                                  
+                                                  TextSpan(text: 'Câu 2: Ai là cầu thủ xuất sắc nhất thế giới? (Câu hỏi 3 đáp án)\n', style: TextStyle(color: Color(0xFF003D9B), fontWeight: FontWeight.bold)),
+                                                  TextSpan(text: 'A. Ronaldo\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'B. Messi\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'C. Cả hai\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'Đáp án: C\n\n', style: TextStyle(color: Color(0xFF006C47), fontWeight: FontWeight.bold)),
+
+                                                  TextSpan(text: 'Câu 3: Thủ đô Việt Nam là? (Câu hỏi 4 đáp án)\n', style: TextStyle(color: Color(0xFF003D9B), fontWeight: FontWeight.bold)),
+                                                  TextSpan(text: 'A. Hà Nội\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'B. Đà Nẵng\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'C. TP.HCM\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'D. Hải Phòng\n', style: TextStyle(color: Color(0xFF041B3C))),
+                                                  TextSpan(text: 'Đáp án: A', style: TextStyle(color: Color(0xFF006C47), fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 32),
+                                    // Right Column
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [Icon(Icons.check_circle, color: Color(0xFF003D9B), size: 20), SizedBox(width: 8), Expanded(child: Text('Mỗi câu hỏi bắt đầu bằng "Câu X:"', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))))]),
+                                          const SizedBox(height: 12),
+                                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [Icon(Icons.check_circle, color: Color(0xFF003D9B), size: 20), SizedBox(width: 8), Expanded(child: Text('Đáp án đúng bắt đầu bằng "Đáp án:"', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))))]),
+                                          const SizedBox(height: 12),
+                                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [Icon(Icons.check_circle, color: Color(0xFF003D9B), size: 20), SizedBox(width: 8), Expanded(child: Text('Hỗ trợ dấu chấm (.) và dấu hai chấm (:) sau số câu', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))))]),
+                                          const SizedBox(height: 12),
+                                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [Icon(Icons.check_circle, color: Color(0xFF003D9B), size: 20), SizedBox(width: 8), Expanded(child: Text('Đối với câu nhiều đáp án, các đáp án cách nhau bằng dấu phẩy', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))))]),
+                                          const SizedBox(height: 24),
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFFDAD2).withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: const Color(0xFFFFDAD2)),
+                                            ),
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  width: 32,
+                                                  height: 32,
+                                                  decoration: const BoxDecoration(
+                                                    color: Color(0xFFFFDAD2),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(Icons.lightbulb, color: Color(0xFF851800), size: 20),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                const Expanded(
+                                                  child: Text(
+                                                    'Mẹo: Sử dụng cấu trúc rõ ràng giúp AI của chúng tôi nhận diện câu hỏi chính xác 100%.',
+                                                    style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF8B1A00)),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
 
                         // Quiz Info Section
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
+                            color: const Color(0xFFF9F9FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFC3C6D6)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withOpacity(0.01),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
                               ),
                             ],
                           ),
@@ -237,118 +243,119 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(8),
+                                    width: 40,
+                                    height: 40,
                                     decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
+                                      color: const Color(0xFF82F9BE).withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Icon(
-                                      Icons.edit_document,
-                                      color: Colors.green.shade700,
-                                      size: 24,
-                                    ),
+                                    child: const Icon(Icons.description, color: Color(0xFF006C47), size: 24),
                                   ),
                                   const SizedBox(width: 12),
                                   const Text(
                                     'Thông tin đề thi',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF041B3C)),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 24),
 
                               // Quiz title
                               TextFormField(
                                 controller: _titleController,
+                                style: const TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF041B3C)),
                                 decoration: InputDecoration(
                                   labelText: 'Tên đề thi',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  prefixIcon: const Icon(Icons.title),
-                                  hintText: 'VD: Kiểm tra Toán học Lớp 10',
+                                  labelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654)),
+                                  floatingLabelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF003D9B), fontWeight: FontWeight.bold),
+                                  prefixIcon: const Icon(Icons.title, color: Color(0xFFC3C6D6)),
+                                  hintText: 'Ví dụ: Kiểm tra cuối kỳ - Môn Toán 12',
+                                  hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 16, color: const Color(0xFFC3C6D6).withOpacity(0.6)),
                                   filled: true,
-                                  fillColor: Colors.grey.shade50,
+                                  fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF003D9B), width: 1)),
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Vui lòng nhập tên đề thi';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => (value == null || value.isEmpty) ? 'Vui lòng nhập tên đề thi' : null,
                               ),
-
                               const SizedBox(height: 16),
 
-                              // Duration
-                              TextFormField(
-                                controller: _durationController,
-                                decoration: InputDecoration(
-                                  labelText: 'Thời gian làm bài (phút)',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _durationController,
+                                      style: const TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF041B3C)),
+                                      decoration: InputDecoration(
+                                        labelText: 'Thời gian làm bài (phút)',
+                                        labelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654)),
+                                        floatingLabelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF003D9B), fontWeight: FontWeight.bold),
+                                        prefixIcon: const Icon(Icons.schedule, color: Color(0xFFC3C6D6)),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF003D9B), width: 1)),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) return 'Vui lòng nhập thời gian';
+                                        if ((int.tryParse(value) ?? 0) <= 0) return 'Phải là số dương';
+                                        return null;
+                                      },
+                                    ),
                                   ),
-                                  prefixIcon: const Icon(Icons.timer),
-                                  hintText: '30',
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Vui lòng nhập thời gian';
-                                  }
-                                  final duration = int.tryParse(value);
-                                  if (duration == null || duration <= 0) {
-                                    return 'Thời gian phải là số dương';
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // ADDED: Max Violations
-                              TextFormField(
-                                controller: _maxViolationsController,
-                                decoration: InputDecoration(
-                                  labelText: 'Số lần vi phạm tối đa',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        TextFormField(
+                                          controller: _maxViolationsController,
+                                          style: const TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF041B3C)),
+                                          decoration: InputDecoration(
+                                            labelText: 'Số lần vi phạm tối đa',
+                                            labelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654)),
+                                            floatingLabelStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF003D9B), fontWeight: FontWeight.bold),
+                                            prefixIcon: const Icon(Icons.warning_amber_rounded, color: Color(0xFFC3C6D6)),
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF737685))),
+                                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF003D9B), width: 1)),
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          validator: (value) {
+                                            if (value == null || value.isEmpty) return 'Vui lòng nhập';
+                                            final max = int.tryParse(value) ?? 0;
+                                            if (max < 1) return 'Phải ≥ 1';
+                                            if (max > 20) return 'Không nên > 20';
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 4),
+                                          child: Text(
+                                            'Học sinh sẽ tự động nộp bài sau khi vi phạm đủ số lần',
+                                            style: TextStyle(fontFamily: 'Inter', fontSize: 10, fontStyle: FontStyle.italic, color: const Color(0xFF434654).withOpacity(0.6)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  prefixIcon: const Icon(
-                                    Icons.warning_amber_rounded,
-                                  ),
-                                  hintText: '5',
-                                  helperText:
-                                      'Học sinh sẽ tự động nộp bài sau khi vi phạm đủ số lần',
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Vui lòng nhập số lần vi phạm';
-                                  }
-                                  final maxViolations = int.tryParse(value);
-                                  if (maxViolations == null ||
-                                      maxViolations < 1) {
-                                    return 'Số lần vi phạm phải ≥ 1';
-                                  }
-                                  if (maxViolations > 20) {
-                                    return 'Số lần vi phạm không nên > 20';
-                                  }
-                                  return null;
-                                },
+                                ],
                               ),
                             ],
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
 
                         // Upload button
                         SizedBox(
@@ -356,16 +363,13 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                           height: 56,
                           child: ElevatedButton.icon(
                             onPressed: _isUploading ? null : _uploadQuiz,
-                            icon: const Icon(Icons.upload_file, size: 28),
+                            icon: const Icon(Icons.cloud_upload_outlined, size: 24),
                             label: const Text(
                               'Upload File PDF/TXT',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade600,
+                              backgroundColor: const Color(0xFF003D9B),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -381,51 +385,29 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFD7E2FF)),
                             ),
                             child: Column(
                               children: [
                                 Row(
                                   children: [
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 24,
                                       height: 24,
                                       child: CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.blue.shade600,
-                                            ),
+                                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF003D9B)),
                                         strokeWidth: 3,
                                       ),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
-                                            'Đang xử lý file...',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
+                                          const Text('Đang xử lý file...', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF041B3C))),
                                           const SizedBox(height: 4),
-                                          Text(
-                                            '${(_uploadProgress * 100).toInt()}% hoàn thành',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 14,
-                                            ),
-                                          ),
+                                          Text('${(_uploadProgress * 100).toInt()}% hoàn thành', style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF737685), fontSize: 14)),
                                         ],
                                       ),
                                     ),
@@ -433,14 +415,12 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                                 ),
                                 const SizedBox(height: 16),
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: _uploadProgress,
                                     minHeight: 8,
-                                    backgroundColor: Colors.blue.shade100,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.blue.shade600,
-                                    ),
+                                    backgroundColor: const Color(0xFFD7E2FF),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF003D9B)),
                                   ),
                                 ),
                               ],
@@ -448,28 +428,33 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                           ),
                         ],
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 64),
 
                         // Info card
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.orange.shade200),
+                            color: const Color(0xFFFFDAD2).withOpacity(0.3),
+                            border: Border.all(color: const Color(0xFFFFDAD2)),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.lightbulb_rounded,
-                                color: Colors.orange.shade700,
-                                size: 28,
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFFDAD2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.lightbulb, color: Color(0xFF851800), size: 20),
                               ),
                               const SizedBox(width: 16),
                               const Expanded(
                                 child: Text(
-                                  'Đề thi sẽ được tạo và tự động gán vào lớp này.',
-                                  style: TextStyle(fontSize: 15, height: 1.5),
+                                  'Đề thi sẽ được tạo và tự động gán vào lớp này sau khi file được xử lý thành công.',
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF8B1A00), fontWeight: FontWeight.w500),
                                 ),
                               ),
                             ],
@@ -480,12 +465,14 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+);
+}
 
   Future<void> _uploadQuiz() async {
     if (!_formKey.currentState!.validate()) return;

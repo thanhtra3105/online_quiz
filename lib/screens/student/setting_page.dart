@@ -1,6 +1,10 @@
 // lib/screens/student/setting_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:provider/provider.dart';
+import '../../utils/theme_provider.dart';
 import '../../utils/constants.dart';
 
 enum _SettingTab { profile, notifications, security, appearance }
@@ -23,7 +27,7 @@ class _SettingPageState extends State<SettingPage> {
 
   // Profile
   final _nameCtrl = TextEditingController();
-  final _schoolCtrl = TextEditingController(text: 'Đại học Công nghệ');
+  final _schoolCtrl = TextEditingController(text: 'Trường Đại Học Bách Khoa Đà Nẵng');
 
   @override
   void initState() {
@@ -39,10 +43,63 @@ class _SettingPageState extends State<SettingPage> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final fileBytes = result.files.first.bytes;
+        final fileName = result.files.first.name;
+
+        if (fileBytes != null) {
+          final uniqueFileName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('avatars/${user.uid}/$uniqueFileName');
+          
+          final uploadTask = await storageRef.putData(fileBytes);
+          final downloadUrl = await uploadTask.ref.getDownloadURL();
+          
+          await user.updatePhotoURL(downloadUrl);
+          
+          if (mounted) {
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cập nhật ảnh đại diện thành công!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải ảnh lên: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppConstants.background,
+      backgroundColor: colorScheme.surface,
       body: Column(
         children: [
           _buildTopBar(context),
@@ -294,6 +351,7 @@ class _SettingPageState extends State<SettingPage> {
   // =================== PROFILE TAB ===================
   Widget _buildProfileTab() {
     final user = FirebaseAuth.instance.currentUser;
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       key: const ValueKey('profile'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,32 +367,39 @@ class _SettingPageState extends State<SettingPage> {
         ),
         const SizedBox(height: 20),
         // Avatar
-        Row(
+        Stack(
+          alignment: Alignment.bottomRight,
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundColor: AppConstants.primary,
-              child: Text(
-                _initials(user),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              backgroundColor: colorScheme.primary,
+              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              child: user?.photoURL == null
+                  ? Text(
+                      _initials(user),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : null,
             ),
-            const SizedBox(width: 20),
-            FilledButton(
-              onPressed: () {},
-              style: FilledButton.styleFrom(
-                backgroundColor: AppConstants.primary,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: const Text(
-                'Đổi ảnh',
-                style: TextStyle(fontFamily: 'Inter', fontSize: 13),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(Icons.camera_alt,
+                      size: 14, color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -638,6 +703,8 @@ class _SettingPageState extends State<SettingPage> {
 
   // =================== APPEARANCE TAB ===================
   Widget _buildAppearanceTab() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
     return Column(
       key: const ValueKey('appearance'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,17 +722,23 @@ class _SettingPageState extends State<SettingPage> {
         Wrap(
           spacing: 16,
           children: [
-            _buildThemeCard(
-              label: 'Sáng (Mặc định)',
-              icon: Icons.light_mode_outlined,
-              bg: const Color(0xFFF4F5F7),
-              isSelected: true,
+            GestureDetector(
+              onTap: () => themeProvider.setDarkMode(false),
+              child: _buildThemeCard(
+                label: 'Sáng (Mặc định)',
+                icon: Icons.light_mode_outlined,
+                bg: const Color(0xFFF4F5F7),
+                isSelected: !isDarkMode,
+              ),
             ),
-            _buildThemeCard(
-              label: 'Tối',
-              icon: Icons.dark_mode_outlined,
-              bg: const Color(0xFF1A1A1A),
-              isSelected: false,
+            GestureDetector(
+              onTap: () => themeProvider.setDarkMode(true),
+              child: _buildThemeCard(
+                label: 'Tối',
+                icon: Icons.dark_mode_outlined,
+                bg: const Color(0xFF1A1A1A),
+                isSelected: isDarkMode,
+              ),
             ),
           ],
         ),
@@ -683,35 +756,47 @@ class _SettingPageState extends State<SettingPage> {
         ),
         const SizedBox(height: 12),
         Wrap(
-          spacing: 8,
-          children: ['Nhỏ', 'Mặc định', 'Lớn'].map((size) {
-            final isActive = size == 'Mặc định';
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? AppConstants.surfaceContainerHigh
-                    : AppConstants.surface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isActive
-                      ? AppConstants.primary
-                      : AppConstants.outlineVariant,
-                ),
-              ),
-              child: Text(
-                size,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: isActive ? AppConstants.primary : AppConstants.onSurface,
-                ),
-              ),
-            );
-          }).toList(),
+          spacing: 12,
+          children: [
+            GestureDetector(
+              onTap: () => themeProvider.setFontSize('Nhỏ'),
+              child: _buildFontOption('Nhỏ', themeProvider.fontSize == 'Nhỏ', context),
+            ),
+            GestureDetector(
+              onTap: () => themeProvider.setFontSize('Mặc định'),
+              child: _buildFontOption('Mặc định', themeProvider.fontSize == 'Mặc định', context),
+            ),
+            GestureDetector(
+              onTap: () => themeProvider.setFontSize('Lớn'),
+              child: _buildFontOption('Lớn', themeProvider.fontSize == 'Lớn', context),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildFontOption(String label, bool isSelected, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: isSelected ? colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+        ),
+      ),
     );
   }
 

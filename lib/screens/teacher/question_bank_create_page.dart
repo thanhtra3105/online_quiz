@@ -27,86 +27,32 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.purple.shade50, Colors.white, Colors.pink.shade50],
+      backgroundColor: const Color(0xFFF9F9FF),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF041B3C)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Tạo ngân hàng câu hỏi',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF041B3C),
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.purple.shade400,
-                            Colors.purple.shade600,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.purple.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add_circle_rounded,
-                        size: 28,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tạo ngân hàng câu hỏi',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Upload file PDF/TXT',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: const Color(0xFFC3C6D6), height: 1),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
 
               // Content
               Expanded(
@@ -119,18 +65,11 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                       children: [
                         // Instructions card
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.purple.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            border: Border.all(color: const Color(0xFFC3C6D6)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,21 +79,22 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.purple.shade100,
+                                      color: const Color(0xFFE8EDFF),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Icon(
-                                      Icons.info_rounded,
-                                      color: Colors.purple.shade700,
+                                    child: const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: Color(0xFF003D9B),
                                       size: 24,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text(
+                                  const Text(
                                     'Hướng dẫn định dạng file',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.purple.shade700,
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF041B3C),
                                       fontSize: 18,
                                     ),
                                   ),
@@ -215,17 +155,11 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
 
                         // Bank Name Input
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            border: Border.all(color: const Color(0xFFC3C6D6)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,12 +169,12 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
+                                      color: const Color(0xFFE8EDFF),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Icon(
-                                      Icons.folder_special_rounded,
-                                      color: Colors.blue.shade700,
+                                    child: const Icon(
+                                      Icons.folder_outlined,
+                                      color: Color(0xFF003D9B),
                                       size: 24,
                                     ),
                                   ),
@@ -248,8 +182,10 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                                   const Text(
                                     'Thông tin ngân hàng',
                                     style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Inter',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF041B3C),
                                     ),
                                   ),
                                 ],
@@ -261,13 +197,15 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                                 controller: _titleController,
                                 decoration: InputDecoration(
                                   labelText: 'Tên ngân hàng câu hỏi',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  prefixIcon: const Icon(Icons.title),
+                                  labelStyle: const TextStyle(fontFamily: 'Inter', color: Color(0xFF434654)),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC3C6D6))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC3C6D6))),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF003D9B), width: 2)),
+                                  prefixIcon: const Icon(Icons.title, color: Color(0xFF737685)),
                                   hintText: 'VD: Ngân hàng Toán học Lớp 10',
+                                  hintStyle: const TextStyle(fontFamily: 'Inter', color: Color(0xFF737685)),
                                   filled: true,
-                                  fillColor: Colors.grey.shade50,
+                                  fillColor: const Color(0xFFF9F9FF),
                                 ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
@@ -283,26 +221,38 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                         const SizedBox(height: 24),
 
                         // Upload button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton.icon(
-                            onPressed: _isUploading ? null : _uploadQuestions,
-                            icon: const Icon(Icons.upload_file, size: 28),
-                            label: const Text(
-                              'Upload File PDF/TXT',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        InkWell(
+                          onTap: _isUploading ? null : _uploadQuestions,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F9FF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF003D9B).withValues(alpha: 0.4), style: BorderStyle.solid, width: 2),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple.shade600,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE8EDFF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.cloud_upload_outlined, size: 48, color: Color(0xFF003D9B)),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Kéo thả file vào đây hoặc nhấn để tải lên',
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF041B3C)),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Hỗ trợ PDF, TXT. AI sẽ tự động trích xuất câu hỏi.',
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654)),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -314,49 +264,33 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              border: Border.all(color: const Color(0xFFC3C6D6)),
                             ),
                             child: Column(
                               children: [
                                 Row(
                                   children: [
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 24,
                                       height: 24,
                                       child: CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.purple.shade600,
-                                            ),
+                                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF003D9B)),
                                         strokeWidth: 3,
                                       ),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'Đang xử lý file...',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
+                                            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF041B3C)),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             '${(_uploadProgress * 100).toInt()}% hoàn thành',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 14,
-                                            ),
+                                            style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF434654), fontSize: 14),
                                           ),
                                         ],
                                       ),
@@ -369,44 +303,14 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
                                   child: LinearProgressIndicator(
                                     value: _uploadProgress,
                                     minHeight: 8,
-                                    backgroundColor: Colors.purple.shade100,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.purple.shade600,
-                                    ),
+                                    backgroundColor: const Color(0xFFE8EDFF),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF003D9B)),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-
-                        const SizedBox(height: 24),
-
-                        // Info card
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.lightbulb_rounded,
-                                color: Colors.blue.shade700,
-                                size: 28,
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Text(
-                                  'Ngân hàng câu hỏi sẽ được lưu và có thể tạo nhiều đề thi khác nhau từ đây.',
-                                  style: TextStyle(fontSize: 15, height: 1.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -415,7 +319,6 @@ class _QuestionBankCreatePageState extends State<QuestionBankCreatePage> {
             ],
           ),
         ),
-      ),
     );
   }
 

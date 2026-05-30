@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Exam Library - QuizMaster Pro</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#82f9be",
+                        "secondary-fixed-dim": "#65dca4",
+                        "primary": "#003d9b",
+                        "on-tertiary-fixed-variant": "#8b1a00",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#82f9be",
+                        "surface-container-high": "#e0e8ff",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed": "#dae2ff",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#005235",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb4a3",
+                        "primary-container": "#0052cc",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "on-tertiary-fixed": "#3d0600",
+                        "tertiary-fixed": "#ffdad2",
+                        "outline": "#737685",
+                        "inverse-on-surface": "#edf0ff",
+                        "tertiary-container": "#b02300",
+                        "on-background": "#041b3c",
+                        "background": "#f9f9ff",
+                        "on-tertiary-container": "#ffc6b9",
+                        "on-surface": "#041b3c",
+                        "tertiary": "#851800",
+                        "on-secondary-container": "#00734c",
+                        "inverse-surface": "#1d3052",
+                        "surface-variant": "#d7e2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#0c56d0",
+                        "on-secondary-fixed": "#002113",
+                        "on-primary-container": "#c4d2ff",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f1f3ff",
+                        "secondary": "#006c47",
+                        "surface-container-highest": "#d7e2ff",
+                        "surface-container": "#e8edff",
+                        "on-primary-fixed-variant": "#0040a2",
+                        "on-primary-fixed": "#001848",
+                        "surface-dim": "#cadaff",
+                        "inverse-primary": "#b2c5ff",
+                        "surface": "#f9f9ff",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c3c6d6",
+                        "on-surface-variant": "#434654"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-xl": "64px",
+                        "gutter": "24px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "container-max": "800px",
+                        "unit": "8px",
+                        "stack-md": "16px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9f9ff;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+
+<body class="bg-background text-on-surface antialiased overflow-x-hidden">
+    <!-- SideNavBar Shell -->
+    <aside
+        class="h-screen w-64 fixed left-0 top-0 border-r border-outline-variant bg-surface flex flex-col py-stack-lg z-50">
+        <div class="px-6 mb-8 flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary text-3xl" data-icon="school">school</span>
+            <span class="font-headline-md text-headline-md font-bold text-primary">QuizMaster Pro</span>
+        </div>
+        <div class="px-4 mb-6">
+            <div class="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl border border-outline-variant">
+                <img alt="Teacher Profile Picture" class="w-10 h-10 rounded-full object-cover"
+                    data-alt="A professional headshot of a teacher in a bright studio. He wears a clean dark blazer over a light shirt. The background is a soft, out-of-focus academic setting. High-quality corporate portrait photography style with natural lighting and professional composition."
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzkPDiFGXxZcUjGMXfCyyCCt3bu529mJSrK1IK5x7hqmDGGHaznzm5GIiIZFd3NINXUkwcd1HjYiQs1EOpSHjYxh7c8LGG8ouw_KN62OY-tDC6pVmNt-1UtYn1ZiYO0xty4P2fFeLqv5oors_YT3hRIoCi6TnEQcmgmUzz1zR2tuFS2lKV5heu1-x-FyJKVHSLWL22eT_Cg_93YDaE1AQxjhfsDq-8mEZ5GHHSEUxXcM5YcDF4lWMvOvab6CWLQE5EDmXs2LAByqNW">
+                <div>
+                    <p class="font-label-md text-label-md font-bold text-on-surface">Alex Johnson</p>
+                    <p class="text-[12px] text-on-surface-variant">Instructor Portal</p>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 px-2 space-y-1">
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="groups">groups</span>
+                <span class="font-body-md text-body-md">Class Management</span>
+            </a>
+            <!-- Active Tab -->
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container-high translate-x-1 transition-transform"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="library_books">library_books</span>
+                <span class="font-body-md text-body-md">Exam Library</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="database">database</span>
+                <span class="font-body-md text-body-md">Question Bank</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                <span class="font-body-md text-body-md">Analytics</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="settings">settings</span>
+                <span class="font-body-md text-body-md">Settings</span>
+            </a>
+        </nav>
+        <div class="mt-auto px-4 space-y-4">
+
+            <div class="pt-4 border-t border-outline-variant space-y-1">
+                <a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-all"
+                    href="#">
+                    <span class="material-symbols-outlined" data-icon="help">help</span>
+                    <span class="font-body-md text-body-md">Help Center</span>
+                </a>
+                <a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container transition-all"
+                    href="#">
+                    <span class="material-symbols-outlined" data-icon="logout">logout</span>
+                    <span class="font-body-md text-body-md">Logout</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+    <!-- Main Content Area -->
+    <main class="ml-64 min-h-screen">
+        <!-- TopAppBar -->
+        <header
+            class="sticky top-0 z-40 flex justify-between items-center w-full px-gutter py-stack-md bg-surface border-b border-outline-variant">
+            <div class="flex items-center gap-stack-md flex-1">
+                <div class="relative w-full max-w-md group">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors"
+                        data-icon="search">search</span>
+                    <input
+                        class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full font-label-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        placeholder="Search exams..." type="text">
+                </div>
+            </div>
+            <div class="flex items-center gap-4 ml-4">
+                <div class="hidden md:flex gap-6 mr-6">
+                    <a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md"
+                        href="#">Class Management</a>
+                    <a class="text-on-surface-variant hover:text-primary transition-all font-label-md text-label-md"
+                        href="#">Exam Library</a>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button
+                        class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-primary-container transition-all active:scale-95"
+                        onclick="toggleModal('uploadModal')">
+                        Upload Exam
+                    </button>
+                    <button
+                        class="text-on-surface-variant p-2 rounded-full hover:bg-surface-container-low transition-all">
+                        <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+                    </button>
+                    <button
+                        class="text-on-surface-variant p-2 rounded-full hover:bg-surface-container-low transition-all">
+                        <span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <!-- Content Canvas -->
+        <div class="p-gutter max-w-7xl mx-auto">
+            <section class="mb-stack-lg">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-stack-md">
+                    <div>
+                        <h1 class="font-display text-display text-on-surface">Exam Library</h1>
+                        <p class="font-body-lg text-body-lg text-on-surface-variant">Manage and organize your assessment
+                            materials efficiently.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="flex bg-surface-container-low p-1 rounded-lg border border-outline-variant">
+                            <button class="p-2 bg-white shadow-sm rounded-md text-primary"><span
+                                    class="material-symbols-outlined" data-icon="grid_view">grid_view</span></button>
+                            <button class="p-2 text-on-surface-variant hover:text-primary"><span
+                                    class="material-symbols-outlined" data-icon="list">list</span></button>
+                        </div>
+                        <select
+                            class="bg-white border border-outline-variant rounded-lg px-4 font-label-md focus:ring-primary">
+                            <option>Newest First</option>
+                            <option>Oldest First</option>
+                            <option>Most Taken</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+            <!-- Bento Grid - Exams -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Exam Card 1 -->
+                <div
+                    class="group bg-white rounded-xl border border-outline-variant p-6 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button class="text-on-surface-variant hover:text-primary p-1"><span
+                                class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+                    </div>
+                    <div class="flex justify-between items-start mb-4">
+                        <span
+                            class="px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-full">Mathematics</span>
+                        <div class="flex items-center text-on-surface-variant text-[12px]">
+                            <span class="material-symbols-outlined text-[14px] mr-1"
+                                data-icon="calendar_today">calendar_today</span>
+                            Oct 12, 2023
+                        </div>
+                    </div>
+                    <h3
+                        class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">
+                        Calculus III Final Assessment</h3>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-6 line-clamp-2">Comprehensive final
+                        examination covering multi-variable calculus, vector fields, and Green's theorem.</p>
+                    <div class="flex items-center justify-between border-t border-outline-variant pt-4">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-outline" data-icon="group">group</span>
+                            <span class="font-label-md text-label-md text-on-surface">142 Attempts</span>
+                        </div>
+                        <button
+                            class="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:underline">
+                            Details <span class="material-symbols-outlined text-[18px]"
+                                data-icon="chevron_right">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Exam Card 2 -->
+                <div
+                    class="group bg-white rounded-xl border border-outline-variant p-6 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button class="text-on-surface-variant hover:text-primary p-1"><span
+                                class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+                    </div>
+                    <div class="flex justify-between items-start mb-4">
+                        <span
+                            class="px-3 py-1 bg-tertiary-fixed text-tertiary font-label-sm text-label-sm rounded-full">Organic
+                            Chemistry</span>
+                        <div class="flex items-center text-on-surface-variant text-[12px]">
+                            <span class="material-symbols-outlined text-[14px] mr-1"
+                                data-icon="calendar_today">calendar_today</span>
+                            Sep 28, 2023
+                        </div>
+                    </div>
+                    <h3
+                        class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">
+                        Stereochemistry &amp; Reactions</h3>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-6 line-clamp-2">Midterm examination
+                        focusing on molecular chirality, Sn1/Sn2 reaction mechanisms and energy profiles.</p>
+                    <div class="flex items-center justify-between border-t border-outline-variant pt-4">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-outline" data-icon="group">group</span>
+                            <span class="font-label-md text-label-md text-on-surface">86 Attempts</span>
+                        </div>
+                        <button
+                            class="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:underline">
+                            Details <span class="material-symbols-outlined text-[18px]"
+                                data-icon="chevron_right">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Exam Card 3 -->
+                <div
+                    class="group bg-white rounded-xl border border-outline-variant p-6 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button class="text-on-surface-variant hover:text-primary p-1"><span
+                                class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+                    </div>
+                    <div class="flex justify-between items-start mb-4">
+                        <span
+                            class="px-3 py-1 bg-secondary-container text-secondary font-label-sm text-label-sm rounded-full">Physics</span>
+                        <div class="flex items-center text-on-surface-variant text-[12px]">
+                            <span class="material-symbols-outlined text-[14px] mr-1"
+                                data-icon="calendar_today">calendar_today</span>
+                            Oct 05, 2023
+                        </div>
+                    </div>
+                    <h3
+                        class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">
+                        Quantum Mechanics Intro</h3>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-6 line-clamp-2">Exploring
+                        wave-particle duality, the Schrödinger equation, and quantum tunneling phenomena.</p>
+                    <div class="flex items-center justify-between border-t border-outline-variant pt-4">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-outline" data-icon="group">group</span>
+                            <span class="font-label-md text-label-md text-on-surface">54 Attempts</span>
+                        </div>
+                        <button
+                            class="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:underline">
+                            Details <span class="material-symbols-outlined text-[18px]"
+                                data-icon="chevron_right">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Exam Card 4 -->
+                <div
+                    class="group bg-white rounded-xl border border-outline-variant p-6 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button class="text-on-surface-variant hover:text-primary p-1"><span
+                                class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+                    </div>
+                    <div class="flex justify-between items-start mb-4">
+                        <span
+                            class="px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-full">Mathematics</span>
+                        <div class="flex items-center text-on-surface-variant text-[12px]">
+                            <span class="material-symbols-outlined text-[14px] mr-1"
+                                data-icon="calendar_today">calendar_today</span>
+                            Nov 02, 2023
+                        </div>
+                    </div>
+                    <h3
+                        class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">
+                        Linear Algebra Quiz 4</h3>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-6 line-clamp-2">Short quiz on
+                        eigenvalues, eigenvectors, and diagonalization methods for square matrices.</p>
+                    <div class="flex items-center justify-between border-t border-outline-variant pt-4">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-outline" data-icon="group">group</span>
+                            <span class="font-label-md text-label-md text-on-surface">210 Attempts</span>
+                        </div>
+                        <button
+                            class="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:underline">
+                            Details <span class="material-symbols-outlined text-[18px]"
+                                data-icon="chevron_right">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Add New Action Card -->
+                <button
+                    class="group border-2 border-dashed border-outline-variant rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:border-primary hover:bg-surface-container-low transition-all duration-300"
+                    onclick="toggleModal('uploadModal')">
+                    <div
+                        class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center group-hover:bg-primary-container group-hover:text-on-primary transition-all">
+                        <span class="material-symbols-outlined text-3xl" data-icon="add_circle">add_circle</span>
+                    </div>
+                    <div class="text-center">
+                        <p
+                            class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">
+                            Upload New Exam</p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Import PDF, Word, or Spreadsheet
+                            files</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </main>
+    <!-- Upload Modal -->
+    <div class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4" id="uploadModal">
+        <div class="absolute inset-0 bg-on-background/40 backdrop-blur-sm" onclick="toggleModal('uploadModal')"></div>
+        <div
+            class="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div class="px-gutter py-6 border-b border-outline-variant flex justify-between items-center bg-surface">
+                <h2 class="font-headline-lg text-headline-lg text-on-surface">Upload New Exam</h2>
+                <button class="text-on-surface-variant hover:text-error p-2" onclick="toggleModal('uploadModal')">
+                    <span class="material-symbols-outlined" data-icon="close">close</span>
+                </button>
+            </div>
+            <div class="p-gutter">
+                <div class="border-2 border-dashed border-primary/30 bg-surface-container-low rounded-xl p-10 flex flex-col items-center justify-center gap-4 group transition-all cursor-pointer hover:border-primary hover:bg-surface-container"
+                    id="dropzone">
+                    <span
+                        class="material-symbols-outlined text-5xl text-primary/60 group-hover:scale-110 transition-transform"
+                        data-icon="cloud_upload">cloud_upload</span>
+                    <div class="text-center">
+                        <p class="font-body-lg text-body-lg text-on-surface font-semibold">Click to upload or drag and
+                            drop</p>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant">Supported formats: PDF, DOCX,
+                            XLSX (Max 25MB)</p>
+                    </div>
+                    <input class="hidden" id="fileInput" type="file">
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div>
+                        <label class="block font-label-md text-label-md text-on-surface-variant mb-1">Exam Title</label>
+                        <input
+                            class="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                            placeholder="e.g. Molecular Biology 101 Midterm" type="text">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label
+                                class="block font-label-md text-label-md text-on-surface-variant mb-1">Subject</label>
+                            <select
+                                class="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-primary outline-none">
+                                <option>Select Subject</option>
+                                <option>Mathematics</option>
+                                <option>Physics</option>
+                                <option>Chemistry</option>
+                                <option>Biology</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-label-md text-label-md text-on-surface-variant mb-1">Target
+                                Class</label>
+                            <select
+                                class="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-primary outline-none">
+                                <option>Select Class</option>
+                                <option>A1 - Graduate</option>
+                                <option>B2 - Undergraduate</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-gutter py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
+                <button
+                    class="px-6 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-container-high transition-all"
+                    onclick="toggleModal('uploadModal')">Cancel</button>
+                <button
+                    class="px-8 py-2 bg-primary text-on-primary rounded-lg font-label-md shadow-lg hover:shadow-primary/20 hover:opacity-90 transition-all active:scale-95">Import
+                    Exam</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        }
+
+        // Drag and Drop interaction logic
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.add('border-primary', 'bg-surface-container-highest'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove('border-primary', 'bg-surface-container-highest'), false);
+        });
+
+        dropzone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            if (files.length) {
+                console.log("File detected:", files[0].name);
+                alert(`Selected file: ${files[0].name}. This is a UI demo, processing is simulated.`);
+            }
+        }
+    </script>
+
+
+</body>
+
+</html>

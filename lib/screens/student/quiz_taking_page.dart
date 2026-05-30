@@ -543,7 +543,6 @@ class _QuizTakingPageState extends State<QuizTakingPage>
 
   void _jumpToQuestion(int index) {
     _pageController.jumpToPage(index);
-    Navigator.pop(context);
   }
 
   void _confirmSubmit() {

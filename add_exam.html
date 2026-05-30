@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="vi" style="width: 1280px; height: 1099px; overflow: hidden; position: relative;">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Custom Scrollbar for Guide */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #DFE1E6;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #C1C7D0;
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#82f9be",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "background": "#f9f9ff",
+                        "surface-tint": "#0c56d0",
+                        "secondary": "#006c47",
+                        "primary-container": "#0052cc",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#434654",
+                        "on-error": "#ffffff",
+                        "primary": "#003d9b",
+                        "tertiary-fixed-dim": "#ffb4a3",
+                        "primary-fixed": "#dae2ff",
+                        "outline-variant": "#c3c6d6",
+                        "on-surface": "#041b3c",
+                        "on-primary-fixed": "#001848",
+                        "surface-container-highest": "#d7e2ff",
+                        "error-container": "#ffdad6",
+                        "surface-dim": "#cadaff",
+                        "surface-container-high": "#e0e8ff",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#ffc6b9",
+                        "inverse-surface": "#1d3052",
+                        "inverse-on-surface": "#edf0ff",
+                        "on-tertiary-fixed": "#3d0600",
+                        "surface-variant": "#d7e2ff",
+                        "secondary-fixed-dim": "#65dca4",
+                        "tertiary-container": "#b02300",
+                        "outline": "#737685",
+                        "on-primary-container": "#c4d2ff",
+                        "inverse-primary": "#b2c5ff",
+                        "on-primary-fixed-variant": "#0040a2",
+                        "on-tertiary-fixed-variant": "#8b1a00",
+                        "on-background": "#041b3c",
+                        "surface-container-low": "#f1f3ff",
+                        "on-secondary-container": "#00734c",
+                        "on-secondary-fixed": "#002113",
+                        "tertiary-fixed": "#ffdad2",
+                        "tertiary": "#851800",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f9f9ff",
+                        "surface-container": "#e8edff",
+                        "surface-bright": "#f9f9ff",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "on-secondary-fixed-variant": "#005235",
+                        "secondary-container": "#82f9be"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-xl": "64px",
+                        "stack-md": "16px",
+                        "gutter": "24px",
+                        "container-max": "800px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "margin-mobile": "16px",
+                        "unit": "8px"
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-background text-on-background min-h-screen">
+    <!-- SIDEBAR (Component Data Mapped) -->
+    <aside
+        class="bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline h-screen w-64 fixed left-0 top-0 flex flex-col h-full py-stack-lg z-50">
+        <div class="px-gutter mb-stack-xl">
+            <h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">QuizMaster
+                Pro</h1>
+            <p class="font-label-sm text-label-sm text-on-surface-variant opacity-70">Instructor Portal</p>
+        </div>
+        <nav class="flex-1 px-stack-sm space-y-1">
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">groups</span>
+                <span class="font-body-md text-body-md">Class Management</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary dark:text-secondary-fixed font-bold border-r-4 border-primary dark:border-secondary-fixed bg-surface-container-high dark:bg-surface-container-highest translate-x-1 transition-transform"
+                href="#">
+                <span class="material-symbols-outlined">library_books</span>
+                <span class="font-body-md text-body-md">Exam Library</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">database</span>
+                <span class="font-body-md text-body-md">Question Bank</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">analytics</span>
+                <span class="font-body-md text-body-md">Analytics</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="font-body-md text-body-md">Settings</span>
+            </a>
+        </nav>
+        <div class="mt-auto px-stack-sm pt-stack-md border-t border-outline-variant">
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-primary transition-colors"
+                href="#">
+                <span class="material-symbols-outlined">help</span>
+                <span class="font-body-md text-body-md">Help Center</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-error transition-colors"
+                href="#">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="font-body-md text-body-md">Logout</span>
+            </a>
+        </div>
+    </aside>
+    <!-- MAIN CONTENT WRAPPER -->
+    <main class="ml-64 min-h-screen flex flex-col">
+        <!-- TOP APP BAR -->
+        <header
+            class="bg-surface sticky top-0 z-40 border-b border-outline-variant px-gutter py-stack-sm flex justify-between items-center w-full">
+            <div class="flex items-center gap-4">
+                <button
+                    class="w-10 h-10 rounded-full hover:bg-surface-container-low flex items-center justify-center transition-all active:scale-95">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="font-headline-md text-headline-md font-bold text-primary">Tạo đề thi mới</h2>
+                    <p class="font-label-md text-label-md text-on-surface-variant opacity-70">Tạo và gán trực tiếp vào
+                        lớp</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-stack-md">
+                <button
+                    class="w-10 h-10 rounded-full hover:bg-surface-container-low flex items-center justify-center transition-all active:scale-95">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+                <div class="flex items-center gap-3 pl-4 border-l border-outline-variant">
+                    <div class="text-right">
+
+
+                    </div>
+                    <img alt="Teacher Avatar" class="w-10 h-10 rounded-full border border-outline-variant object-cover"
+                        data-alt="A professional portrait of a confident middle-aged Vietnamese male professor wearing a crisp white dress shirt and glasses. The lighting is soft and corporate, set against a blurred academic background. The image has a clean, high-end light-mode aesthetic consistent with a premium education portal."
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAedIM0opWMaFzDGsM1urDeKyhbrAG8bFkwEg-DK_VXOEA02jE35vdxOLU3VmPBmzxE9UaAJfKom6W3W0YjxPuLNhDNcYdxEpyswQYYdnbQGQs10KMOlxlvO85OBLZ0_kFWkyJDGbeUyngg2cUNaoVMPZhDz5rvPC69nLvXU-5pJ8lG4UEixNqGZ66UrlwYk1dmBB53_JUjCj9h5UJJCgwPXmPTbRaci18oMTgVlWGKd_LPDlbscM-53kLfUVUTqs5_FgxkD6B980gN">
+                </div>
+            </div>
+        </header>
+        <!-- CONTENT CANVAS -->
+        <div class="flex-1 p-gutter max-w-container-max mx-auto w-full space-y-stack-lg pb-stack-xl">
+            <!-- FILE FORMAT GUIDE -->
+            <section
+                class="bg-surface-container-low border border-surface-container-highest rounded-xl overflow-hidden">
+                <div class="bg-primary-container text-on-primary px-gutter py-3 flex items-center gap-3">
+                    <span class="material-symbols-outlined">info</span>
+                    <h3 class="font-label-md text-label-md font-bold">Hướng dẫn định dạng file</h3>
+                </div>
+                <div class="p-gutter grid grid-cols-1 md:grid-cols-2 gap-stack-lg">
+                    <div class="space-y-stack-sm text-on-surface-variant">
+                        <p class="font-body-md text-body-md">File PDF hoặc TXT phải có định dạng như các câu hỏi sau:
+                        </p>
+                        <div
+                            class="bg-surface p-4 rounded border border-outline-variant font-mono text-sm leading-relaxed custom-scrollbar max-h-64 overflow-y-auto">
+                            <p class="text-primary font-bold">Câu 1: 2 là số chẵn hay lẻ? (Câu hỏi đúng sai)</p>
+                            <p class="">A. Đúng</p>
+                            <p class="">B. Sai</p>
+                            <p class="text-secondary font-bold">Đáp án: A</p>
+                            <br>
+                            <p class="text-primary font-bold">Câu 2: Ai là cầu thủ xuất sắc nhất thế giới? (Câu hỏi 3
+                                đáp án)</p>
+                            <p class="">A. Ronaldo</p>
+                            <p class="">B. Messi</p>
+                            <p class="">C. Cả hai</p>
+                            <p class="text-secondary font-bold">Đáp án: C</p>
+                            <br>
+                            <p class="text-primary font-bold">Câu 3: Thủ đô Việt Nam là? (Câu hỏi 4 đáp án)</p>
+                            <p class="">A. Hà Nội</p>
+                            <p class="">B. Đà Nẵng</p>
+                            <p class="">C. TP.HCM</p>
+                            <p class="">D. Hải Phòng</p>
+                            <p class="text-secondary font-bold">Đáp án: A</p>
+                        </div>
+                    </div>
+                    <div class="space-y-stack-sm flex flex-col justify-center">
+                        <ul class="space-y-3 text-on-surface-variant text-sm list-none">
+                            <li class="flex gap-2">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                Mỗi câu hỏi bắt đầu bằng "Câu X:"
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                Đáp án đúng bắt đầu bằng "Đáp án:"
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                Hỗ trợ dấu chấm (.) và dấu hai chấm (:) sau số câu
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                Đối với câu nhiều đáp án, các đáp án cách nhau bằng dấu phẩy
+                            </li>
+                        </ul>
+                        <div class="mt-stack-lg p-4 bg-tertiary-fixed rounded-lg border border-tertiary/20 flex gap-3">
+                            <span class="material-symbols-outlined text-tertiary">lightbulb</span>
+                            <p class="text-xs text-on-tertiary-fixed-variant leading-tight">Mẹo: Sử dụng cấu trúc rõ
+                                ràng giúp AI của chúng tôi nhận diện câu hỏi chính xác 100%.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- EXAM INFORMATION FORM -->
+            <section class="bg-surface rounded-xl border border-outline-variant p-gutter space-y-stack-lg shadow-sm">
+                <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/50">
+                    <div
+                        class="w-10 h-10 bg-secondary-container text-on-secondary-container rounded flex items-center justify-center">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <h3 class="font-headline-md text-headline-md text-on-surface">Thông tin đề thi</h3>
+                </div>
+                <div class="space-y-stack-md">
+                    <!-- Exam Name -->
+                    <div class="group relative">
+                        <label
+                            class="absolute -top-2 left-3 px-1 bg-surface text-[11px] font-bold text-primary transition-all group-focus-within:text-primary z-10">Tên
+                            đề thi</label>
+                        <div
+                            class="flex items-center border border-outline hover:border-primary focus-within:border-primary focus-within:ring-1 focus-within:ring-primary rounded-lg transition-all px-3 bg-white">
+                            <span class="material-symbols-outlined text-outline-variant mr-3">title</span>
+                            <input
+                                class="w-full py-4 text-body-md border-none focus:ring-0 placeholder:text-outline-variant/60"
+                                placeholder="Ví dụ: Kiểm tra cuối kỳ - Môn Toán 12" type="text">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
+                        <!-- Duration -->
+                        <div class="group relative">
+                            <label
+                                class="absolute -top-2 left-3 px-1 bg-surface text-[11px] font-bold text-outline-variant group-focus-within:text-primary z-10">Thời
+                                gian làm bài (phút)</label>
+                            <div
+                                class="flex items-center border border-outline hover:border-primary focus-within:border-primary focus-within:ring-1 focus-within:ring-primary rounded-lg transition-all px-3 bg-white">
+                                <span class="material-symbols-outlined text-outline-variant mr-3">schedule</span>
+                                <input class="w-full py-4 text-body-md border-none focus:ring-0" type="number"
+                                    value="30">
+                            </div>
+                        </div>
+                        <!-- Violations -->
+                        <div class="group relative">
+                            <label
+                                class="absolute -top-2 left-3 px-1 bg-surface text-[11px] font-bold text-outline-variant group-focus-within:text-primary z-10">Số
+                                lần vi phạm tối đa</label>
+                            <div
+                                class="flex items-center border border-outline hover:border-primary focus-within:border-primary focus-within:ring-1 focus-within:ring-primary rounded-lg transition-all px-3 bg-white">
+                                <span class="material-symbols-outlined text-outline-variant mr-3">warning</span>
+                                <input class="w-full py-4 text-body-md border-none focus:ring-0" type="number"
+                                    value="5">
+                            </div>
+                            <p class="mt-1 text-[10px] text-on-surface-variant/60 ml-1 italic">Học sinh sẽ tự động nộp
+                                bài sau khi vi phạm đủ số lần</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- ACTION BUTTON -->
+            <div class="pt-stack-md">
+                <button
+                    class="w-full bg-primary-container hover:bg-primary text-on-primary py-5 rounded-xl font-bold text-body-lg flex items-center justify-center gap-3 transition-all transform active:scale-[0.99] shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined">cloud_upload</span>
+                    Upload File PDF/TXT
+                </button>
+            </div>
+            <!-- FOOTER NOTE -->
+            <div
+                class="bg-tertiary-fixed/30 border border-tertiary-fixed text-on-tertiary-fixed-variant p-4 rounded-lg flex items-center gap-4">
+                <div class="w-8 h-8 bg-tertiary-fixed rounded-full flex items-center justify-center">
+                    <span class="material-symbols-outlined text-tertiary text-xl"
+                        style="font-variation-settings: &quot;FILL&quot; 1;">lightbulb</span>
+                </div>
+                <p class="font-label-md text-label-md">Đề thi sẽ được tạo và tự động gán vào lớp này sau khi file được
+                    xử lý thành công.</p>
+            </div>
+        </div>
+        <!-- STICKY FOOTER ACTION (Mobile Optimization) -->
+        <footer class="md:hidden sticky bottom-0 w-full bg-surface border-t border-outline-variant p-4 flex gap-3">
+            <button class="flex-1 py-3 border border-outline rounded-lg font-bold">Hủy bỏ</button>
+            <button class="flex-1 py-3 bg-primary text-white rounded-lg font-bold">Tiếp tục</button>
+        </footer>
+    </main>
+    <script>
+        // Simple micro-interaction for input hover effects
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.closest('.group').querySelector('label').classList.replace('text-outline-variant', 'text-primary');
+            });
+            input.addEventListener('blur', () => {
+                input.closest('.group').querySelector('label').classList.replace('text-primary', 'text-outline-variant');
+            });
+        });
+    </script>
+
+
+</body>
+
+</html>

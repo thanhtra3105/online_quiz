@@ -1,7 +1,7 @@
 // lib/screens/teacher/class_results_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:excel/excel.dart' hide Border;
+import 'package:excel/excel.dart' hide Border, BorderStyle;
 // import 'package:file_picker/file_picker.dart'; // Có thể bỏ nếu không dùng
 import 'dart:typed_data';
 
@@ -20,8 +20,76 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   String _sortBy = 'studentId';
   bool _sortAscending = false;
 
+  // Real stats variables
+  double _averageScore = 0.0;
+  double _completionRate = 0.0;
+  int _submittedCount = 0;
+  bool _isLoadingStats = true;
+
   // Theo dõi trạng thái export của từng quiz để hiển thị loading spinner riêng biệt
   final Map<String, bool> _exportingStates = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final studentsSnap = await FirebaseFirestore.instance
+          .collection('classes')
+          .doc(widget.classId)
+          .collection('students')
+          .get();
+      final totalStudents = studentsSnap.docs.length;
+
+      final quizzesSnap = await FirebaseFirestore.instance
+          .collection('classes')
+          .doc(widget.classId)
+          .collection('quizzes')
+          .get();
+      final totalQuizzes = quizzesSnap.docs.length;
+
+      final submissionsSnap = await FirebaseFirestore.instance
+          .collection('submissions')
+          .where('classId', isEqualTo: widget.classId)
+          .get();
+
+      final totalSubmissions = submissionsSnap.docs.length;
+
+      double totalScore = 0.0;
+      for (var doc in submissionsSnap.docs) {
+        final data = doc.data();
+        final rawScore = (data['score'] ?? 0).toDouble();
+        final totalQ = (data['totalQuestions'] ?? 1).toDouble();
+        if (totalQ > 0) {
+          final score10 = (rawScore / totalQ) * 10;
+          totalScore += score10;
+        }
+      }
+
+      double avgScore = totalSubmissions > 0 ? totalScore / totalSubmissions : 0.0;
+      double compRate = 0.0;
+      if (totalStudents > 0 && totalQuizzes > 0) {
+        compRate = (totalSubmissions / (totalStudents * totalQuizzes)) * 100;
+        if (compRate > 100) compRate = 100;
+      }
+
+      if (mounted) {
+        setState(() {
+          _averageScore = avgScore;
+          _completionRate = compRate;
+          _submittedCount = totalSubmissions;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -179,136 +247,123 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- HEADER CỐ ĐỊNH (Tìm kiếm & Tiêu đề) ---
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(20),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.analytics_rounded,
-                      color: Colors.orange.shade700,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Kết quả thi',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Thanh tìm kiếm chung
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Tìm sinh viên theo MSSV trong các bài thi...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  isDense: true,
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: (value) =>
-                    setState(() => _searchQuery = value.toLowerCase()),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Bộ lọc sắp xếp nhỏ gọn
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    "Sắp xếp theo:",
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(width: 8),
-                  DropdownButton<String>(
-                    value: _sortBy,
-                    isDense: true,
-                    underline: Container(),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'studentId',
-                        child: Text('Mã SV'),
-                      ),
-                      DropdownMenuItem(value: 'score', child: Text('Điểm số')),
-                      DropdownMenuItem(value: 'time', child: Text('Thời gian')),
-                    ],
-                    onChanged: (v) => setState(() => _sortBy = v!),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      _sortAscending
-                          ? Icons.arrow_upward
-                          : Icons.arrow_downward,
-                      size: 16,
-                      color: Colors.blue,
-                    ),
-                    onPressed: () =>
-                        setState(() => _sortAscending = !_sortAscending),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        // Analytics Row (Bento Stats)
+        Row(
+          children: [
+            Expanded(child: _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), const Color(0xFF003D9B))),
+            const SizedBox(width: 24),
+            Expanded(child: _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF006C47))),
+            const SizedBox(width: 24),
+            Expanded(child: _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', const Color(0xFF041B3C))),
+          ],
         ),
+        const SizedBox(height: 32),
 
-        // --- DANH SÁCH BÀI THI (Main Content) ---
+        // Title and Filter Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF041B3C))),
+            Row(
+              children: [
+                // Search Box
+                Container(
+                  width: 300,
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F3FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                    decoration: const InputDecoration(
+                      icon: Icon(Icons.search, color: Color(0xFF737685), size: 20),
+                      hintText: 'Tìm kiếm bài thi...',
+                      hintStyle: TextStyle(fontSize: 14),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.only(bottom: 12), // Center align text
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    setState(() {
+                      if (value == 'mssv_asc') {
+                        _sortBy = 'studentId';
+                        _sortAscending = true;
+                      } else if (value == 'score_desc') {
+                        _sortBy = 'score';
+                        _sortAscending = false;
+                      }
+                    });
+                  },
+                  offset: const Offset(0, 40),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'mssv_asc',
+                      child: Row(
+                        children: [
+                          Icon(Icons.sort_by_alpha, size: 20, color: _sortBy == 'studentId' ? const Color(0xFF0B57D0) : const Color(0xFF434654)),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Mã số SV (Thấp → Cao)',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: _sortBy == 'studentId' ? const Color(0xFF0B57D0) : const Color(0xFF434654),
+                              fontWeight: _sortBy == 'studentId' ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'score_desc',
+                      child: Row(
+                        children: [
+                          Icon(Icons.sort, size: 20, color: _sortBy == 'score' ? const Color(0xFF0B57D0) : const Color(0xFF434654)),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Điểm số (Cao → Thấp)',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: _sortBy == 'score' ? const Color(0xFF0B57D0) : const Color(0xFF434654),
+                              fontWeight: _sortBy == 'score' ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFC3C6D6)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.filter_list, color: Color(0xFF434654), size: 18),
+                        SizedBox(width: 8),
+                        Text('Lọc', style: TextStyle(color: Color(0xFF434654))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Quiz Results List
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            // 1. Lấy danh sách QUIZZES trước
             stream: FirebaseFirestore.instance
                 .collection('classes')
                 .doc(widget.classId)
@@ -322,10 +377,17 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                 return _buildEmptyState('Lớp học chưa có bài thi nào');
               }
 
-              final quizzes = quizSnapshot.data!.docs;
+              var quizzes = quizSnapshot.data!.docs;
+              
+              if (_searchQuery.isNotEmpty) {
+                 quizzes = quizzes.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final title = (data['title'] ?? '').toString().toLowerCase();
+                    return title.contains(_searchQuery);
+                 }).toList();
+              }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(16),
                 itemCount: quizzes.length,
                 itemBuilder: (context, index) {
                   final quizDoc = quizzes[index];
@@ -333,7 +395,6 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                   final quizTitle = quizData['title'] ?? 'Bài thi không tên';
                   final quizId = quizDoc.id;
 
-                  // Gọi widget con hiển thị từng nhóm bài thi
                   return _buildQuizGroup(quizId, quizTitle, quizData);
                 },
               );
@@ -344,7 +405,41 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     );
   }
 
-  // --- WIDGET NHÓM KẾT QUẢ THEO BÀI THI ---
+  Widget _buildBentoStatCard(String title, String value, Color valueColor, {String? trending}) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFC3C6D6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title.toUpperCase(), style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF434654))),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value, style: TextStyle(fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w700, color: valueColor)),
+              if (trending != null) ...[
+                const SizedBox(width: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.trending_up, size: 16, color: Color(0xFF006C47)),
+                    const SizedBox(width: 4),
+                    Text(trending, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF006C47))),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- WIDGET NHÓM KẾT QUẢ THEO BÀI THI ---
   Widget _buildQuizGroup(
     String quizId,
@@ -352,53 +447,33 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     Map<String, dynamic> quizData,
   ) {
     final bool isExporting = _exportingStates[quizId] ?? false;
-
-    // Lấy trạng thái cho phép xem điểm (mặc định là false nếu chưa có field này)
     final bool allowViewDetail = quizData['allowViewDetail'] ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.blue.shade100),
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFC3C6D6)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.assignment_turned_in,
-              color: Colors.blue.shade700,
-            ),
-          ),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           title: Text(
             quizTitle,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF041B3C)),
           ),
-          // Thay đổi subtitle để hiển thị trạng thái
           subtitle: Text(
             allowViewDetail
                 ? 'Đang CÔNG KHAI chi tiết'
                 : 'Đang ẨN chi tiết bài làm',
             style: TextStyle(
+              fontFamily: 'Inter',
               fontSize: 12,
-              color: allowViewDetail ? Colors.green : Colors.grey,
-              fontWeight: allowViewDetail ? FontWeight.bold : FontWeight.normal,
+              color: allowViewDetail ? const Color(0xFF00734C) : const Color(0xFF434654),
+              fontWeight: FontWeight.w500,
             ),
           ),
           trailing: Row(
@@ -495,19 +570,24 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                 var submissions = subSnapshot.data!.docs;
 
                 // ... (Paste lại logic filter/sort cũ vào đây) ...
-                if (_searchQuery.isNotEmpty) {
-                  submissions = submissions.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final sId = (data['studentId'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    final sName = (data['studentName'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    return sId.contains(_searchQuery) ||
-                        sName.contains(_searchQuery);
-                  }).toList();
-                }
+                // Removed submission filtering by _searchQuery here, as it conflicts with quiz title search
+
+                // Apply Sorting
+                submissions.sort((a, b) {
+                  final dataA = a.data() as Map<String, dynamic>;
+                  final dataB = b.data() as Map<String, dynamic>;
+
+                  if (_sortBy == 'studentId') {
+                    final idA = (dataA['studentId'] ?? '').toString();
+                    final idB = (dataB['studentId'] ?? '').toString();
+                    return _sortAscending ? idA.compareTo(idB) : idB.compareTo(idA);
+                  } else if (_sortBy == 'score') {
+                    final scoreA = (dataA['score'] ?? 0) as num;
+                    final scoreB = (dataB['score'] ?? 0) as num;
+                    return _sortAscending ? scoreA.compareTo(scoreB) : scoreB.compareTo(scoreA);
+                  }
+                  return 0;
+                });
 
                 if (submissions.isEmpty) {
                   return Padding(
@@ -547,7 +627,12 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     final suspiciousCount = data['suspiciousActionCount'] ?? 0;
 
     return InkWell(
-      onTap: () => _showSubmissionDetail(context, doc.id, data),
+      onTap: () async {
+        String resolvedName = studentName ?? await _getStudentName(studentId);
+        if (context.mounted) {
+          _showSubmissionDetail(context, doc.id, data, resolvedName);
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -680,6 +765,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     BuildContext context,
     String submissionId,
     Map<String, dynamic> submission,
+    String studentName,
   ) async {
     final quizId = submission['quizId'] as String?;
 
@@ -701,6 +787,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
         submission: submission,
         questions: questionsSnapshot.docs,
         studentAnswers: studentAnswers,
+        studentName: studentName,
       ),
     );
   }
@@ -711,11 +798,13 @@ class _SubmissionDetailDialog extends StatelessWidget {
   final Map<String, dynamic> submission;
   final List<QueryDocumentSnapshot> questions;
   final Map<String, dynamic> studentAnswers;
+  final String studentName;
 
   const _SubmissionDetailDialog({
     required this.submission,
     required this.questions,
     required this.studentAnswers,
+    required this.studentName,
   });
 
   @override
@@ -727,46 +816,42 @@ class _SubmissionDetailDialog extends StatelessWidget {
     final suspiciousCount = submission['suspiciousActionCount'] ?? 0;
     final cheatingDetected = submission['cheatingDetected'] ?? false;
     final autoSubmitted = submission['autoSubmitted'] ?? false;
-    final studentName = submission['studentName'] ?? 'Không có tên';
     final studentId = submission['studentId'] ?? 'Unknown';
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: Colors.transparent,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.85,
-        height: MediaQuery.of(context).size.height * 0.85,
+        width: 1000,
+        height: MediaQuery.of(context).size.height * 0.9,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF9F9FF),
         ),
         child: Column(
           children: [
             // Header
             Container(
+              margin: const EdgeInsets.all(24),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade500, Colors.blue.shade700],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
+                color: const Color(0xFF0B57D0),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
-                      Icons.assignment_turned_in_rounded,
+                      Icons.person,
                       color: Colors.white,
-                      size: 28,
+                      size: 32,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -776,28 +861,23 @@ class _SubmissionDetailDialog extends StatelessWidget {
                       children: [
                         Text(
                           studentName,
-                          style: TextStyle(
-                            fontSize: 20,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          'MSSV: $studentId',
+                          'MSSV: $studentId • ${submission['quizTitle'] ?? 'BT'}',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white.withOpacity(0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          submission['quizTitle'] ?? 'N/A',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white.withOpacity(0.7),
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -806,50 +886,58 @@ class _SubmissionDetailDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
                     onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
 
-            // Stats with Suspicious Actions
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
-              ),
-              child: Column(
+            // Stats
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        Icons.check_circle_rounded,
-                        '$score',
-                        'Đúng',
-                        Colors.green,
-                      ),
-                      _buildStatItem(
-                        Icons.cancel_rounded,
-                        '${total - score}',
-                        'Sai',
-                        Colors.red,
-                      ),
-                      _buildStatItem(
-                        Icons.timer_rounded,
-                        _formatTime(timeSpent),
-                        'Thời gian',
-                        Colors.blue,
-                      ),
-                      _buildStatItem(
-                        Icons.grade_rounded,
-                        '${percentage.toStringAsFixed(1)}%',
-                        'Điểm số',
-                        Colors.orange,
-                      ),
-                    ],
+                  Expanded(
+                    child: _buildStatItem(
+                      Icons.check_circle_rounded,
+                      '$score',
+                      'Đúng',
+                      const Color(0xFF10B981),
+                    ),
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatItem(
+                      Icons.cancel_rounded,
+                      '${total - score}',
+                      'Sai',
+                      const Color(0xFFEF4444),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatItem(
+                      Icons.timer_rounded,
+                      _formatTime(timeSpent),
+                      'Thời gian',
+                      const Color(0xFF3B82F6),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatItem(
+                      Icons.star_rounded,
+                      '${percentage.toStringAsFixed(1)}%',
+                      'Điểm số',
+                      const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
                   if (suspiciousCount > 0) ...[
                     const SizedBox(height: 16),
@@ -933,9 +1021,6 @@ class _SubmissionDetailDialog extends StatelessWidget {
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
 
             // Questions List
             Expanded(
@@ -952,176 +1037,79 @@ class _SubmissionDetailDialog extends StatelessWidget {
                   final isCorrect = studentAnswer == correctAnswer;
 
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 20),
+                    margin: const EdgeInsets.only(bottom: 24),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isCorrect
-                            ? Colors.green.shade200
-                            : Colors.red.shade200,
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isCorrect ? Colors.green : Colors.red)
-                              .withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isCorrect
-                                ? Colors.green.shade50
-                                : Colors.red.shade50,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(14),
-                              topRight: Radius.circular(14),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              topRight: Radius.circular(12),
                             ),
+                            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
-                                  vertical: 6,
+                                  vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isCorrect
-                                      ? Colors.green.shade100
-                                      : Colors.red.shade100,
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0xFFA7F3D0),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   'Câu ${index + 1}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
                                     fontWeight: FontWeight.bold,
-                                    color: isCorrect
-                                        ? Colors.green.shade800
-                                        : Colors.red.shade800,
+                                    fontSize: 13,
+                                    color: Color(0xFF065F46),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Text(
-                                  questionData['question'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    questionData['question'],
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: Color(0xFF111827),
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-
-                        // Padding(
-                        //   padding: const EdgeInsets.all(16),
-                        //   child: Column(
-                        //     children: List.generate(4, (i) {
-                        //       final letter = String.fromCharCode(65 + i);
-                        //       final options = questionData['options'] as List;
-                        //       final isCorrectOption = letter == correctAnswer;
-                        //       final isStudentChoice = letter == studentAnswer;
-
-                        //       Color bgColor = Colors.white;
-                        //       Color borderColor = Colors.grey.shade200;
-                        //       Color textColor = Colors.black87;
-                        //       IconData? icon;
-
-                        //       if (isCorrectOption) {
-                        //         bgColor = Colors.green.shade50;
-                        //         borderColor = Colors.green.shade400;
-                        //         textColor = Colors.green.shade800;
-                        //         icon = Icons.check_circle_rounded;
-                        //       } else if (isStudentChoice && !isCorrect) {
-                        //         bgColor = Colors.red.shade50;
-                        //         borderColor = Colors.red.shade400;
-                        //         textColor = Colors.red.shade800;
-                        //         icon = Icons.cancel_rounded;
-                        //       } else if (isStudentChoice) {
-                        //         bgColor = Colors.green.shade50;
-                        //         borderColor = Colors.green.shade400;
-                        //       }
-
-                        //       return Container(
-                        //         margin: const EdgeInsets.only(bottom: 8),
-                        //         padding: const EdgeInsets.all(12),
-                        //         decoration: BoxDecoration(
-                        //           color: bgColor,
-                        //           borderRadius: BorderRadius.circular(10),
-                        //           border: Border.all(color: borderColor),
-                        //         ),
-                        //         child: Row(
-                        //           children: [
-                        //             Container(
-                        //               width: 28,
-                        //               height: 28,
-                        //               decoration: BoxDecoration(
-                        //                 color: isCorrectOption
-                        //                     ? Colors.green
-                        //                     : (isStudentChoice
-                        //                           ? Colors.red
-                        //                           : Colors.grey.shade300),
-                        //                 shape: BoxShape.circle,
-                        //               ),
-                        //               child: Center(
-                        //                 child: Text(
-                        //                   letter,
-                        //                   style: TextStyle(
-                        //                     color:
-                        //                         isStudentChoice ||
-                        //                             isCorrectOption
-                        //                         ? Colors.white
-                        //                         : Colors.grey.shade700,
-                        //                     fontWeight: FontWeight.bold,
-                        //                   ),
-                        //                 ),
-                        //               ),
-                        //             ),
-                        //             const SizedBox(width: 12),
-                        //             Expanded(
-                        //               child: Text(
-                        //                 options[i],
-                        //                 style: TextStyle(
-                        //                   color: textColor,
-                        //                   fontWeight: FontWeight.w500,
-                        //                 ),
-                        //               ),
-                        //             ),
-                        //             if (icon != null)
-                        //               Icon(icon, color: borderColor, size: 20),
-                        //           ],
-                        //         ),
-                        //       );
-                        //     }),
-                        //   ),
-                        // ),
                         Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           child: Column(
                             children: () {
-                              // ✨ Lấy options và kiểm tra type
                               final options = questionData['options'] as List;
-                              final questionType =
-                                  questionData['type'] ?? 'single';
+                              final questionType = questionData['type'] ?? 'single';
 
                               return List.generate(options.length, (i) {
                                 final letter = String.fromCharCode(65 + i);
 
-                                // ✨ Xử lý multiple choice
                                 bool isCorrectOption;
                                 bool isStudentChoice;
 
                                 if (questionType == 'multiple') {
-                                  // Multiple choice
                                   final correctAnswers = correctAnswer is List
                                       ? List<String>.from(correctAnswer)
                                       : [correctAnswer.toString()];
@@ -1133,50 +1121,61 @@ class _SubmissionDetailDialog extends StatelessWidget {
                                       ? [studentAnswer.toString()]
                                       : <String>[];
 
-                                  isCorrectOption = correctAnswers.contains(
-                                    letter,
-                                  );
-                                  isStudentChoice = studentAnswers.contains(
-                                    letter,
-                                  );
+                                  isCorrectOption = correctAnswers.contains(letter);
+                                  isStudentChoice = studentAnswers.contains(letter);
                                 } else {
-                                  // Single choice
                                   isCorrectOption = letter == correctAnswer;
                                   isStudentChoice = letter == studentAnswer;
                                 }
 
                                 Color bgColor = Colors.white;
-                                Color borderColor = Colors.grey.shade200;
-                                Color textColor = Colors.black87;
-                                IconData? icon;
+                                Color borderColor = const Color(0xFFE5E7EB);
+                                Color textColor = const Color(0xFF111827);
+                                Color circleColor = Colors.transparent;
+                                Color circleBorderColor = const Color(0xFFD1D5DB);
+                                Color circleTextColor = const Color(0xFF4B5563);
+                                Widget? rightWidget;
 
                                 if (isCorrectOption && isStudentChoice) {
-                                  // Đúng và chọn
-                                  bgColor = Colors.green.shade50;
-                                  borderColor = Colors.green.shade400;
-                                  textColor = Colors.green.shade800;
-                                  icon = Icons.check_circle_rounded;
+                                  // Right and chosen -> solid green outline, solid green circle
+                                  borderColor = const Color(0xFF059669);
+                                  textColor = const Color(0xFF065F46);
+                                  circleColor = const Color(0xFF059669);
+                                  circleBorderColor = const Color(0xFF059669);
+                                  circleTextColor = Colors.white;
+                                  rightWidget = Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 18),
+                                      SizedBox(width: 6),
+                                      Text('ĐÁP ÁN ĐÚNG', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                    ],
+                                  );
                                 } else if (isCorrectOption) {
-                                  // Đúng nhưng không chọn
-                                  bgColor = Colors.green.shade50;
-                                  borderColor = Colors.green.shade400;
-                                  textColor = Colors.green.shade800;
-                                  icon = Icons.check_circle_outline;
+                                  // Right but not chosen -> show as correct option with light green background
+                                  bgColor = const Color(0xFFECFDF5);
+                                  borderColor = const Color(0xFF059669);
+                                  circleColor = Colors.white;
+                                  circleBorderColor = const Color(0xFF059669);
+                                  circleTextColor = const Color(0xFF059669);
+                                  rightWidget = const Text('ĐÁP ÁN ĐÚNG', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669)));
                                 } else if (isStudentChoice) {
-                                  // Sai và chọn
-                                  bgColor = Colors.red.shade50;
-                                  borderColor = Colors.red.shade400;
-                                  textColor = Colors.red.shade800;
-                                  icon = Icons.cancel_rounded;
+                                  // Wrong and chosen -> red outline
+                                  borderColor = const Color(0xFFDC2626);
+                                  textColor = const Color(0xFF991B1B);
+                                  circleColor = const Color(0xFFDC2626);
+                                  circleBorderColor = const Color(0xFFDC2626);
+                                  circleTextColor = Colors.white;
+                                  rightWidget = const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 20);
                                 }
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(12),
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: bgColor,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: borderColor),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: borderColor, width: isStudentChoice || isCorrectOption ? 1.5 : 1.0),
                                   ),
                                   child: Row(
                                     children: [
@@ -1184,48 +1183,63 @@ class _SubmissionDetailDialog extends StatelessWidget {
                                         width: 28,
                                         height: 28,
                                         decoration: BoxDecoration(
-                                          color: isCorrectOption
-                                              ? Colors.green
-                                              : (isStudentChoice
-                                                    ? Colors.red
-                                                    : Colors.grey.shade300),
+                                          color: circleColor,
                                           shape: BoxShape.circle,
+                                          border: Border.all(color: circleBorderColor),
                                         ),
                                         child: Center(
                                           child: Text(
                                             letter,
                                             style: TextStyle(
-                                              color:
-                                                  isStudentChoice ||
-                                                      isCorrectOption
-                                                  ? Colors.white
-                                                  : Colors.grey.shade700,
+                                              fontFamily: 'Inter',
+                                              color: circleTextColor,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 16),
                                       Expanded(
                                         child: Text(
                                           options[i].toString(),
                                           style: TextStyle(
+                                            fontFamily: 'Inter',
                                             color: textColor,
-                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                            fontWeight: isStudentChoice || isCorrectOption ? FontWeight.w600 : FontWeight.w500,
                                           ),
                                         ),
                                       ),
-                                      if (icon != null)
-                                        Icon(
-                                          icon,
-                                          color: borderColor,
-                                          size: 20,
-                                        ),
+                                      if (rightWidget != null) rightWidget,
                                     ],
                                   ),
                                 );
                               });
                             }(),
+                          ),
+                        ),
+                        // Removed the previous evaluation footer or keep if needed? I'll keep it simple
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: const BoxDecoration(
+                            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(isCorrect ? Icons.check_circle_outline : Icons.highlight_off_outlined, size: 16, color: isCorrect ? const Color(0xFF059669) : const Color(0xFFDC2626)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isCorrect ? 'Đã chấm điểm: +1.0' : 'Đã chấm điểm: +0.0',
+                                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: isCorrect ? const Color(0xFF059669) : const Color(0xFFDC2626), fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              const Text('Xem giải thích ⓘ', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFF3B82F6))),
+                            ],
                           ),
                         ),
                       ],
@@ -1246,30 +1260,46 @@ class _SubmissionDetailDialog extends StatelessWidget {
     String label,
     Color color,
   ) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 22),
           ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

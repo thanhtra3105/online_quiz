@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html class="light" lang="vi">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>QuizMaster Pro - Question Bank</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#82f9be",
+                        "secondary-fixed-dim": "#65dca4",
+                        "primary": "#003d9b",
+                        "on-tertiary-fixed-variant": "#8b1a00",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#82f9be",
+                        "surface-container-high": "#e0e8ff",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed": "#dae2ff",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#005235",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb4a3",
+                        "primary-container": "#0052cc",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "on-tertiary-fixed": "#3d0600",
+                        "tertiary-fixed": "#ffdad2",
+                        "outline": "#737685",
+                        "inverse-on-surface": "#edf0ff",
+                        "tertiary-container": "#b02300",
+                        "on-background": "#041b3c",
+                        "background": "#f9f9ff",
+                        "on-tertiary-container": "#ffc6b9",
+                        "on-surface": "#041b3c",
+                        "tertiary": "#851800",
+                        "on-secondary-container": "#00734c",
+                        "inverse-surface": "#1d3052",
+                        "surface-variant": "#d7e2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#0c56d0",
+                        "on-secondary-fixed": "#002113",
+                        "on-primary-container": "#c4d2ff",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f1f3ff",
+                        "secondary": "#006c47",
+                        "surface-container-highest": "#d7e2ff",
+                        "surface-container": "#e8edff",
+                        "on-primary-fixed-variant": "#0040a2",
+                        "on-primary-fixed": "#001848",
+                        "surface-dim": "#cadaff",
+                        "inverse-primary": "#b2c5ff",
+                        "surface": "#f9f9ff",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c3c6d6",
+                        "on-surface-variant": "#434654"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-xl": "64px",
+                        "gutter": "24px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "container-max": "800px",
+                        "unit": "8px",
+                        "stack-md": "16px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #F4F5F7;
+            color: #041b3c;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c3c6d6;
+            border-radius: 10px;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #DFE1E6;
+        }
+    </style>
+</head>
+
+<body class="bg-background">
+    <!-- Sidebar Navigation -->
+    <aside
+        class="h-screen w-64 fixed left-0 top-0 flex flex-col py-stack-lg bg-surface border-r border-outline-variant z-50">
+        <div class="px-6 mb-stack-lg">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-3xl"
+                    style="font-variation-settings: &quot;FILL&quot; 1;">school</span>
+                <span class="font-headline-md text-headline-md font-bold text-primary">QuizMaster Pro</span>
+            </div>
+            <p class="font-label-md text-label-md text-on-surface-variant mt-1">Instructor Portal</p>
+        </div>
+        <div class="px-4 mb-stack-md">
+            <div class="bg-surface-container-low p-4 rounded-xl flex items-center gap-3 border border-outline-variant">
+                <div class="relative w-10 h-10 rounded-full overflow-hidden bg-primary-fixed">
+                    <img alt="Teacher Profile Picture" class="w-full h-full object-cover"
+                        data-alt="A professional headshot of a smiling middle-aged male teacher in a blue blazer. He is positioned in front of a clean, minimalist gray background with soft, even studio lighting that accentuates his friendly and authoritative expression. The visual style is high-end corporate photography, focusing on clarity and approachability."
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2XGGlsvVGbgvL89xAeXGfhbmfleNk_Vdc360Wd5_n64EJR7dCXWeuH0Kik9prFHLbTgcqt4iFKE09tlfIbh_nIK74zUL-SQ9jsvwqzo-nLn8U8NFhASHhQ8jclnY4f5TV1lhjIgqAnrWIwiIc6PRMV9Zh4RaJVcNPMiC-tpzh-nxnLsINbyWyQGiVpoW6yXeFc7PMKadxD1NhakyXwBTZ72TWY-p8S6IKnRwN1w17DXFRugXlYsSz-prNL90jP1z3lD9UKC1mwGLW">
+                </div>
+                <div class="overflow-hidden">
+                    <p class="font-label-md text-label-md font-bold text-on-surface truncate">Alex Johnson</p>
+                    <p class="font-label-sm text-label-sm text-on-surface-variant truncate">Lead Educator</p>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 px-2 space-y-1">
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">groups</span>
+                <span class="font-body-md text-body-md">Class Management</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">library_books</span>
+                <span class="font-body-md text-body-md">Exam Library</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container-high translate-x-1 transition-transform"
+                href="#">
+                <span class="material-symbols-outlined"
+                    style="font-variation-settings: &quot;FILL&quot; 1;">database</span>
+                <span class="font-body-md text-body-md">Question Bank</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">analytics</span>
+                <span class="font-body-md text-body-md">Analytics</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200"
+                href="#">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="font-body-md text-body-md">Settings</span>
+            </a>
+        </nav>
+        <div class="px-4 mt-auto space-y-2 pt-stack-lg border-t border-outline-variant">
+
+            <div class="pt-4">
+                <a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">help</span>
+                    <span class="font-label-md text-label-md">Help Center</span>
+                </a>
+                <a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-error transition-colors"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">logout</span>
+                    <span class="font-label-md text-label-md">Logout</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+    <!-- Main Content Area -->
+    <main class="ml-64 min-h-screen">
+        <!-- Top App Bar -->
+        <header
+            class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex justify-between items-center w-full px-gutter py-stack-sm border-b border-outline-variant">
+            <div class="flex items-center gap-8">
+                <h1 class="font-headline-md text-headline-md font-extrabold text-primary">Question Bank</h1>
+                <div class="relative w-96">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+                    <input
+                        class="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 font-label-md focus:ring-2 focus:ring-primary-container text-on-surface"
+                        placeholder="Search questions, topics, or banks..." type="text">
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button
+                    class="bg-primary text-on-primary px-5 py-2 rounded-full font-bold text-label-md flex items-center gap-2 hover:scale-95 transition-all duration-100 shadow-md"
+                    onclick="document.getElementById('upload-modal').classList.toggle('hidden')">
+                    <span class="material-symbols-outlined">upload_file</span>
+                    New Question Bank
+                </button>
+                <div class="flex items-center gap-2 border-l border-outline-variant pl-4">
+                    <button
+                        class="w-10 h-10 rounded-full hover:bg-surface-container-low flex items-center justify-center text-on-surface-variant relative">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span
+                            class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+                    </button>
+                    <button
+                        class="w-10 h-10 rounded-full hover:bg-surface-container-low flex items-center justify-center text-on-surface-variant">
+                        <span class="material-symbols-outlined">account_circle</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <!-- Content Canvas -->
+        <div class="p-8 max-w-[1400px] mx-auto">
+            <!-- Header Section -->
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="font-display text-display text-on-surface">Resource Library</h2>
+                    <p class="font-body-lg text-body-lg text-on-surface-variant mt-2 max-w-2xl">Manage your academic
+                        question banks. Organization by subject or topic ensures efficient exam creation.</p>
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex bg-surface-container-high rounded-lg p-1">
+                        <button class="px-3 py-1 bg-surface rounded shadow-sm text-primary">
+                            <span class="material-symbols-outlined">grid_view</span>
+                        </button>
+                        <button class="px-3 py-1 text-on-surface-variant hover:text-primary">
+                            <span class="material-symbols-outlined">list</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Bento Grid of Question Banks -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Large Featured Bank -->
+                <div
+                    class="col-span-1 md:col-span-2 glass-card rounded-xl p-8 flex flex-col justify-between group hover:border-primary transition-all shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div class="flex flex-col gap-2">
+                            <div class="flex gap-2">
+                                <span
+                                    class="px-3 py-1 bg-primary-container/20 text-primary-container text-label-sm font-bold rounded-full">Mathematics</span>
+                                <span
+                                    class="px-3 py-1 bg-secondary-container/20 text-on-secondary-container text-label-sm font-bold rounded-full">Advanced</span>
+                            </div>
+                            <h3 class="font-headline-lg text-headline-lg mt-4 text-on-surface">Calculus II: Integrals
+                                &amp; Series</h3>
+                        </div>
+                        <button class="text-on-surface-variant hover:text-primary">
+                            <span class="material-symbols-outlined">more_vert</span>
+                        </button>
+                    </div>
+                    <div class="mt-12 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="flex -space-x-3">
+                                <img alt="Collaborator" class="w-8 h-8 rounded-full border-2 border-surface"
+                                    data-alt="A portrait of a cheerful young female professor in a modern office environment. She has a professional demeanor and is wearing a light-colored blouse. Soft natural lighting from a window creates a bright and airy atmosphere, conveying intelligence and warmth. The style is clean and contemporary."
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqu2awkJSE0_jGeHtvQNdpGj-mn74ibjakyg648-9_hBDYD61d1MytQdu1uKgXz7CoXTABYZzfAmbX67MAiHCH6igZHLbsRMMxOP5An8ekFrL-FmKD7GqYvXJclF7QlgvfV9LWuejH_0n9TU2Cqxl5oW4futTu1c4zqpE2z2y6K4RKGVInzxWGIuIL0RDqTdmdmdECOYRk5NpXR6PGlwI6BzOpoQ7gava-JcBUMNaZxK5Gco9wUt24frI_Odg-PpsgTFzqa6k1cYqD">
+                                <img alt="Collaborator" class="w-8 h-8 rounded-full border-2 border-surface"
+                                    data-alt="A close-up photograph of a professional male educator with a thoughtful expression. He is wearing glasses and a smart casual shirt. The background is a slightly out-of-focus library with shelves of books. The lighting is warm and intellectual, emphasizing a focus on academic excellence."
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfthkvdAoFlEWN1c_YU_rXifNTozqVkSDIc8sXetIIAYzf8mCpyOPhLczUhdgKpZREnVZCXdSVtcqwOUJhta_FIrSii6o8hjVnNlbteE5ewSToMNNkXHKgi8KdwaDCYS7z0NQwp8ahlkd7orsud_C4OkKkx2tf_qUhyE9lYlKvj6YvEQK8d7uNoP50FTRT5tqmOmeqUwhbPI-beQjfPrR5bxSfFMcKPPD9JjZI_b9gmrqhVlhblxtIQG_qKEULR9YLutCXbVl-u6SY">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-surface-container-highest border-2 border-surface flex items-center justify-center text-label-sm text-on-surface-variant">
+                                    +3</div>
+                            </div>
+                            <span class="font-label-md text-label-md text-on-surface-variant">450 Questions</span>
+                        </div>
+                        <button
+                            class="bg-primary-container text-on-primary-container px-6 py-2 rounded-lg font-bold hover:bg-primary transition-colors">Manage
+                            Bank</button>
+                    </div>
+                </div>
+                <!-- Standard Cards -->
+                <div class="glass-card rounded-xl p-6 group hover:border-primary transition-all shadow-sm">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center mb-6 group-hover:bg-primary-container/20 transition-colors">
+                        <span class="material-symbols-outlined text-primary"
+                            style="font-variation-settings: &quot;FILL&quot; 1;">biotech</span>
+                    </div>
+                    <h4 class="font-headline-md text-headline-md text-on-surface mb-2">Molecular Biology</h4>
+                    <p class="font-label-md text-label-md text-on-surface-variant mb-6">Genetics, Cell division, and DNA
+                        Replication modules.</p>
+                    <div class="flex justify-between items-center border-t border-outline-variant pt-4">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">128 Qs • Hard</span>
+                        <span
+                            class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">arrow_forward</span>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-6 group hover:border-primary transition-all shadow-sm">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center mb-6 group-hover:bg-primary-container/20 transition-colors">
+                        <span class="material-symbols-outlined text-primary"
+                            style="font-variation-settings: &quot;FILL&quot; 1;">history_edu</span>
+                    </div>
+                    <h4 class="font-headline-md text-headline-md text-on-surface mb-2">Modern Civilizations</h4>
+                    <p class="font-label-md text-label-md text-on-surface-variant mb-6">Comprehensive bank covering 18th
+                        to 20th century history.</p>
+                    <div class="flex justify-between items-center border-t border-outline-variant pt-4">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">312 Qs • Medium</span>
+                        <span
+                            class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">arrow_forward</span>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-6 group hover:border-primary transition-all shadow-sm">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center mb-6 group-hover:bg-primary-container/20 transition-colors">
+                        <span class="material-symbols-outlined text-primary"
+                            style="font-variation-settings: &quot;FILL&quot; 1;">psychology</span>
+                    </div>
+                    <h4 class="font-headline-md text-headline-md text-on-surface mb-2">Cognitive Psychology</h4>
+                    <p class="font-label-md text-label-md text-on-surface-variant mb-6">Theories of learning, memory,
+                        and perception.</p>
+                    <div class="flex justify-between items-center border-t border-outline-variant pt-4">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">210 Qs • Mixed</span>
+                        <span
+                            class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">arrow_forward</span>
+                    </div>
+                </div>
+                <!-- Empty/Add New State Card -->
+                <div
+                    class="border-2 border-dashed border-outline-variant rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container-low transition-colors group">
+                    <div
+                        class="w-12 h-12 rounded-full border-2 border-dashed border-outline-variant flex items-center justify-center mb-4 group-hover:border-primary group-hover:text-primary text-on-surface-variant">
+                        <span class="material-symbols-outlined">add</span>
+                    </div>
+                    <span
+                        class="font-label-md text-label-md font-bold text-on-surface-variant group-hover:text-primary">Create
+                        New Folder</span>
+                </div>
+                <div class="glass-card rounded-xl p-6 group hover:border-primary transition-all shadow-sm">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center mb-6 group-hover:bg-primary-container/20 transition-colors">
+                        <span class="material-symbols-outlined text-primary"
+                            style="font-variation-settings: &quot;FILL&quot; 1;">code</span>
+                    </div>
+                    <h4 class="font-headline-md text-headline-md text-on-surface mb-2">CS Fundamentals</h4>
+                    <p class="font-label-md text-label-md text-on-surface-variant mb-6">Data structures, algorithms, and
+                        complexity analysis.</p>
+                    <div class="flex justify-between items-center border-t border-outline-variant pt-4">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">540 Qs • Advanced</span>
+                        <span
+                            class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">arrow_forward</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Recent Activity / Stats Section -->
+            <section class="mt-12">
+                <h3 class="font-headline-lg text-headline-lg text-on-surface mb-6">Recent AI Extractions</h3>
+                <div class="bg-surface rounded-xl border border-outline-variant overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-surface-container-low border-b border-outline-variant">
+                            <tr>
+                                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Document Name
+                                </th>
+                                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Bank Targeted
+                                </th>
+                                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Questions
+                                    Found</th>
+                                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Confidence
+                                </th>
+                                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-outline-variant">
+                            <tr class="hover:bg-surface-container-low/50 transition-colors">
+                                <td class="px-6 py-4 font-label-md text-on-surface flex items-center gap-3">
+                                    <span class="material-symbols-outlined text-error">picture_as_pdf</span>
+                                    Final_Exam_Draft_2023.pdf
+                                </td>
+                                <td class="px-6 py-4 font-label-md text-on-surface-variant">Economics 101</td>
+                                <td class="px-6 py-4 font-label-md text-on-surface-variant">45</td>
+                                <td class="px-6 py-4">
+                                    <div class="w-full bg-surface-container-high rounded-full h-1.5 max-w-[100px]">
+                                        <div class="bg-secondary h-1.5 rounded-full" style="width: 98%"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span
+                                        class="px-2 py-1 bg-secondary-container/20 text-on-secondary-container text-[10px] font-bold rounded uppercase tracking-wider">Completed</span>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-surface-container-low/50 transition-colors">
+                                <td class="px-6 py-4 font-label-md text-on-surface flex items-center gap-3">
+                                    <span class="material-symbols-outlined text-primary">description</span>
+                                    Lecture_Notes_Week_12.docx
+                                </td>
+                                <td class="px-6 py-4 font-label-md text-on-surface-variant">Microbiology</td>
+                                <td class="px-6 py-4 font-label-md text-on-surface-variant">22</td>
+                                <td class="px-6 py-4">
+                                    <div class="w-full bg-surface-container-high rounded-full h-1.5 max-w-[100px]">
+                                        <div class="bg-primary-container h-1.5 rounded-full" style="width: 85%"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span
+                                        class="px-2 py-1 bg-primary-container/20 text-on-primary-container text-[10px] font-bold rounded uppercase tracking-wider">Reviewing</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+    <!-- Upload Modal (Hidden by default) -->
+    <div class="hidden fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm flex items-center justify-center p-4"
+        id="upload-modal">
+        <div
+            class="bg-surface w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-6 border-b border-outline-variant flex justify-between items-center">
+                <h3 class="font-headline-md text-headline-md text-on-surface">Upload to Question Bank</h3>
+                <button class="w-8 h-8 rounded-full hover:bg-surface-container-low flex items-center justify-center"
+                    onclick="document.getElementById('upload-modal').classList.add('hidden')">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-8">
+                <div class="border-2 border-dashed border-primary/40 bg-surface-container-lowest rounded-xl p-12 flex flex-col items-center justify-center text-center group hover:border-primary hover:bg-surface-container transition-all"
+                    id="drop-zone">
+                    <div
+                        class="w-16 h-16 rounded-full bg-primary-container/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-primary text-4xl"
+                            style="font-variation-settings: &quot;FILL&quot; 1;">cloud_upload</span>
+                    </div>
+                    <p class="font-headline-md text-headline-md text-on-surface mb-2">Kéo thả file vào đây</p>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-6">Hỗ trợ PDF, DOCX, TXT. AI sẽ tự
+                        động trích xuất câu hỏi và đáp án cho bạn.</p>
+                    <button
+                        class="bg-primary text-on-primary px-8 py-3 rounded-full font-bold hover:opacity-90 transition-opacity">Chọn
+                        file từ máy tính</button>
+                </div>
+                <div class="mt-8">
+                    <label class="block font-label-md text-label-md text-on-surface-variant mb-2">Chọn ngân hàng câu hỏi
+                        đích</label>
+                    <select
+                        class="w-full bg-surface-container-low border-outline-variant rounded-lg p-3 text-on-surface focus:ring-primary">
+                        <option>Mathematics</option>
+                        <option>Molecular Biology</option>
+                        <option>+ Tạo ngân hàng mới</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 bg-surface-container-low flex justify-end gap-3">
+                <button class="px-6 py-2 font-bold text-on-surface-variant hover:text-on-surface"
+                    onclick="document.getElementById('upload-modal').classList.add('hidden')">Hủy bỏ</button>
+                <button
+                    class="px-8 py-2 bg-primary text-on-primary rounded-lg font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform">Bắt
+                    đầu trích xuất</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Simple micro-interaction for the drop zone
+        const dropZone = document.getElementById('drop-zone');
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.add('border-primary', 'bg-surface-container-high');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.remove('border-primary', 'bg-surface-container-high');
+            }, false);
+        });
+
+        // Close modal on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('upload-modal').classList.add('hidden');
+            }
+        });
+    </script>
+
+
+</body>
+
+</html>
