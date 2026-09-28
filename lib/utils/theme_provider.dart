@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'constants.dart';
 
 class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = false;
@@ -16,11 +17,13 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _fontSize = prefs.getString('fontSize') ?? 'Mặc định';
+    AppConstants.isDark = _isDarkMode;
     notifyListeners();
   }
 
   Future<void> setDarkMode(bool isDark) async {
     _isDarkMode = isDark;
+    AppConstants.isDark = isDark;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', isDark);

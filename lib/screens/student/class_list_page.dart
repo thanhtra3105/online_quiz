@@ -121,10 +121,11 @@ class _ClassListPageState extends State<ClassListPage> {
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 768;
         return Scaffold(
-          backgroundColor: AppConstants.background,
+          backgroundColor: AppConstants.bg(context),
           body: isDesktop
               ? _buildDesktopLayout(context)
               : _buildMobileLayout(context),
+          bottomNavigationBar: isDesktop ? null : _buildBottomNav(),
         );
       },
     );
@@ -145,9 +146,9 @@ class _ClassListPageState extends State<ClassListPage> {
     return Container(
       width: 256,
       height: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppConstants.surfaceContainerLow,
-        border: Border(right: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surfLow(context),
+        border: Border(right: BorderSide(color: AppConstants.border(context))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,15 +158,15 @@ class _ClassListPageState extends State<ClassListPage> {
             padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
             child: Row(
               children: [
-                const Icon(Icons.school, color: AppConstants.primary, size: 32),
+                Icon(Icons.school, color: AppConstants.brand(context), size: 32),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'QuizMaster Pro',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.primary,
+                    color: AppConstants.brand(context),
                   ),
                 ),
               ],
@@ -177,14 +178,14 @@ class _ClassListPageState extends State<ClassListPage> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppConstants.surfaceContainerHigh,
+                color: AppConstants.surfHigh(context),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppConstants.primary,
+                    backgroundColor: AppConstants.brand(context),
                     child: Text(
                       _getInitials(user),
                       style: const TextStyle(
@@ -201,21 +202,21 @@ class _ClassListPageState extends State<ClassListPage> {
                       children: [
                         Text(
                           user?.displayName ?? widget.studentId,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppConstants.onSurface,
+                            color: AppConstants.txt(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           widget.studentId,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -263,7 +264,7 @@ class _ClassListPageState extends State<ClassListPage> {
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             child: Column(
               children: [
-                const Divider(color: AppConstants.outlineVariant),
+                Divider(color: AppConstants.outlineVariant),
                 _buildNavItem(
                   icon: _selectedIndex == 3 ? Icons.settings : Icons.settings_outlined,
                   label: 'Cài đặt',
@@ -292,8 +293,10 @@ class _ClassListPageState extends State<ClassListPage> {
     Color? color,
     VoidCallback? onTap,
   }) {
-    final itemColor =
-        color ?? (isActive ? AppConstants.primary : AppConstants.onSurfaceVariant);
+    final itemColor = color ??
+        (isActive
+            ? AppConstants.brand(context)
+            : AppConstants.txtMuted(context));
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -304,7 +307,7 @@ class _ClassListPageState extends State<ClassListPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: isActive
-                ? AppConstants.surfaceContainerHigh
+                ? AppConstants.surfHigh(context)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -317,8 +320,7 @@ class _ClassListPageState extends State<ClassListPage> {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  fontWeight:
-                      isActive ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                   color: itemColor,
                 ),
               ),
@@ -339,22 +341,29 @@ class _ClassListPageState extends State<ClassListPage> {
           bottom: false,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: AppConstants.surface,
+            decoration: BoxDecoration(
+              color: AppConstants.surf(context),
               border: Border(
-                  bottom: BorderSide(color: AppConstants.outlineVariant)),
+                  bottom: BorderSide(color: AppConstants.border(context))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'QuizMaster Pro',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppConstants.primary,
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.school,
+                        color: AppConstants.brand(context), size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'QuizMaster Pro',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppConstants.brand(context),
+                      ),
+                    ),
+                  ],
                 ),
                 Row(
                   children: [
@@ -363,7 +372,8 @@ class _ClassListPageState extends State<ClassListPage> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppConstants.errorContainer.withValues(alpha: 0.4),
+                          color:
+                              AppConstants.errorContainer.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.logout_rounded,
@@ -373,7 +383,7 @@ class _ClassListPageState extends State<ClassListPage> {
                     const SizedBox(width: 12),
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppConstants.primary,
+                      backgroundColor: AppConstants.brand(context),
                       child: Text(
                         _getInitials(user),
                         style: const TextStyle(
@@ -394,17 +404,116 @@ class _ClassListPageState extends State<ClassListPage> {
     );
   }
 
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(top: BorderSide(color: AppConstants.border(context))),
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              _buildBottomNavItem(
+                icon: Icons.school_outlined,
+                iconFill: Icons.school,
+                label: 'Lớp học',
+                index: 0,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.emoji_events_outlined,
+                iconFill: Icons.emoji_events,
+                label: 'Thành tích',
+                index: 1,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.calendar_month_outlined,
+                iconFill: Icons.calendar_month,
+                label: 'Lịch trình',
+                index: 2,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.settings_outlined,
+                iconFill: Icons.settings,
+                label: 'Cài đặt',
+                index: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required IconData icon,
+    required IconData iconFill,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
+    final color = isSelected
+        ? AppConstants.primary
+        : AppConstants.onSurfaceVariant;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _selectedIndex = index),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isSelected)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppConstants.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(iconFill, color: color, size: 22),
+                )
+              else
+                Icon(icon, color: color, size: 22),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ===================== MAIN CONTENT SWITCHER =====================
   Widget _buildMainContent(BuildContext context, {required bool isDesktop}) {
     switch (_selectedIndex) {
       case 0:
         return _buildClassGrid(context, isDesktop: isDesktop);
       case 1:
-        return AchievementPage(studentId: widget.studentId);
+        return AchievementPage(
+          studentId: widget.studentId,
+          showTopBar: isDesktop,
+        );
       case 2:
-        return SchedulePage(studentId: widget.studentId);
+        return SchedulePage(
+          studentId: widget.studentId,
+          showTopBar: isDesktop,
+        );
       case 3:
-        return SettingPage(studentId: widget.studentId);
+        return SettingPage(
+          studentId: widget.studentId,
+          showTopBar: isDesktop,
+        );
       default:
         return _buildClassGrid(context, isDesktop: isDesktop);
     }
@@ -477,32 +586,40 @@ class _ClassListPageState extends State<ClassListPage> {
                         // Thanh tìm kiếm lớp học
                         Container(
                           decoration: BoxDecoration(
-                            color: AppConstants.surface,
+                            color: AppConstants.surf(context),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppConstants.outlineVariant),
+                            border:
+                                Border.all(color: AppConstants.border(context)),
                           ),
                           child: TextField(
                             controller: _searchController,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              color: AppConstants.txt(context),
+                            ),
                             onChanged: (val) {
                               setState(() {
                                 _searchQuery = val;
                               });
                             },
                             decoration: InputDecoration(
-                              hintText: 'Tìm kiếm lớp học theo tên hoặc mô tả...',
-                              hintStyle: const TextStyle(
+                              hintText:
+                                  'Tìm kiếm lớp học theo tên hoặc mô tả...',
+                              hintStyle: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: AppConstants.onSurfaceVariant,
+                                color: AppConstants.txtMuted(context),
                               ),
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.search_rounded,
-                                color: AppConstants.onSurfaceVariant,
+                                color: AppConstants.txtMuted(context),
                                 size: 22,
                               ),
                               suffixIcon: _searchQuery.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, size: 18),
+                                      icon: const Icon(Icons.clear_rounded,
+                                          size: 18),
                                       onPressed: () {
                                         _searchController.clear();
                                         setState(() {
@@ -533,7 +650,8 @@ class _ClassListPageState extends State<ClassListPage> {
                         return Wrap(
                           spacing: 24,
                           runSpacing: 24,
-                          children: filteredClasses.asMap().entries.map((entry) {
+                          children:
+                              filteredClasses.asMap().entries.map((entry) {
                             final i = entry.key;
                             final classData = entry.value;
                             final classId = classData['id'] as String;
@@ -573,13 +691,13 @@ class _ClassListPageState extends State<ClassListPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: AppConstants.surface,
+          color: AppConstants.surf(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppConstants.outlineVariant),
+          border: Border.all(color: AppConstants.border(context)),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          hoverColor: AppConstants.surfaceContainerLow,
+          hoverColor: AppConstants.surfLow(context),
           onTap: () {
             Navigator.push(
               context,

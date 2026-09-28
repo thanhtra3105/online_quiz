@@ -11,7 +11,13 @@ enum _SettingTab { profile, notifications, security, appearance }
 
 class SettingPage extends StatefulWidget {
   final String studentId;
-  const SettingPage({Key? key, required this.studentId}) : super(key: key);
+  final bool showTopBar;
+
+  const SettingPage({
+    super.key,
+    required this.studentId,
+    this.showTopBar = true,
+  });
 
   @override
   State<SettingPage> createState() => _SettingPageState();
@@ -24,24 +30,6 @@ class _SettingPageState extends State<SettingPage> {
   bool _notifyExam = true;
   bool _notifyResult = true;
   bool _notifySystem = false;
-
-  // Profile
-  final _nameCtrl = TextEditingController();
-  final _schoolCtrl = TextEditingController(text: 'Trường Đại Học Bách Khoa Đà Nẵng');
-
-  @override
-  void initState() {
-    super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    _nameCtrl.text = user?.displayName ?? '';
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _schoolCtrl.dispose();
-    super.dispose();
-  }
 
   Future<void> _pickImage() async {
     try {
@@ -59,16 +47,17 @@ class _SettingPageState extends State<SettingPage> {
         final fileName = result.files.first.name;
 
         if (fileBytes != null) {
-          final uniqueFileName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+          final uniqueFileName =
+              '${DateTime.now().millisecondsSinceEpoch}_$fileName';
           final storageRef = FirebaseStorage.instance
               .ref()
               .child('avatars/${user.uid}/$uniqueFileName');
-          
+
           final uploadTask = await storageRef.putData(fileBytes);
           final downloadUrl = await uploadTask.ref.getDownloadURL();
-          
+
           await user.updatePhotoURL(downloadUrl);
-          
+
           if (mounted) {
             setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
@@ -94,15 +83,13 @@ class _SettingPageState extends State<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
-    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = AppConstants.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: AppConstants.bg(context),
       body: Column(
         children: [
-          _buildTopBar(context),
+          if (widget.showTopBar) _buildTopBar(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -113,23 +100,23 @@ class _SettingPageState extends State<SettingPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Page header
-                      const Text(
+                      Text(
                         'Cài đặt hệ thống',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
-                          color: AppConstants.onSurface,
+                          color: AppConstants.txt(context),
                           letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Quản lý hồ sơ, thông báo và tùy chọn cá nhân.',
+                      Text(
+                        'Quản lý hồ sơ, thông báo, bảo mật và tùy chọn giao diện hiển thị.',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
-                          color: AppConstants.onSurfaceVariant,
+                          color: AppConstants.txtMuted(context),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -141,17 +128,17 @@ class _SettingPageState extends State<SettingPage> {
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(width: 220, child: _buildTabNav()),
+                              SizedBox(width: 220, child: _buildTabNav(isDark)),
                               const SizedBox(width: 24),
-                              Expanded(child: _buildTabContent()),
+                              Expanded(child: _buildTabContent(isDark)),
                             ],
                           );
                         } else {
                           return Column(
                             children: [
-                              _buildTabNavHorizontal(),
+                              _buildTabNavHorizontal(isDark),
                               const SizedBox(height: 16),
-                              _buildTabContent(),
+                              _buildTabContent(isDark),
                             ],
                           );
                         }
@@ -172,30 +159,22 @@ class _SettingPageState extends State<SettingPage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
       ),
       child: Row(
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => Navigator.pop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Icon(Icons.arrow_back_rounded, color: AppConstants.onSurfaceVariant),
-            ),
-          ),
+          Icon(Icons.settings_outlined,
+              color: AppConstants.brand(context), size: 24),
           const SizedBox(width: 8),
-          const Icon(Icons.settings_outlined, color: AppConstants.primary, size: 24),
-          const SizedBox(width: 8),
-          const Text(
+          Text(
             'Cài đặt',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: AppConstants.primary,
+              color: AppConstants.brand(context),
             ),
           ),
         ],
@@ -203,54 +182,62 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  Widget _buildTabNav() {
+  Widget _buildTabNav(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         children: _SettingTab.values
-            .map((t) => _buildTabNavItem(t))
+            .map((t) => _buildTabNavItem(t, isDark))
             .toList(),
       ),
     );
   }
 
-  Widget _buildTabNavHorizontal() {
+  Widget _buildTabNavHorizontal(bool isDark) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: _SettingTab.values
             .map((t) => Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: _buildTabChip(t),
+                  child: _buildTabChip(t, isDark),
                 ))
             .toList(),
       ),
     );
   }
 
-  Widget _buildTabChip(_SettingTab tab) {
+  Widget _buildTabChip(_SettingTab tab, bool isDark) {
     final isActive = _activeTab == tab;
+    final activeBg = isDark
+        ? AppConstants.darkSurfaceContainerHigh
+        : AppConstants.surfaceContainerHigh;
+    final activeColor = AppConstants.brand(context);
+
     return GestureDetector(
       onTap: () => setState(() => _activeTab = tab),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive
-              ? AppConstants.surfaceContainerHigh
-              : AppConstants.surface,
+          color: isActive ? activeBg : AppConstants.surf(context),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppConstants.outlineVariant),
+          border: Border.all(
+            color: isActive ? activeColor : AppConstants.border(context),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_tabIcon(tab), size: 16,
-                color: isActive ? AppConstants.primary : AppConstants.onSurfaceVariant),
+            Icon(
+              _tabIcon(tab),
+              size: 16,
+              color: isActive ? activeColor : AppConstants.txtMuted(context),
+            ),
             const SizedBox(width: 6),
             Text(
               _tabLabel(tab),
@@ -258,7 +245,7 @@ class _SettingPageState extends State<SettingPage> {
                 fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? AppConstants.primary : AppConstants.onSurfaceVariant,
+                color: isActive ? activeColor : AppConstants.txtMuted(context),
               ),
             ),
           ],
@@ -267,8 +254,13 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  Widget _buildTabNavItem(_SettingTab tab) {
+  Widget _buildTabNavItem(_SettingTab tab, bool isDark) {
     final isActive = _activeTab == tab;
+    final activeBg = isDark
+        ? AppConstants.darkSurfaceContainerHigh
+        : AppConstants.surfaceContainerHigh;
+    final activeColor = AppConstants.brand(context);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -278,13 +270,16 @@ class _SettingPageState extends State<SettingPage> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: isActive ? AppConstants.surfaceContainerHigh : Colors.transparent,
+            color: isActive ? activeBg : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(_tabIcon(tab), size: 20,
-                  color: isActive ? AppConstants.primary : AppConstants.onSurfaceVariant),
+              Icon(
+                _tabIcon(tab),
+                size: 20,
+                color: isActive ? activeColor : AppConstants.txtMuted(context),
+              ),
               const SizedBox(width: 10),
               Text(
                 _tabLabel(tab),
@@ -292,7 +287,7 @@ class _SettingPageState extends State<SettingPage> {
                   fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: isActive ? AppConstants.primary : AppConstants.onSurfaceVariant,
+                  color: isActive ? activeColor : AppConstants.txt(context),
                 ),
               ),
             ],
@@ -304,219 +299,358 @@ class _SettingPageState extends State<SettingPage> {
 
   IconData _tabIcon(_SettingTab tab) {
     switch (tab) {
-      case _SettingTab.profile: return Icons.person_outlined;
-      case _SettingTab.notifications: return Icons.notifications_active_outlined;
-      case _SettingTab.security: return Icons.lock_outlined;
-      case _SettingTab.appearance: return Icons.palette_outlined;
+      case _SettingTab.profile:
+        return Icons.person_outlined;
+      case _SettingTab.notifications:
+        return Icons.notifications_active_outlined;
+      case _SettingTab.security:
+        return Icons.lock_outlined;
+      case _SettingTab.appearance:
+        return Icons.palette_outlined;
     }
   }
 
   String _tabLabel(_SettingTab tab) {
     switch (tab) {
-      case _SettingTab.profile: return 'Hồ sơ cá nhân';
-      case _SettingTab.notifications: return 'Thông báo';
-      case _SettingTab.security: return 'Bảo mật';
-      case _SettingTab.appearance: return 'Giao diện';
+      case _SettingTab.profile:
+        return 'Hồ sơ cá nhân';
+      case _SettingTab.notifications:
+        return 'Thông báo';
+      case _SettingTab.security:
+        return 'Bảo mật';
+      case _SettingTab.appearance:
+        return 'Giao diện';
     }
   }
 
-  Widget _buildTabContent() {
+  Widget _buildTabContent(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
-        child: _buildActiveTab(),
+        child: _buildActiveTab(isDark),
       ),
     );
   }
 
-  Widget _buildActiveTab() {
+  Widget _buildActiveTab(bool isDark) {
     switch (_activeTab) {
       case _SettingTab.profile:
-        return _buildProfileTab();
+        return _buildProfileTab(isDark);
       case _SettingTab.notifications:
-        return _buildNotificationsTab();
+        return _buildNotificationsTab(isDark);
       case _SettingTab.security:
-        return _buildSecurityTab();
+        return _buildSecurityTab(isDark);
       case _SettingTab.appearance:
-        return _buildAppearanceTab();
+        return _buildAppearanceTab(isDark);
     }
   }
 
   // =================== PROFILE TAB ===================
-  Widget _buildProfileTab() {
+  Widget _buildProfileTab(bool isDark) {
     final user = FirebaseAuth.instance.currentUser;
-    final colorScheme = Theme.of(context).colorScheme;
+    final name = user?.displayName != null && user!.displayName!.isNotEmpty
+        ? user.displayName!
+        : 'Sinh viên';
+
     return Column(
       key: const ValueKey('profile'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Hồ sơ cá nhân',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppConstants.onSurface,
-          ),
-        ),
-        const SizedBox(height: 20),
-        // Avatar
-        Stack(
-          alignment: Alignment.bottomRight,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: colorScheme.primary,
-              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null
-                  ? Text(
-                      _initials(user),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : null,
+            Text(
+              'Hồ sơ cá nhân',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppConstants.txt(context),
+              ),
             ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(Icons.camera_alt,
-                      size: 14, color: Colors.white),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF064E3B)
+                    : AppConstants.secondary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF059669)
+                      : AppConstants.secondary.withValues(alpha: 0.3),
                 ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: isDark
+                        ? const Color(0xFF34D399)
+                        : AppConstants.secondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Đã xác thực bởi Trường',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? const Color(0xFF34D399)
+                          : AppConstants.secondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+
+        // Banner thông báo không chỉnh sửa
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF262B36) : const Color(0xFFF1F4F9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? const Color(0xFF3B4354) : const Color(0xFFD6DCE7),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lock_person_outlined,
+                size: 20,
+                color: AppConstants.brand(context),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Họ tên và mã số sinh viên được đồng bộ tự động từ tài khoản email của Nhà trường và không thể chỉnh sửa.',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: AppConstants.txt(context),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Avatar
+        Center(
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: AppConstants.brand(context),
+                backgroundImage: user?.photoURL != null
+                    ? NetworkImage(user!.photoURL!)
+                    : null,
+                child: user?.photoURL == null
+                    ? Text(
+                        _initials(user),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppConstants.brand(context),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppConstants.surf(context),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(Icons.camera_alt,
+                        size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
-        // Form
+
+        // Form các ô xám không thể chỉnh sửa
         LayoutBuilder(builder: (context, constraints) {
           final isWide = constraints.maxWidth > 440;
-          final nameField = _buildTextField(
-            label: 'Họ và tên',
-            controller: _nameCtrl,
-            type: TextInputType.name,
+          final nameField = _buildDisabledField(
+            label: 'Họ và tên sinh viên',
+            value: name,
+            icon: Icons.person_outline,
+            isDark: isDark,
           );
-          final emailField = _buildTextField(
-            label: 'Email',
-            controller: TextEditingController(text: user?.email ?? ''),
-            type: TextInputType.emailAddress,
-            readOnly: true,
+          final idField = _buildDisabledField(
+            label: 'Mã số sinh viên (MSSV)',
+            value: widget.studentId,
+            icon: Icons.badge_outlined,
+            isDark: isDark,
           );
-          return Column(
-            children: [
-              if (isWide)
+          final emailField = _buildDisabledField(
+            label: 'Email sinh viên (Trường cấp)',
+            value: user?.email ?? '${widget.studentId}@sv.dut.udn.vn',
+            icon: Icons.email_outlined,
+            isDark: isDark,
+          );
+          final schoolField = _buildDisabledField(
+            label: 'Trường học / Cơ sở đào tạo',
+            value: 'Trường Đại Học Bách Khoa - Đại học Đà Nẵng',
+            icon: Icons.school_outlined,
+            isDark: isDark,
+          );
+
+          if (isWide) {
+            return Column(
+              children: [
                 Row(
                   children: [
                     Expanded(child: nameField),
                     const SizedBox(width: 16),
-                    Expanded(child: emailField),
+                    Expanded(child: idField),
                   ],
-                )
-              else ...[nameField, const SizedBox(height: 16), emailField],
-              const SizedBox(height: 16),
-              _buildTextField(
-                label: 'Trường học / Tổ chức',
-                controller: _schoolCtrl,
-                type: TextInputType.text,
-              ),
-            ],
-          );
-        }),
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã lưu thay đổi!'),
-                  backgroundColor: AppConstants.secondary,
-                  behavior: SnackBarBehavior.floating,
                 ),
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppConstants.primary,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: const Text(
-              'Lưu thay đổi',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 14),
-            ),
-          ),
-        ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: emailField),
+                    const SizedBox(width: 16),
+                    Expanded(child: schoolField),
+                  ],
+                ),
+              ],
+            );
+          } else {
+            return Column(
+              children: [
+                nameField,
+                const SizedBox(height: 14),
+                idField,
+                const SizedBox(height: 14),
+                emailField,
+                const SizedBox(height: 14),
+                schoolField,
+              ],
+            );
+          }
+        }),
       ],
     );
   }
 
-  Widget _buildTextField({
+  // Widget ô xám không thể chỉnh sửa (Disabled Box)
+  Widget _buildDisabledField({
     required String label,
-    required TextEditingController controller,
-    required TextInputType type,
-    bool readOnly = false,
+    required String value,
+    required IconData icon,
+    required bool isDark,
   }) {
+    // Màu box xám chuẩn read-only
+    final boxBg = isDark ? const Color(0xFF232730) : const Color(0xFFECEFF4);
+    final boxBorder =
+        isDark ? const Color(0xFF353C49) : const Color(0xFFD4D9E2);
+    final textColor =
+        isDark ? const Color(0xFFDDE2ED) : const Color(0xFF333A48);
+    final iconColor =
+        isDark ? const Color(0xFF8B94A5) : const Color(0xFF6B7280);
+    final badgeBg = isDark ? const Color(0xFF1B1E26) : const Color(0xFFDEE2E8);
+    final badgeText =
+        isDark ? const Color(0xFF9EABC0) : const Color(0xFF5B6370);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppConstants.onSurfaceVariant,
-            letterSpacing: 0.3,
-          ),
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppConstants.txtMuted(context),
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.lock_outline_rounded, size: 13, color: iconColor),
+          ],
         ),
         const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: type,
-          readOnly: readOnly,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 14,
-            color: AppConstants.onSurface,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: boxBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: boxBorder),
           ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: readOnly
-                ? AppConstants.surfaceContainerLow
-                : AppConstants.surface,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppConstants.outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppConstants.outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide:
-                  const BorderSide(color: AppConstants.primary, width: 1.5),
-            ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock, size: 11, color: badgeText),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Cố định',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: badgeText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -524,38 +658,38 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   // =================== NOTIFICATIONS TAB ===================
-  Widget _buildNotificationsTab() {
+  Widget _buildNotificationsTab(bool isDark) {
     return Column(
       key: const ValueKey('notifications'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Cài đặt thông báo',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppConstants.onSurface,
+            fontWeight: FontWeight.w700,
+            color: AppConstants.txt(context),
           ),
         ),
         const SizedBox(height: 20),
         _buildToggleRow(
           title: 'Thông báo kỳ thi sắp tới',
-          desc: 'Nhận email nhắc nhở 24h trước khi bắt đầu',
+          desc: 'Nhận email nhắc nhở 24h trước khi bắt đầu bài thi',
           value: _notifyExam,
           onChanged: (v) => setState(() => _notifyExam = v),
           hasDivider: true,
         ),
         _buildToggleRow(
           title: 'Kết quả bài thi',
-          desc: 'Thông báo ngay khi có điểm',
+          desc: 'Thông báo ngay khi giáo viên công bố điểm số',
           value: _notifyResult,
           onChanged: (v) => setState(() => _notifyResult = v),
           hasDivider: true,
         ),
         _buildToggleRow(
           title: 'Cập nhật hệ thống',
-          desc: 'Tin tức và tính năng mới từ QuizMaster',
+          desc: 'Tin tức và tính năng mới từ hệ thống thi QuizMaster',
           value: _notifySystem,
           onChanged: (v) => setState(() => _notifySystem = v),
           hasDivider: false,
@@ -583,20 +717,20 @@ class _SettingPageState extends State<SettingPage> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppConstants.onSurface,
+                        color: AppConstants.txt(context),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       desc,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
-                        color: AppConstants.onSurfaceVariant,
+                        color: AppConstants.txtMuted(context),
                       ),
                     ),
                   ],
@@ -605,93 +739,113 @@ class _SettingPageState extends State<SettingPage> {
               Switch(
                 value: value,
                 onChanged: onChanged,
-                activeColor: AppConstants.primary,
+                activeThumbColor: AppConstants.brand(context),
               ),
             ],
           ),
         ),
-        if (hasDivider)
-          const Divider(height: 1, color: AppConstants.outlineVariant),
+        if (hasDivider) Divider(height: 1, color: AppConstants.border(context)),
       ],
     );
   }
 
   // =================== SECURITY TAB ===================
-  Widget _buildSecurityTab() {
+  Widget _buildSecurityTab(bool isDark) {
     return Column(
       key: const ValueKey('security'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Bảo mật tài khoản',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppConstants.onSurface,
+            fontWeight: FontWeight.w700,
+            color: AppConstants.txt(context),
           ),
         ),
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppConstants.surfaceContainerHigh.withValues(alpha: 0.5),
+            color: isDark ? const Color(0xFF262B36) : const Color(0xFFF1F4F9),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppConstants.outlineVariant),
+            border: Border.all(
+              color: isDark ? const Color(0xFF3B4354) : const Color(0xFFD6DCE7),
+            ),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.info_outline, color: AppConstants.primary, size: 18),
-              SizedBox(width: 10),
+              Icon(Icons.shield_outlined,
+                  color: AppConstants.brand(context), size: 22),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Tài khoản Microsoft/Google: mật khẩu được quản lý bởi nhà cung cấp danh tính.',
+                  'Tài khoản đăng nhập qua hệ thống trường Đại học. Mật khẩu được bảo mật và quản lý tập trung bởi Nhà trường, sinh viên không cần và không thể đổi mật khẩu tại đây.',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
-                    color: AppConstants.onSurface,
+                    color: AppConstants.txt(context),
+                    height: 1.4,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: 440),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTextField(
+              _buildDisabledField(
                 label: 'Mật khẩu hiện tại',
-                controller: TextEditingController(),
-                type: TextInputType.visiblePassword,
+                value: '••••••••••••••••',
+                icon: Icons.key_rounded,
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
-              _buildTextField(
+              _buildDisabledField(
                 label: 'Mật khẩu mới',
-                controller: TextEditingController(),
-                type: TextInputType.visiblePassword,
+                value: '••••••••••••••••',
+                icon: Icons.lock_outline_rounded,
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
-              _buildTextField(
+              _buildDisabledField(
                 label: 'Xác nhận mật khẩu mới',
-                controller: TextEditingController(),
-                type: TextInputType.visiblePassword,
+                value: '••••••••••••••••',
+                icon: Icons.lock_outline_rounded,
+                isDark: isDark,
               ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () {},
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppConstants.primary,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+              const SizedBox(height: 20),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppConstants.darkSurfaceContainerLow
+                      : AppConstants.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppConstants.border(context)),
                 ),
-                child: const Text(
-                  'Cập nhật mật khẩu',
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 14),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 16, color: AppConstants.txtMuted(context)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Nếu bạn quên mật khẩu trường, vui lòng liên hệ Trung tâm CNTT hoặc Phòng Đào tạo để được cấp lại.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: AppConstants.txtMuted(context),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -702,56 +856,72 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   // =================== APPEARANCE TAB ===================
-  Widget _buildAppearanceTab() {
+  Widget _buildAppearanceTab(bool isDark) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
+
     return Column(
       key: const ValueKey('appearance'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Giao diện hiển thị',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppConstants.onSurface,
+            fontWeight: FontWeight.w700,
+            color: AppConstants.txt(context),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Tùy chỉnh chế độ màu sáng hoặc tối cho toàn bộ ứng dụng web.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppConstants.txtMuted(context),
           ),
         ),
         const SizedBox(height: 20),
         Wrap(
           spacing: 16,
+          runSpacing: 12,
           children: [
             GestureDetector(
-              onTap: () => themeProvider.setDarkMode(false),
+              onTap: () {
+                AppConstants.isDark = false;
+                themeProvider.setDarkMode(false);
+              },
               child: _buildThemeCard(
                 label: 'Sáng (Mặc định)',
                 icon: Icons.light_mode_outlined,
-                bg: const Color(0xFFF4F5F7),
-                isSelected: !isDarkMode,
+                bg: const Color(0xFFF9FAFB),
+                isSelected: !isDark,
               ),
             ),
             GestureDetector(
-              onTap: () => themeProvider.setDarkMode(true),
+              onTap: () {
+                AppConstants.isDark = true;
+                themeProvider.setDarkMode(true);
+              },
               child: _buildThemeCard(
-                label: 'Tối',
+                label: 'Tối (Dark Mode)',
                 icon: Icons.dark_mode_outlined,
-                bg: const Color(0xFF1A1A1A),
-                isSelected: isDarkMode,
+                bg: const Color(0xFF181A20),
+                isSelected: isDark,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const Divider(color: AppConstants.outlineVariant),
-        const SizedBox(height: 16),
-        const Text(
-          'Kích thước chữ',
+        const SizedBox(height: 28),
+        Divider(color: AppConstants.border(context)),
+        const SizedBox(height: 20),
+        Text(
+          'Kích thước cỡ chữ',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: AppConstants.onSurface,
+            color: AppConstants.txt(context),
           ),
         ),
         const SizedBox(height: 12),
@@ -760,15 +930,16 @@ class _SettingPageState extends State<SettingPage> {
           children: [
             GestureDetector(
               onTap: () => themeProvider.setFontSize('Nhỏ'),
-              child: _buildFontOption('Nhỏ', themeProvider.fontSize == 'Nhỏ', context),
+              child: _buildFontOption('Nhỏ', themeProvider.fontSize == 'Nhỏ'),
             ),
             GestureDetector(
               onTap: () => themeProvider.setFontSize('Mặc định'),
-              child: _buildFontOption('Mặc định', themeProvider.fontSize == 'Mặc định', context),
+              child: _buildFontOption(
+                  'Mặc định', themeProvider.fontSize == 'Mặc định'),
             ),
             GestureDetector(
               onTap: () => themeProvider.setFontSize('Lớn'),
-              child: _buildFontOption('Lớn', themeProvider.fontSize == 'Lớn', context),
+              child: _buildFontOption('Lớn', themeProvider.fontSize == 'Lớn'),
             ),
           ],
         ),
@@ -776,15 +947,17 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  Widget _buildFontOption(String label, bool isSelected, BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildFontOption(String label, bool isSelected) {
+    final activeColor = AppConstants.brand(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: isSelected ? colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+        color: isSelected
+            ? activeColor.withValues(alpha: 0.12)
+            : AppConstants.surf(context),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+          color: isSelected ? activeColor : AppConstants.border(context),
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -794,7 +967,7 @@ class _SettingPageState extends State<SettingPage> {
           fontFamily: 'Inter',
           fontSize: 14,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+          color: isSelected ? activeColor : AppConstants.txt(context),
         ),
       ),
     );
@@ -806,14 +979,15 @@ class _SettingPageState extends State<SettingPage> {
     required Color bg,
     required bool isSelected,
   }) {
+    final activeColor = AppConstants.brand(context);
     return Container(
-      width: 140,
+      width: 150,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected ? AppConstants.primary : AppConstants.outlineVariant,
+          color: isSelected ? activeColor : AppConstants.border(context),
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -822,20 +996,20 @@ class _SettingPageState extends State<SettingPage> {
           Stack(
             children: [
               Container(
-                width: 80,
+                width: 90,
                 height: 56,
                 decoration: BoxDecoration(
                   color: bg,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppConstants.outlineVariant),
+                  border: Border.all(color: AppConstants.border(context)),
                 ),
                 child: Center(
                   child: Icon(
                     icon,
                     color: bg.computeLuminance() > 0.5
-                        ? AppConstants.onSurface
+                        ? const Color(0xFF1E2128)
                         : Colors.white,
-                    size: 24,
+                    size: 26,
                   ),
                 ),
               ),
@@ -843,20 +1017,19 @@ class _SettingPageState extends State<SettingPage> {
                 Positioned(
                   top: 4,
                   right: 4,
-                  child: Icon(Icons.check_circle,
-                      color: AppConstants.primary, size: 16),
+                  child: Icon(Icons.check_circle, color: activeColor, size: 18),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppConstants.onSurface,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? activeColor : AppConstants.txt(context),
             ),
           ),
         ],
@@ -872,6 +1045,6 @@ class _SettingPageState extends State<SettingPage> {
       }
       return user.displayName![0].toUpperCase();
     }
-    return 'S';
+    return 'SV';
   }
 }

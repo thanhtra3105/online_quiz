@@ -26,7 +26,7 @@ class ResultDetailPage extends StatelessWidget {
                     return _buildErrorState(context, snapshot.error);
                   }
                   if (!snapshot.hasData) {
-                    return const Center(
+                    return Center(
                       child: CircularProgressIndicator(color: AppConstants.primary),
                     );
                   }
@@ -48,7 +48,7 @@ class ResultDetailPage extends StatelessWidget {
                     ]),
                     builder: (context, compositeSnapshot) {
                       if (!compositeSnapshot.hasData) {
-                        return const Center(
+                        return Center(
                           child: CircularProgressIndicator(color: AppConstants.primary),
                         );
                       }
@@ -153,7 +153,7 @@ class ResultDetailPage extends StatelessWidget {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppConstants.surface,
         border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
       ),
@@ -162,14 +162,14 @@ class ResultDetailPage extends StatelessWidget {
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () => Navigator.pop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
               child: Icon(Icons.arrow_back_rounded,
                   color: AppConstants.onSurfaceVariant),
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Exam Results',
             style: TextStyle(
               fontFamily: 'Inter',
@@ -238,7 +238,7 @@ class ResultDetailPage extends StatelessWidget {
                       children: [
                         Text(
                           percentage,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 36,
                             fontWeight: FontWeight.w700,
@@ -246,8 +246,8 @@ class ResultDetailPage extends StatelessWidget {
                             height: 1,
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             '%',
                             style: TextStyle(
@@ -261,7 +261,7 @@ class ResultDetailPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'SCORE',
                       style: TextStyle(
                         fontFamily: 'Inter',
@@ -288,7 +288,7 @@ class ResultDetailPage extends StatelessWidget {
                     : pct >= 60
                         ? 'Good Job!'
                         : 'Keep Practicing!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -299,7 +299,7 @@ class ResultDetailPage extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'You have completed $quizTitle.',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   color: AppConstants.onSurfaceVariant,
@@ -410,7 +410,7 @@ class ResultDetailPage extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -420,7 +420,7 @@ class ResultDetailPage extends StatelessWidget {
               ),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
                   color: AppConstants.onSurfaceVariant,
@@ -436,14 +436,14 @@ class ResultDetailPage extends StatelessWidget {
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Container(
       padding: const EdgeInsets.only(bottom: 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppConstants.outlineVariant),
         ),
       ),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Inter',
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -470,14 +470,14 @@ class ResultDetailPage extends StatelessWidget {
               color: AppConstants.errorContainer.withValues(alpha: 0.4),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.visibility_off_outlined,
               size: 44,
               color: AppConstants.error,
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Chi tiết chưa được công bố',
             style: TextStyle(
               fontFamily: 'Inter',
@@ -487,7 +487,7 @@ class ResultDetailPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Giáo viên tạm thời ẩn đáp án chi tiết của bài thi này.',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -510,15 +510,15 @@ class ResultDetailPage extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppConstants.errorContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline,
+              child: Icon(Icons.error_outline,
                   size: 40, color: AppConstants.error),
             ),
             const SizedBox(height: 16),
-            const Text('Không thể tải kết quả',
+            Text('Không thể tải kết quả',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 16,
@@ -527,7 +527,7 @@ class ResultDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text('$error',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     color: AppConstants.onSurfaceVariant)),
@@ -626,7 +626,7 @@ class ResultDetailPage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             data['question'] ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 15,
               fontWeight: FontWeight.w600,

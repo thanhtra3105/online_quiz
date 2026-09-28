@@ -1,0 +1,77 @@
+Dựa trên lịch sử git của dự án, trang web của bạn trước đây được deploy lên GitHub Pages thông qua nhánh sub với địa chỉ https://thanhtra3105.github.io/online_quiz/ (sử dụng base-href là /online_quiz/).
+
+Hiện tại bạn đang ở nhánh phát triển ver2.0. Để đưa toàn bộ giao diện mới lên GitHub Pages, bạn thực hiện theo các bước sau:
+
+Bước 1: Lưu (commit) lại code vừa chỉnh sửa trên nhánh ver2.0
+Mở Terminal và chạy:
+
+bash
+git add lib/
+git commit -m "Cap nhat giao dien moi va tinh diem thi"
+git push origin ver2.0
+Bước 2: Build bản Web mới nhất
+Chạy lệnh build với đúng đường dẫn base-href của repo GitHub:
+
+bash
+flutter build web --base-href "/online_quiz/" --release
+(Sau khi chạy xong, sản phẩm web đã hoàn thiện sẽ nằm trong thư mục build\web)
+
+Bước 3: Đưa bản build vào nhánh sub và đẩy lên GitHub
+Có 2 cách thực hiện:
+
+Cách 1: Nhanh gọn bằng Terminal (Khuyên dùng)
+Copy file build sang thư mục tạm, chuyển sang nhánh sub, dán vào rồi push:
+
+powershell
+# 1. Tạo thư mục tạm lưu bản build vừa tạo
+robocopy build\web C:\temp_deploy_quiz /E /NFL /NDL /NJH /NJS
+# 2. Chuyển sang nhánh deploy (sub)
+git checkout sub
+# 3. Chép toàn bộ file từ thư mục tạm đè vào nhánh sub
+robocopy C:\temp_deploy_quiz . /E /NFL /NDL /NJH /NJS
+Remove-Item -Recurse -Force C:\temp_deploy_quiz
+# 4. Commit và đẩy lên GitHub
+git add .
+git commit -m "Deploy giao dien moi len github pages"
+git push origin sub
+# 5. Quay trở lại nhánh code ver2.0
+git checkout ver2.0
+Cách 2: Thực hiện thủ công
+Sau khi chạy flutter build web --base-href "/online_quiz/" --release ở Bước 2.
+Vào thư mục online_quiz\build\web, copy toàn bộ các file bên trong (bao gồm index.html, main.dart.js, thư mục assets, canvaskit,...) ra ngoài Desktop.
+Trong terminal, gõ git checkout sub.
+Copy toàn bộ các file ở Desktop dán đè vào thư mục gốc online_quiz.
+Gõ:
+bash
+git add .
+git commit -m "Deploy update UI"
+git push origin sub
+git checkout ver2.0
+Sau khi push thành công lên nhánh sub, đợi GitHub Pages cập nhật khoảng 1 - 2 phút, bạn truy cập link https://thanhtra3105.github.io/online_quiz/ (nhớ nhấn Ctrl + F5 hoặc mở tab ẩn danh để trình duyệt không lưu cache cũ) là sẽ thấy giao diện mới!
+
+Gợi ý: Nếu bạn muốn, tôi có thể hỗ trợ chạy tự động toàn bộ quy trình build và deploy này ngay cho bạn.
+
+10:37 AM
+2:24 PM
+Lý do bị báo lỗi là vì thư mục build/web và một số file tạm sinh ra khi bạn build bị Git nhận diện là đang có thay đổi chưa lưu, nên Git ngăn chuyển nhánh để tránh mất dữ liệu.
+
+Tuy nhiên, bản build mới của bạn đã được copy an toàn vào C:\temp_deploy_quiz rồi (tôi đã kiểm tra file C:\temp_deploy_quiz\index.html đã tồn tại đầy đủ).
+
+Bạn chỉ cần thêm cờ -f (force) để ép chuyển sang nhánh sub là được. Hãy chạy lần lượt các lệnh sau:
+
+1. Ép chuyển sang nhánh sub
+powershell
+git checkout -f sub
+2. Chép toàn bộ bản build mới vào nhánh sub
+powershell
+robocopy C:\temp_deploy_quiz . /E /NFL /NDL /NJH /NJS
+Remove-Item -Recurse -Force C:\temp_deploy_quiz
+3. Commit và đẩy lên GitHub Pages
+powershell
+git add .
+git commit -m "Deploy giao dien moi len github pages"
+git push origin sub
+4. Quay lại nhánh làm việc ver2.0
+powershell
+git checkout ver2.0
+Sau khi chạy xong bước 3, bạn đợi GitHub cập nhật khoảng 1 - 2 phút rồi vào lại trang https://thanhtra3105.github.io/online_quiz/ (nhớ nhấn Ctrl + F5 để xóa cache cũ) để kiểm tra giao diện mới nhé!

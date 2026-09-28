@@ -38,7 +38,7 @@ class _HistoryPageState extends State<HistoryPage> {
               color: AppConstants.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -545,7 +545,7 @@ class _DetailDialog extends StatelessWidget {
                         ),
                         Text(
                           submission['quizTitle'] ?? 'N/A',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
                             color: AppConstants.onSurfaceVariant,
@@ -557,7 +557,7 @@ class _DetailDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppConstants.onSurfaceVariant),
+                    icon: Icon(Icons.close_rounded, color: AppConstants.onSurfaceVariant),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -567,7 +567,7 @@ class _DetailDialog extends StatelessWidget {
             // Stats Row
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
               ),
               child: Row(
@@ -636,8 +636,8 @@ class _DetailDialog extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
+      decoration: BoxDecoration(
+        color: AppConstants.surface,
         border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
       ),
       child: Wrap(
@@ -645,7 +645,7 @@ class _DetailDialog extends StatelessWidget {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Text(
+          Text(
             'Chú thích:',
             style: TextStyle(
               fontFamily: 'Inter',
@@ -740,7 +740,7 @@ class _DetailDialog extends StatelessWidget {
               ),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 10,
                   color: AppConstants.onSurfaceVariant,
@@ -766,14 +766,14 @@ class _DetailDialog extends StatelessWidget {
                 color: AppConstants.errorContainer.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.visibility_off_outlined,
                 size: 48,
                 color: AppConstants.error,
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Chi tiết chưa được công bố',
               style: TextStyle(
                 fontFamily: 'Inter',
@@ -783,7 +783,7 @@ class _DetailDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Giáo viên đã ẩn đáp án chi tiết của bài thi này. Liên hệ giáo viên để biết thêm thông tin.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -873,7 +873,7 @@ class _DetailDialog extends StatelessWidget {
                           color: AppConstants.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Nhiều đáp án',
                           style: TextStyle(
                             fontFamily: 'Inter',
@@ -888,7 +888,7 @@ class _DetailDialog extends StatelessWidget {
                     Expanded(
                       child: Text(
                         questionData['question'] ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,
                           fontSize: 14,

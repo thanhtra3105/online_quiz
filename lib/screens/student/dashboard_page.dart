@@ -30,14 +30,14 @@ class DashboardPage extends StatelessWidget {
       builder: (context, quizSnapshot) {
         if (quizSnapshot.hasError) return _buildErrorWidget(quizSnapshot.error);
         if (!quizSnapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: AppConstants.primary));
+          return Center(child: CircularProgressIndicator(color: AppConstants.primary));
         }
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseService.getStudentClassSubmissions(studentId, classId),
           builder: (context, submissionSnapshot) {
             if (!submissionSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: AppConstants.primary));
+              return Center(child: CircularProgressIndicator(color: AppConstants.primary));
             }
 
             final completedQuizIds = submissionSnapshot.data!.docs
@@ -206,7 +206,7 @@ class DashboardPage extends StatelessWidget {
               color: AppConstants.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -502,7 +502,7 @@ class DashboardPage extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(color: AppConstants.outlineVariant, height: 1),
+        Divider(color: AppConstants.outlineVariant, height: 1),
         const SizedBox(height: 16),
         if (quizDocs.isEmpty)
           Container(
@@ -584,7 +584,7 @@ class DashboardPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_rounded, color: AppConstants.onSurfaceVariant, size: 20),
+                  Icon(Icons.arrow_forward_rounded, color: AppConstants.onSurfaceVariant, size: 20),
                 ],
               ),
               const SizedBox(height: 12),
@@ -602,7 +602,7 @@ class DashboardPage extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Icon(Icons.schedule_outlined, size: 14, color: AppConstants.onSurfaceVariant),
+                  Icon(Icons.schedule_outlined, size: 14, color: AppConstants.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Text(
                     duration > 0 ? '$duration phút' : 'Có thể làm ngay',
@@ -614,7 +614,7 @@ class DashboardPage extends StatelessWidget {
                   ),
                   if (questionCount > 0) ...[
                     const SizedBox(width: 12),
-                    const Icon(Icons.format_list_bulleted, size: 14, color: AppConstants.onSurfaceVariant),
+                    Icon(Icons.format_list_bulleted, size: 14, color: AppConstants.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Text(
                       '$questionCount câu',
@@ -652,7 +652,7 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
         ),
-        const Divider(color: AppConstants.outlineVariant, height: 1),
+        Divider(color: AppConstants.outlineVariant, height: 1),
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
@@ -672,19 +672,19 @@ class DashboardPage extends StatelessWidget {
       stream: FirebaseService.getRecentClassSubmissions(studentId, classId, limit: 5),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(32),
+          return Padding(
+            padding: const EdgeInsets.all(32),
             child: Center(child: CircularProgressIndicator(color: AppConstants.primary)),
           );
         }
 
         if (snapshot.data!.docs.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(32),
+          return Padding(
+            padding: const EdgeInsets.all(32),
             child: Column(
               children: [
                 Icon(Icons.history_outlined, size: 40, color: AppConstants.outlineVariant),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text('Chưa có hoạt động', style: TextStyle(color: AppConstants.onSurfaceVariant)),
               ],
             ),
@@ -696,7 +696,7 @@ class DashboardPage extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: snapshot.data!.docs.length,
           separatorBuilder: (_, __) =>
-              const Divider(height: 1, color: AppConstants.outlineVariant),
+              Divider(height: 1, color: AppConstants.outlineVariant),
           itemBuilder: (context, index) {
             final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
             final score = data['score'] ?? 0;
@@ -799,7 +799,7 @@ class DashboardPage extends StatelessWidget {
                 color: AppConstants.errorContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline, size: 48, color: AppConstants.error),
+              child: Icon(Icons.error_outline, size: 48, color: AppConstants.error),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -815,7 +815,7 @@ class DashboardPage extends StatelessWidget {
             Text(
               '$error',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppConstants.onSurfaceVariant),
+              style: TextStyle(color: AppConstants.onSurfaceVariant),
             ),
           ],
         ),

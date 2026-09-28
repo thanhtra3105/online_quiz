@@ -1,92 +1,416 @@
 // lib/screens/student/achievement_page.dart
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../utils/constants.dart';
 
-class AchievementPage extends StatelessWidget {
+class AchievementPage extends StatefulWidget {
   final String studentId;
-  const AchievementPage({Key? key, required this.studentId}) : super(key: key);
+  final bool showTopBar;
+
+  const AchievementPage({
+    super.key,
+    required this.studentId,
+    this.showTopBar = true,
+  });
+
+  @override
+  State<AchievementPage> createState() => _AchievementPageState();
+}
+
+class _AchievementPageState extends State<AchievementPage> {
+  Map<String, String> _userNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserNames();
+  }
+
+  void _fetchUserNames() {
+    FirebaseFirestore.instance.collection('users').snapshots().listen((snap) {
+      if (!mounted) return;
+      final map = <String, String>{};
+      for (var doc in snap.docs) {
+        final d = doc.data();
+        final name = d['displayName'] ?? d['name'];
+        if (name != null && name.toString().trim().isNotEmpty) {
+          map[doc.id] = name.toString().trim();
+          final uId = d['userId']?.toString();
+          if (uId != null && uId.isNotEmpty) {
+            map[uId] = name.toString().trim();
+          }
+        }
+      }
+      setState(() {
+        _userNames = map;
+      });
+    });
+  }
+
+  String _getStudentDisplayName(String sId) {
+    if (sId == widget.studentId) {
+      final currentAuthName = FirebaseAuth.instance.currentUser?.displayName;
+      if (currentAuthName != null && currentAuthName.trim().isNotEmpty) {
+        return '$currentAuthName (Bạn)';
+      }
+      if (_userNames.containsKey(sId)) {
+        return '${_userNames[sId]} (Bạn)';
+      }
+      return 'Bạn ($sId)';
+    }
+
+    if (_userNames.containsKey(sId)) {
+      return _userNames[sId]!;
+    }
+    return 'Sinh viên $sId';
+  }
+
+  String _getInitials(String name) {
+    final clean = name.replaceAll('(Bạn)', '').trim();
+    if (clean.isEmpty) return 'SV';
+    final parts = clean.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.length >= 2) {
+      return '${parts[parts.length - 2][0]}${parts[parts.length - 1][0]}'.toUpperCase();
+    }
+    return clean.length >= 2 ? clean.substring(0, 2).toUpperCase() : clean.toUpperCase();
+  }
+
+  String _formatTimestamp(dynamic ts) {
+    if (ts is Timestamp) {
+      return DateFormat('dd/MM/yyyy').format(ts.toDate());
+    }
+    return '';
+  }
+
+  String _getLevelTitle(int level) {
+    if (level <= 1) return 'Tân binh học tập';
+    if (level <= 3) return 'Người tập sự';
+    if (level <= 6) return 'Học giả triển vọng';
+    if (level <= 9) return 'Học giả tinh anh';
+    return 'Bậc thầy tri thức';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppConstants.background,
+      backgroundColor: AppConstants.bg(context),
       body: Column(
         children: [
-          _buildTopBar(context),
+          if (widget.showTopBar) _buildTopBar(context),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Page Header
-                      const Text(
-                        'Thành tích cá nhân',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: AppConstants.onSurface,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Theo dõi sự tiến bộ và những cột mốc học tập của bạn.',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          color: AppConstants.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('submissions').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppConstants.primary),
+                  );
+                }
 
-                      // Stats Bento
-                      _buildStatsBento(),
-                      const SizedBox(height: 32),
-
-                      // Badges Section
-                      _buildSectionTitle(
-                        icon: Icons.workspace_premium_outlined,
-                        title: 'Huy hiệu đã đạt được',
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Lỗi khi tải dữ liệu thành tích: ${snapshot.error}',
+                        style: TextStyle(color: AppConstants.error),
                       ),
-                      const SizedBox(height: 16),
-                      _buildBadgesGrid(),
-                      const SizedBox(height: 32),
+                    ),
+                  );
+                }
 
-                      // Leaderboard
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                final allDocs = snapshot.data?.docs ?? [];
+                final List<Map<String, dynamic>> allSubmissions = [];
+                for (var doc in allDocs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  allSubmissions.add(data);
+                }
+
+                // 1. Phân loại bài làm của sinh viên hiện tại
+                final mySubmissions = allSubmissions
+                    .where((s) => s['studentId'] == widget.studentId)
+                    .toList();
+
+                // Sắp xếp theo thời gian tăng dần để xác định ngày mở khóa huy hiệu
+                mySubmissions.sort((a, b) {
+                  final tA = a['timestamp'] is Timestamp
+                      ? (a['timestamp'] as Timestamp).toDate()
+                      : DateTime(2000);
+                  final tB = b['timestamp'] is Timestamp
+                      ? (b['timestamp'] as Timestamp).toDate()
+                      : DateTime(2000);
+                  return tA.compareTo(tB);
+                });
+
+                final totalCompleted = mySubmissions.length;
+
+                // Các bài đạt điểm tuyệt đối 10/10
+                final perfectSubmissions = mySubmissions.where((s) {
+                  final score = (s['score'] ?? 0).toDouble();
+                  final total = (s['totalQuestions'] ?? 1).toDouble();
+                  if (total <= 0) return false;
+                  final score10 = (score / total) * 10;
+                  return score10 >= 9.99;
+                }).toList();
+                final perfectCount = perfectSubmissions.length;
+
+                // Các bài đạt điểm >= 8.0
+                final score8PlusSubmissions = mySubmissions.where((s) {
+                  final score = (s['score'] ?? 0).toDouble();
+                  final total = (s['totalQuestions'] ?? 1).toDouble();
+                  if (total <= 0) return false;
+                  final score10 = (score / total) * 10;
+                  return score10 >= 8.0;
+                }).toList();
+                final score8PlusCount = score8PlusSubmissions.length;
+
+                // Các bài làm nhanh <= 5 phút (300s) với điểm >= 8.0
+                final speedSubmissions = mySubmissions.where((s) {
+                  final score = (s['score'] ?? 0).toDouble();
+                  final total = (s['totalQuestions'] ?? 1).toDouble();
+                  final timeSpent = s['timeSpent'] is num
+                      ? (s['timeSpent'] as num).toInt()
+                      : 99999;
+                  if (total <= 0) return false;
+                  final score10 = (score / total) * 10;
+                  return score10 >= 8.0 && timeSpent > 0 && timeSpent <= 300;
+                }).toList();
+                final speedCount = speedSubmissions.length;
+
+                // Tổng điểm của sinh viên hiện tại
+                double myTotalScore = 0.0;
+                for (var s in mySubmissions) {
+                  final score = (s['score'] ?? 0).toDouble();
+                  final total = (s['totalQuestions'] ?? 1).toDouble();
+                  if (total > 0) {
+                    myTotalScore += (score / total) * 10;
+                  }
+                }
+
+                final myXP = (myTotalScore * 100).round();
+                final myLevel = (myXP ~/ 1000) + 1;
+                final xpInCurrentLevel = myXP % 1000;
+                final xpToNextLevel = 1000 - xpInCurrentLevel;
+                final levelProgress = (xpInCurrentLevel / 1000.0).clamp(0.0, 1.0);
+
+                // 2. Tính bảng xếp hạng theo tổng điểm tất cả các bài thi
+                final Map<String, double> studentTotalScoreMap = {};
+                final Map<String, int> studentQuizCountMap = {};
+
+                for (var sub in allSubmissions) {
+                  final sId = (sub['studentId'] ?? '').toString().trim();
+                  if (sId.isEmpty) continue;
+                  final score = (sub['score'] ?? 0).toDouble();
+                  final total = (sub['totalQuestions'] ?? 1).toDouble();
+                  final score10 = total > 0 ? (score / total) * 10 : 0.0;
+                  studentTotalScoreMap[sId] =
+                      (studentTotalScoreMap[sId] ?? 0.0) + score10;
+                  studentQuizCountMap[sId] =
+                      (studentQuizCountMap[sId] ?? 0) + 1;
+                }
+
+                // Đảm bảo sinh viên hiện tại có trong map
+                if (!studentTotalScoreMap.containsKey(widget.studentId)) {
+                  studentTotalScoreMap[widget.studentId] = 0.0;
+                  studentQuizCountMap[widget.studentId] = 0;
+                }
+
+                // Sắp xếp giảm dần theo tổng điểm
+                final sortedStudents = studentTotalScoreMap.entries.toList()
+                  ..sort((a, b) {
+                    final cmp = b.value.compareTo(a.value);
+                    if (cmp != 0) return cmp;
+                    return (studentQuizCountMap[b.key] ?? 0)
+                        .compareTo(studentQuizCountMap[a.key] ?? 0);
+                  });
+
+                // Xác định thứ hạng của sinh viên hiện tại
+                int myRank = 1;
+                for (int i = 0; i < sortedStudents.length; i++) {
+                  if (sortedStudents[i].key == widget.studentId) {
+                    myRank = i + 1;
+                    break;
+                  }
+                }
+
+                // 3. Danh sách huy hiệu theo dữ liệu thực tế
+                final badges = [
+                  {
+                    'icon': Icons.menu_book_rounded,
+                    'iconColor': AppConstants.primary,
+                    'iconBg': AppConstants.surfaceContainerHigh,
+                    'title': 'Học giả chăm chỉ',
+                    'desc': 'Hoàn thành đủ 10 bài kiểm tra trên hệ thống.',
+                    'progressText': totalCompleted >= 10
+                        ? 'Đã hoàn thành $totalCompleted/10 bài thi'
+                        : 'Đang tiến hành ($totalCompleted/10 bài thi)',
+                    'progress': (totalCompleted / 10.0).clamp(0.0, 1.0),
+                    'date': totalCompleted >= 10
+                        ? _formatTimestamp(mySubmissions[9]['timestamp'])
+                        : null,
+                    'locked': totalCompleted < 10,
+                  },
+                  {
+                    'icon': Icons.verified_rounded,
+                    'iconColor': const Color(0xFFD97706),
+                    'iconBg': const Color(0xFFFEF3C7),
+                    'title': 'Hoàn hảo 10/10',
+                    'desc': 'Đạt điểm số tuyệt đối 10/10 trong bài kiểm tra.',
+                    'progressText': perfectCount > 0
+                        ? 'Đã đạt $perfectCount lần điểm 10'
+                        : 'Chưa có bài nào đạt 10/10',
+                    'progress': perfectCount > 0 ? 1.0 : 0.0,
+                    'date': perfectCount > 0
+                        ? _formatTimestamp(perfectSubmissions.first['timestamp'])
+                        : null,
+                    'locked': perfectCount == 0,
+                  },
+                  {
+                    'icon': Icons.flag_rounded,
+                    'iconColor': AppConstants.secondary,
+                    'iconBg': const Color(0xFFD1FAE5),
+                    'title': 'Khởi đầu vững chắc',
+                    'desc': 'Hoàn thành bài thi đầu tiên trên hệ thống.',
+                    'progressText': totalCompleted >= 1
+                        ? 'Đã hoàn thành bài đầu tiên'
+                        : 'Chưa nộp bài thi nào',
+                    'progress': totalCompleted >= 1 ? 1.0 : 0.0,
+                    'date': totalCompleted >= 1
+                        ? _formatTimestamp(mySubmissions.first['timestamp'])
+                        : null,
+                    'locked': totalCompleted < 1,
+                  },
+                  {
+                    'icon': Icons.workspace_premium_rounded,
+                    'iconColor': const Color(0xFF9333EA),
+                    'iconBg': const Color(0xFFF3E8FF),
+                    'title': 'Cao thủ điểm 8+',
+                    'desc': 'Đạt từ 8.0 điểm trở lên trong ít nhất 3 bài thi.',
+                    'progressText': score8PlusCount >= 3
+                        ? 'Đã đạt $score8PlusCount bài điểm 8+'
+                        : 'Đang tiến hành ($score8PlusCount/3 bài)',
+                    'progress': (score8PlusCount / 3.0).clamp(0.0, 1.0),
+                    'date': score8PlusCount >= 3
+                        ? _formatTimestamp(score8PlusSubmissions[2]['timestamp'])
+                        : null,
+                    'locked': score8PlusCount < 3,
+                  },
+                  {
+                    'icon': Icons.shield_rounded,
+                    'iconColor': const Color(0xFF0284C7),
+                    'iconBg': const Color(0xFFE0F2FE),
+                    'title': 'Chiến binh bền bỉ',
+                    'desc': 'Hoàn thành từ 5 bài kiểm tra trở lên.',
+                    'progressText': totalCompleted >= 5
+                        ? 'Đã hoàn thành $totalCompleted/5 bài'
+                        : 'Đang tiến hành ($totalCompleted/5 bài)',
+                    'progress': (totalCompleted / 5.0).clamp(0.0, 1.0),
+                    'date': totalCompleted >= 5
+                        ? _formatTimestamp(mySubmissions[4]['timestamp'])
+                        : null,
+                    'locked': totalCompleted < 5,
+                  },
+                  {
+                    'icon': Icons.bolt_rounded,
+                    'iconColor': const Color(0xFFEF4444),
+                    'iconBg': const Color(0xFFFEE2E2),
+                    'title': 'Vua tốc độ',
+                    'desc': 'Nộp bài dưới 5 phút với điểm số đạt từ 8.0 trở lên.',
+                    'progressText': speedCount > 0
+                        ? 'Đã đạt $speedCount lần thần tốc'
+                        : 'Chưa đạt (< 5 phút, điểm >= 8.0)',
+                    'progress': speedCount > 0 ? 1.0 : 0.0,
+                    'date': speedCount > 0
+                        ? _formatTimestamp(speedSubmissions.first['timestamp'])
+                        : null,
+                    'locked': speedCount == 0,
+                  },
+                ];
+
+                final unlockedCount = badges.where((b) => b['locked'] == false).length;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 860),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle(
-                            icon: Icons.leaderboard_outlined,
-                            title: 'Bảng xếp hạng tháng',
-                          ),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              'Xem tất cả',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppConstants.primary,
-                              ),
+                          // Page Header
+                          const Text(
+                            'Thành tích cá nhân',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: AppConstants.onSurface,
+                              letterSpacing: -0.3,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Theo dõi sự tiến bộ, điểm tích lũy và bảng xếp hạng thi đua.',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 15,
+                              color: AppConstants.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Stats Bento
+                          _buildStatsBento(
+                            unlockedBadges: unlockedCount,
+                            totalBadges: badges.length,
+                            rank: myRank,
+                            level: myLevel,
+                            levelTitle: _getLevelTitle(myLevel),
+                            xpInCurrentLevel: xpInCurrentLevel,
+                            xpToNextLevel: xpToNextLevel,
+                            levelProgress: levelProgress,
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Badges Section
+                          _buildSectionTitle(
+                            icon: Icons.workspace_premium_outlined,
+                            title: 'Huy hiệu học tập ($unlockedCount/${badges.length})',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildBadgesGrid(badges),
+                          const SizedBox(height: 36),
+
+                          // Leaderboard
+                          _buildSectionTitle(
+                            icon: Icons.leaderboard_outlined,
+                            title: 'Bảng xếp hạng tổng điểm thi',
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Xếp hạng dựa trên tổng điểm thang 10 của các bài thi đã nộp. Top 10 sinh viên xuất sắc nhất.',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              color: AppConstants.onSurfaceVariant.withValues(alpha: 0.9),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildLeaderboard(
+                            sortedStudents: sortedStudents,
+                            quizCounts: studentQuizCountMap,
+                            myRank: myRank,
+                          ),
+                          const SizedBox(height: 40),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildLeaderboard(),
-                      const SizedBox(height: 32),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -98,21 +422,22 @@ class AchievementPage extends StatelessWidget {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
       ),
       child: Row(
         children: [
-          const Icon(Icons.emoji_events, color: AppConstants.primary, size: 24),
+          Icon(Icons.emoji_events_rounded,
+              color: AppConstants.brand(context), size: 24),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Thành tích',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: AppConstants.primary,
+              color: AppConstants.brand(context),
             ),
           ),
         ],
@@ -120,19 +445,65 @@ class AchievementPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsBento() {
+  Widget _buildStatsBento({
+    required int unlockedBadges,
+    required int totalBadges,
+    required int rank,
+    required int level,
+    required String levelTitle,
+    required int xpInCurrentLevel,
+    required int xpToNextLevel,
+    required double levelProgress,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 500;
+        final isWide = constraints.maxWidth > 560;
+        if (!isWide) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.military_tech_rounded,
+                      iconBg: AppConstants.surfaceContainerHigh,
+                      iconColor: AppConstants.primary,
+                      value: '$unlockedBadges/$totalBadges',
+                      label: 'HUY HIỆU',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.trending_up_rounded,
+                      iconBg: const Color(0xFFD1FAE5),
+                      iconColor: AppConstants.secondary,
+                      value: '#$rank',
+                      label: 'XẾP HẠNG',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildXpCard(
+                level: level,
+                levelTitle: levelTitle,
+                xpInCurrentLevel: xpInCurrentLevel,
+                xpToNextLevel: xpToNextLevel,
+                levelProgress: levelProgress,
+              ),
+            ],
+          );
+        }
         return Row(
           children: [
             // Badges count
             Expanded(
               child: _buildStatCard(
-                icon: Icons.military_tech,
+                icon: Icons.military_tech_rounded,
                 iconBg: AppConstants.surfaceContainerHigh,
                 iconColor: AppConstants.primary,
-                value: '12',
+                value: '$unlockedBadges/$totalBadges',
                 label: 'HUY HIỆU',
               ),
             ),
@@ -140,21 +511,25 @@ class AchievementPage extends StatelessWidget {
             // Rank
             Expanded(
               child: _buildStatCard(
-                icon: Icons.trending_up,
+                icon: Icons.trending_up_rounded,
                 iconBg: const Color(0xFFD1FAE5),
                 iconColor: AppConstants.secondary,
-                value: '#4',
+                value: '#$rank',
                 label: 'XẾP HẠNG',
               ),
             ),
-            if (isWide) ...[
-              const SizedBox(width: 12),
-              // XP Progress
-              Expanded(
-                flex: 2,
-                child: _buildXpCard(),
+            const SizedBox(width: 12),
+            // XP Progress
+            Expanded(
+              flex: 2,
+              child: _buildXpCard(
+                level: level,
+                levelTitle: levelTitle,
+                xpInCurrentLevel: xpInCurrentLevel,
+                xpToNextLevel: xpToNextLevel,
+                levelProgress: levelProgress,
               ),
-            ],
+            ),
           ],
         );
       },
@@ -169,7 +544,7 @@ class AchievementPage extends StatelessWidget {
     required String label,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: AppConstants.surface,
         borderRadius: BorderRadius.circular(12),
@@ -178,8 +553,8 @@ class AchievementPage extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 24),
           ),
@@ -188,11 +563,12 @@ class AchievementPage extends StatelessWidget {
             value,
             style: const TextStyle(
               fontFamily: 'Inter',
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               color: AppConstants.onSurface,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
@@ -208,9 +584,15 @@ class AchievementPage extends StatelessWidget {
     );
   }
 
-  Widget _buildXpCard() {
+  Widget _buildXpCard({
+    required int level,
+    required String levelTitle,
+    required int xpInCurrentLevel,
+    required int xpToNextLevel,
+    required double levelProgress,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppConstants.surface,
         borderRadius: BorderRadius.circular(12),
@@ -219,12 +601,12 @@ class AchievementPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Cấp độ 8 — Học giả',
-                style: TextStyle(
+                'Cấp độ $level — $levelTitle',
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -232,17 +614,17 @@ class AchievementPage extends StatelessWidget {
                 ),
               ),
               Text(
-                '2400 / 3000 XP',
-                style: TextStyle(
+                '$xpInCurrentLevel / 1000 XP',
+                style: const TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   color: AppConstants.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Container(
             height: 8,
             decoration: BoxDecoration(
@@ -251,7 +633,7 @@ class AchievementPage extends StatelessWidget {
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
-              widthFactor: 0.80,
+              widthFactor: max(0.02, levelProgress),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppConstants.primary,
@@ -260,10 +642,10 @@ class AchievementPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Chỉ còn 600 XP để thăng cấp. Cố lên!',
-            style: TextStyle(
+          const SizedBox(height: 10),
+          Text(
+            'Chỉ còn $xpToNextLevel XP nữa để thăng cấp. Hãy tiếp tục làm bài thi!',
+            style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
               color: AppConstants.onSurfaceVariant,
@@ -284,7 +666,7 @@ class AchievementPage extends StatelessWidget {
           style: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppConstants.onSurface,
           ),
         ),
@@ -292,107 +674,90 @@ class AchievementPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBadgesGrid() {
-    final badges = [
-      {
-        'icon': Icons.bolt,
-        'iconColor': AppConstants.secondary,
-        'iconBg': const Color(0xFFD1FAE5),
-        'title': 'Vua tốc độ',
-        'desc': 'Hoàn thành bài kiểm tra dưới 50% thời gian cho phép với điểm số tuyệt đối.',
-        'date': '12/10/2023',
-        'locked': false,
-      },
-      {
-        'icon': Icons.menu_book,
-        'iconColor': AppConstants.primary,
-        'iconBg': AppConstants.surfaceContainerHigh,
-        'title': 'Học giả chăm chỉ',
-        'desc': 'Hoàn thành 50 bài tập tự luyện trong một tuần liên tiếp.',
-        'date': '05/11/2023',
-        'locked': false,
-      },
-      {
-        'icon': Icons.verified,
-        'iconColor': const Color(0xFFB8860B),
-        'iconBg': const Color(0xFFFFF9C4),
-        'title': 'Hoàn hảo 10/10',
-        'desc': 'Đạt điểm tuyệt đối trong bài kiểm tra cuối kỳ môn Toán Cao Cấp.',
-        'date': '20/11/2023',
-        'locked': false,
-      },
-      {
-        'icon': Icons.analytics_outlined,
-        'iconColor': AppConstants.onSurfaceVariant,
-        'iconBg': AppConstants.surfaceContainerHigh,
-        'title': 'Chuyên gia phân tích',
-        'desc': 'Hoàn thành chuỗi 10 bài tập Phân tích Dữ liệu khó. Đang tiến hành (7/10).',
-        'date': null,
-        'locked': true,
-      },
-    ];
-
+  Widget _buildBadgesGrid(List<Map<String, dynamic>> badges) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cols = constraints.maxWidth > 540 ? 2 : 1;
+        final cols = constraints.maxWidth > 560 ? 2 : 1;
         return Wrap(
           spacing: 16,
           runSpacing: 16,
           children: badges.map((b) {
             final isLocked = b['locked'] as bool;
+            final progress = (b['progress'] as num).toDouble();
+            final date = b['date'] as String?;
+            final progressText = b['progressText'] as String;
+
             return SizedBox(
               width: cols == 2
                   ? (constraints.maxWidth - 16) / 2
                   : constraints.maxWidth,
               child: Opacity(
-                opacity: isLocked ? 0.6 : 1.0,
+                opacity: isLocked ? 0.72 : 1.0,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppConstants.surface,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isLocked
                           ? AppConstants.outlineVariant
-                          : AppConstants.outlineVariant,
-                      style:
-                          isLocked ? BorderStyle.solid : BorderStyle.solid,
+                          : (b['iconColor'] as Color).withValues(alpha: 0.35),
+                      width: isLocked ? 1 : 1.5,
                     ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 56,
-                        height: 56,
+                        width: 52,
+                        height: 52,
                         decoration: BoxDecoration(
-                          color: b['iconBg'] as Color,
+                          color: isLocked
+                              ? AppConstants.surfaceContainerHigh
+                              : b['iconBg'] as Color,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: (b['iconColor'] as Color)
-                                .withValues(alpha: 0.4),
+                            color: isLocked
+                                ? AppConstants.outlineVariant
+                                : (b['iconColor'] as Color).withValues(alpha: 0.4),
                             width: 2,
                           ),
                         ),
                         child: Icon(
                           b['icon'] as IconData,
-                          color: b['iconColor'] as Color,
+                          color: isLocked
+                              ? AppConstants.onSurfaceVariant
+                              : b['iconColor'] as Color,
                           size: 26,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              b['title'] as String,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppConstants.onSurface,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    b['title'] as String,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: isLocked
+                                          ? AppConstants.onSurface
+                                          : AppConstants.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                if (isLocked)
+                                  const Icon(
+                                    Icons.lock_outline_rounded,
+                                    size: 16,
+                                    color: AppConstants.onSurfaceVariant,
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -401,11 +766,11 @@ class AchievementPage extends StatelessWidget {
                                 fontFamily: 'Inter',
                                 fontSize: 12,
                                 color: AppConstants.onSurfaceVariant,
-                                height: 1.4,
+                                height: 1.35,
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            if (!isLocked && b['date'] != null)
+                            const SizedBox(height: 8),
+                            if (!isLocked && date != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
@@ -414,15 +779,27 @@ class AchievementPage extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  'Đạt được: ${b['date']}',
+                                  'Đạt được: $date',
                                   style: const TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 10,
-                                    color: AppConstants.onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppConstants.primary,
                                   ),
                                 ),
                               )
-                            else if (isLocked) ...[
+                            else ...[
+                              Text(
+                                progressText,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLocked
+                                      ? AppConstants.onSurfaceVariant
+                                      : AppConstants.secondary,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Container(
                                 height: 5,
@@ -432,10 +809,12 @@ class AchievementPage extends StatelessWidget {
                                 ),
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
-                                  widthFactor: 0.7,
+                                  widthFactor: max(0.03, progress),
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: AppConstants.outline,
+                                      color: isLocked
+                                          ? AppConstants.outline
+                                          : AppConstants.primary,
                                       borderRadius: BorderRadius.circular(3),
                                     ),
                                   ),
@@ -456,14 +835,34 @@ class AchievementPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLeaderboard() {
-    final rows = [
-      {'rank': '1', 'initials': 'NV', 'name': 'Nguyễn Văn A', 'xp': '5,240', 'rankColor': const Color(0xFFFFD700), 'isMe': false},
-      {'rank': '2', 'initials': 'TH', 'name': 'Trần Thị B', 'xp': '4,890', 'rankColor': const Color(0xFFC0C0C0), 'isMe': false},
-      {'rank': '3', 'initials': 'LM', 'name': 'Lê Văn C', 'xp': '4,120', 'rankColor': const Color(0xFFCD7F32), 'isMe': false},
-      {'rank': '4', 'initials': 'Bạn', 'name': 'Bạn', 'xp': '3,850', 'rankColor': AppConstants.primary, 'isMe': true},
-      {'rank': '5', 'initials': 'PH', 'name': 'Phạm Thị D', 'xp': '3,600', 'rankColor': AppConstants.onSurfaceVariant, 'isMe': false},
-    ];
+  Widget _buildLeaderboard({
+    required List<MapEntry<String, double>> sortedStudents,
+    required Map<String, int> quizCounts,
+    required int myRank,
+  }) {
+    if (sortedStudents.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppConstants.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppConstants.outlineVariant),
+        ),
+        child: const Center(
+          child: Text(
+            'Chưa có dữ liệu bài nộp nào trên hệ thống.',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: AppConstants.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Top 10 học sinh
+    final top10 = sortedStudents.take(10).toList();
+    final bool isMyRankOutsideTop10 = myRank > 10;
 
     return Container(
       decoration: BoxDecoration(
@@ -480,89 +879,333 @@ class AchievementPage extends StatelessWidget {
             color: AppConstants.surfaceContainerLow,
             child: const Row(
               children: [
-                SizedBox(width: 40, child: Text('Hạng', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: AppConstants.onSurfaceVariant, letterSpacing: 0.5))),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    'Hạng',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
                 SizedBox(width: 12),
-                Expanded(child: Text('Học viên', style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: AppConstants.onSurfaceVariant, letterSpacing: 0.5))),
-                Text('Điểm XP', style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: AppConstants.onSurfaceVariant, letterSpacing: 0.5)),
+                Expanded(
+                  child: Text(
+                    'Học viên',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    'Số bài',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 110,
+                  child: Text(
+                    'Tổng điểm (XP)',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          ...rows.asMap().entries.map((entry) {
-            final r = entry.value;
-            final isMe = r['isMe'] as bool;
-            return Container(
-              decoration: BoxDecoration(
-                color: isMe
-                    ? AppConstants.primary.withValues(alpha: 0.06)
-                    : Colors.transparent,
-                border: Border(
-                  bottom: BorderSide(color: AppConstants.outlineVariant.withValues(alpha: 0.5)),
-                  left: isMe ? const BorderSide(color: AppConstants.primary, width: 3) : BorderSide.none,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+
+          // Render Top 10
+          ...top10.asMap().entries.map((entry) {
+            final rank = entry.key + 1;
+            final studentEntry = entry.value;
+            final sId = studentEntry.key;
+            final totalScore = studentEntry.value;
+            final quizCount = quizCounts[sId] ?? 0;
+            final isMe = sId == widget.studentId;
+
+            return _buildLeaderboardRow(
+              rank: rank,
+              studentId: sId,
+              totalScore: totalScore,
+              quizCount: quizCount,
+              isMe: isMe,
+              hasBottomBorder: !(isMyRankOutsideTop10 && rank == 10),
+            );
+          }),
+
+          // Nếu sinh viên hiện tại nằm ngoài Top 10 (ví dụ đứng thứ 21)
+          // Hiển thị dòng phân cách "..." và dòng của sinh viên ở vị trí thứ myRank!
+          if (isMyRankOutsideTop10) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              color: AppConstants.surfaceContainerLow.withValues(alpha: 0.5),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    width: 40,
-                    child: Text(
-                      r['rank'] as String,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: r['rankColor'] as Color,
-                      ),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: AppConstants.outline,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: isMe
-                        ? AppConstants.primary
-                        : AppConstants.surfaceContainerHigh,
-                    child: Text(
-                      (r['initials'] as String).length > 2
-                          ? (r['initials'] as String).substring(0, 2)
-                          : r['initials'] as String,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isMe
-                            ? Colors.white
-                            : AppConstants.onSurfaceVariant,
-                      ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: AppConstants.outline,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      r['name'] as String,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
-                        color: AppConstants.onSurface,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    r['xp'] as String,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
-                      color: isMe
-                          ? AppConstants.primary
-                          : AppConstants.onSurfaceVariant,
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: AppConstants.outline,
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],
               ),
-            );
-          }),
+            ),
+            Builder(builder: (context) {
+              final myEntry = sortedStudents.firstWhere(
+                (e) => e.key == widget.studentId,
+                orElse: () => MapEntry(widget.studentId, 0.0),
+              );
+              final myScore = myEntry.value;
+              final myQuizCount = quizCounts[widget.studentId] ?? 0;
+
+              return _buildLeaderboardRow(
+                rank: myRank,
+                studentId: widget.studentId,
+                totalScore: myScore,
+                quizCount: myQuizCount,
+                isMe: true,
+                hasBottomBorder: false,
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderboardRow({
+    required int rank,
+    required String studentId,
+    required double totalScore,
+    required int quizCount,
+    required bool isMe,
+    required bool hasBottomBorder,
+  }) {
+    Color rankColor;
+    Widget rankWidget;
+
+    if (rank == 1) {
+      rankColor = const Color(0xFFD97706);
+      rankWidget = Container(
+        width: 28,
+        height: 28,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFEF3C7),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Icon(Icons.emoji_events, color: Color(0xFFD97706), size: 16),
+        ),
+      );
+    } else if (rank == 2) {
+      rankColor = const Color(0xFF4B5563);
+      rankWidget = Container(
+        width: 28,
+        height: 28,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE5E7EB),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Text(
+            '2',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Color(0xFF4B5563),
+            ),
+          ),
+        ),
+      );
+    } else if (rank == 3) {
+      rankColor = const Color(0xFFB45309);
+      rankWidget = Container(
+        width: 28,
+        height: 28,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFEDD5),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Text(
+            '3',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Color(0xFFB45309),
+            ),
+          ),
+        ),
+      );
+    } else {
+      rankColor = AppConstants.onSurfaceVariant;
+      rankWidget = Text(
+        '#$rank',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: isMe ? FontWeight.w700 : FontWeight.w600,
+          color: isMe ? AppConstants.primary : rankColor,
+        ),
+      );
+    }
+
+    final displayName = _getStudentDisplayName(studentId);
+    final initials = _getInitials(displayName);
+    final xp = (totalScore * 100).round();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isMe
+            ? AppConstants.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+        border: Border(
+          bottom: hasBottomBorder
+              ? BorderSide(color: AppConstants.outlineVariant.withValues(alpha: 0.6))
+              : BorderSide.none,
+          left: isMe
+              ? BorderSide(color: AppConstants.primary, width: 3.5)
+              : BorderSide.none,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 44,
+            child: Center(child: rankWidget),
+          ),
+          const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: isMe
+                ? AppConstants.primary
+                : AppConstants.surfaceContainerHigh,
+            child: Text(
+              initials,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isMe ? Colors.white : AppConstants.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: isMe ? FontWeight.w700 : FontWeight.w600,
+                    color: isMe ? AppConstants.primary : AppConstants.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'MSSV: $studentId',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    color: AppConstants.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 70,
+            child: Text(
+              '$quizCount bài',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
+                color: AppConstants.onSurface,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 110,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${totalScore.toStringAsFixed(1)} đ',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: isMe ? AppConstants.primary : AppConstants.onSurface,
+                  ),
+                ),
+                Text(
+                  '$xp XP',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppConstants.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

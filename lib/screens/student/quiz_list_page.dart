@@ -213,12 +213,12 @@ class _QuizListPageState extends State<QuizListPage> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Tìm kiếm bài thi theo tên...',
-                          hintStyle: const TextStyle(
+                          hintStyle: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             color: AppConstants.onSurfaceVariant,
                           ),
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.search_rounded,
                             color: AppConstants.onSurfaceVariant,
                             size: 22,
@@ -354,25 +354,25 @@ class _QuizListPageState extends State<QuizListPage> {
               color: AppConstants.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   color: AppConstants.onSurface,
                 ),
                 children: [
-                  const TextSpan(
+                  TextSpan(
                     text: 'Bạn đang ở lớp học: ',
                     style: TextStyle(color: AppConstants.onSurfaceVariant),
                   ),
                   TextSpan(
                     text: name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: AppConstants.primary,
                     ),

@@ -1,10 +1,50 @@
 // lib/screens/student/schedule_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../utils/constants.dart';
+import '../../services/firebase_service.dart';
+
+class ScheduleEvent {
+  final String id;
+  final String quizId;
+  final String title;
+  final String className;
+  final String classId;
+  final DateTime dateTime;
+  final DateTime? endDateTime;
+  final int durationMinutes;
+  final int questionCount;
+  final bool isCompleted;
+  final double? score10;
+  final String status; // 'open', 'scheduled', 'completed', 'available'
+
+  ScheduleEvent({
+    required this.id,
+    required this.quizId,
+    required this.title,
+    required this.className,
+    required this.classId,
+    required this.dateTime,
+    this.endDateTime,
+    required this.durationMinutes,
+    required this.questionCount,
+    required this.isCompleted,
+    this.score10,
+    required this.status,
+  });
+}
 
 class SchedulePage extends StatefulWidget {
   final String studentId;
-  const SchedulePage({Key? key, required this.studentId}) : super(key: key);
+  final bool showTopBar;
+
+  const SchedulePage({
+    super.key,
+    required this.studentId,
+    this.showTopBar = true,
+  });
 
   @override
   State<SchedulePage> createState() => _SchedulePageState();
@@ -13,80 +53,309 @@ class SchedulePage extends StatefulWidget {
 class _SchedulePageState extends State<SchedulePage> {
   late DateTime _focusedMonth;
   late DateTime _today;
+  DateTime? _selectedDate;
+
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _studentClasses = [];
+  List<ScheduleEvent> _allEvents = [];
+
+  StreamSubscription? _classesSub;
+  StreamSubscription? _submissionsSub;
+  StreamSubscription? _schedulesSub;
+
+  List<Map<String, dynamic>> _cachedSubmissions = [];
+  List<Map<String, dynamic>> _cachedSchedules = [];
 
   @override
   void initState() {
     super.initState();
-    _today = DateTime.now();
+    final now = DateTime.now();
+    _today = DateTime(now.year, now.month, now.day);
     _focusedMonth = DateTime(_today.year, _today.month, 1);
+
+    _listenToData();
+  }
+
+  @override
+  void dispose() {
+    _classesSub?.cancel();
+    _submissionsSub?.cancel();
+    _schedulesSub?.cancel();
+    super.dispose();
+  }
+
+  void _listenToData() {
+    // 1. Lắng nghe danh sách lớp của sinh viên
+    _classesSub = FirebaseService.getStudentClasses(widget.studentId).listen((classes) {
+      if (!mounted) return;
+      _studentClasses = classes;
+      _refreshQuizzesAndEvents();
+    });
+
+    // 2. Lắng nghe bài nộp của sinh viên
+    _submissionsSub = FirebaseFirestore.instance
+        .collection('submissions')
+        .where('studentId', isEqualTo: widget.studentId)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      _cachedSubmissions = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      _refreshQuizzesAndEvents();
+    });
+
+    // 3. Lắng nghe lịch thi
+    _schedulesSub = FirebaseFirestore.instance
+        .collection('quiz_schedules')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      _cachedSchedules = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      _refreshQuizzesAndEvents();
+    });
+  }
+
+  Future<void> _refreshQuizzesAndEvents() async {
+    if (_studentClasses.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _allEvents = [];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final List<ScheduleEvent> events = [];
+
+      // Map submissions theo quizId
+      final Map<String, Map<String, dynamic>> subByQuiz = {};
+      for (var sub in _cachedSubmissions) {
+        final qId = (sub['quizId'] ?? '').toString();
+        if (qId.isNotEmpty) {
+          subByQuiz[qId] = sub;
+        }
+      }
+
+      // Map schedules theo quizId
+      final Map<String, Map<String, dynamic>> schedByQuiz = {};
+      for (var sched in _cachedSchedules) {
+        final qId = (sched['quizId'] ?? '').toString();
+        if (qId.isNotEmpty) {
+          schedByQuiz[qId] = sched;
+        }
+      }
+
+      // Lấy danh sách quizzes trong từng lớp mà sinh viên tham gia
+      for (var cls in _studentClasses) {
+        final classId = cls['id']?.toString() ?? '';
+        final className = cls['name']?.toString() ?? cls['title']?.toString() ?? 'Lớp học';
+        if (classId.isEmpty) continue;
+
+        final quizSnap = await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(classId)
+            .collection('quizzes')
+            .get();
+
+        for (var qDoc in quizSnap.docs) {
+          final qData = qDoc.data();
+          final qId = qDoc.id;
+          final title = qData['title']?.toString() ?? 'Bài kiểm tra';
+          final duration = (qData['duration'] ?? 15) as int;
+          final questionCount = (qData['questionCount'] ?? 10) as int;
+
+          // Kiểm tra xem đã nộp chưa
+          final hasSub = subByQuiz.containsKey(qId);
+          double? score10;
+          DateTime? submissionDate;
+          if (hasSub) {
+            final sub = subByQuiz[qId]!;
+            final rawScore = (sub['score'] ?? 0).toDouble();
+            final totalQ = (sub['totalQuestions'] ?? 1).toDouble();
+            if (totalQ > 0) {
+              score10 = (rawScore / totalQ) * 10;
+            }
+            if (sub['timestamp'] is Timestamp) {
+              submissionDate = (sub['timestamp'] as Timestamp).toDate();
+            }
+          }
+
+          // Kiểm tra lịch thi
+          final sched = schedByQuiz[qId];
+          DateTime eventDate;
+          DateTime? closeDate;
+          String status = 'available';
+
+          if (sched != null) {
+            if (sched['openTime'] is Timestamp) {
+              eventDate = (sched['openTime'] as Timestamp).toDate();
+            } else {
+              eventDate = _today;
+            }
+            if (sched['closeTime'] is Timestamp) {
+              closeDate = (sched['closeTime'] as Timestamp).toDate();
+            }
+            status = sched['status']?.toString() ?? 'scheduled';
+          } else {
+            // Nếu không có lịch cụ thể, lấy assignedAt hoặc ngày hôm nay
+            if (qData['assignedAt'] is Timestamp) {
+              eventDate = (qData['assignedAt'] as Timestamp).toDate();
+            } else if (qData['createdAt'] is Timestamp) {
+              eventDate = (qData['createdAt'] as Timestamp).toDate();
+            } else {
+              eventDate = _today;
+            }
+          }
+
+          // Nếu đã nộp rồi thì ưu tiên hiển thị ngày nộp
+          if (hasSub && submissionDate != null) {
+            eventDate = submissionDate;
+            status = 'completed';
+          }
+
+          events.add(
+            ScheduleEvent(
+              id: qId,
+              quizId: qId,
+              title: title,
+              className: className,
+              classId: classId,
+              dateTime: eventDate,
+              endDateTime: closeDate,
+              durationMinutes: duration,
+              questionCount: questionCount,
+              isCompleted: hasSub,
+              score10: score10,
+              status: hasSub ? 'completed' : status,
+            ),
+          );
+        }
+      }
+
+      // Sắp xếp các sự kiện: Sự kiện chưa làm trước, theo ngày gần nhất
+      events.sort((a, b) {
+        if (a.isCompleted != b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        return a.dateTime.compareTo(b.dateTime);
+      });
+
+      if (mounted) {
+        setState(() {
+          _allEvents = events;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppConstants.background,
+      backgroundColor: AppConstants.bg(context),
       body: Column(
         children: [
-          _buildTopBar(context),
+          if (widget.showTopBar) _buildTopBar(context),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Page Header
-                      const Text(
-                        'Lịch học & Thi sắp tới',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          color: AppConstants.onSurface,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Quản lý lịch trình ôn tập và các kỳ thi quan trọng của bạn.',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: AppConstants.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(color: AppConstants.primary),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 960),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Page Header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Lịch học & Thi sắp tới',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppConstants.onSurface,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      SizedBox(height: 6),
+                                      Text(
+                                        'Theo dõi thời gian mở đề, hạn nộp và các bài kiểm tra theo lớp.',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 14,
+                                          color: AppConstants.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Làm mới dữ liệu',
+                                  icon: Icon(Icons.refresh_rounded, color: AppConstants.primary),
+                                  onPressed: () {
+                                    setState(() => _isLoading = true);
+                                    _refreshQuizzesAndEvents();
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
 
-                      // Body: 8-col events + 4-col calendar
-                      LayoutBuilder(builder: (context, constraints) {
-                        final isWide = constraints.maxWidth > 640;
-                        if (isWide) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 8, child: _buildEventsColumn()),
-                              const SizedBox(width: 24),
-                              SizedBox(width: 260, child: _buildCalendarWidget()),
-                            ],
-                          );
-                        } else {
-                          return Column(
-                            children: [
-                              _buildEventsColumn(),
-                              const SizedBox(height: 24),
-                              _buildCalendarWidget(),
-                            ],
-                          );
-                        }
-                      }),
-                      const SizedBox(height: 32),
-                    ],
+                            // Body: 8-col events + 4-col calendar
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth > 720;
+                                if (isWide) {
+                                  return Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        flex: 7,
+                                        child: _buildEventsColumn(),
+                                      ),
+                                      const SizedBox(width: 24),
+                                      SizedBox(
+                                        width: 290,
+                                        child: _buildCalendarWidget(),
+                                      ),
+                                    ],
+                                  );
+                                } else {
+                                  return Column(
+                                    children: [
+                                      _buildCalendarWidget(),
+                                      const SizedBox(height: 24),
+                                      _buildEventsColumn(),
+                                    ],
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -97,21 +366,22 @@ class _SchedulePageState extends State<SchedulePage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
       ),
       child: Row(
         children: [
-          const Icon(Icons.calendar_month_outlined, color: AppConstants.primary, size: 24),
+          Icon(Icons.calendar_month_outlined,
+              color: AppConstants.brand(context), size: 24),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Lịch trình',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: AppConstants.primary,
+              color: AppConstants.brand(context),
             ),
           ),
         ],
@@ -120,49 +390,146 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Widget _buildEventsColumn() {
-    return Column(
-      children: [
-        // Today's Events
-        _buildSection(
-          icon: Icons.today_outlined,
-          iconColor: AppConstants.primary,
-          title: 'Sự kiện hôm nay',
-          badge: '2 sự kiện',
-          child: Column(
-            children: [
-              _buildEventCard(
-                time: '09:00',
-                period: 'Sáng',
-                title: 'Thi thử: Toán Cao Cấp A1',
-                desc: 'Kỳ thi giữa kỳ mô phỏng. Thời gian: 90 phút.',
-                tags: ['Phòng thi ảo 01'],
-                urgentTag: 'Bắt buộc',
-                isHighlight: true,
-              ),
-              const SizedBox(height: 12),
-              _buildEventCard(
-                time: '14:30',
-                period: 'Chiều',
-                title: 'Ôn tập nhóm: Lịch sử Đảng',
-                desc: 'Thảo luận chuyên đề 3 & 4.',
-                tags: ['Online Meet'],
-                urgentTag: null,
-                isHighlight: false,
-              ),
-            ],
+    // Nếu có chọn một ngày cụ thể trên lịch
+    if (_selectedDate != null) {
+      final selectedEvents = _allEvents.where((e) {
+        return _isSameDay(e.dateTime, _selectedDate!) ||
+            (e.endDateTime != null && _isSameDay(e.endDateTime!, _selectedDate!));
+      }).toList();
+
+      final dateFormatted = DateFormat('dd/MM/yyyy').format(_selectedDate!);
+
+      return _buildSection(
+        icon: Icons.event_rounded,
+        iconColor: AppConstants.primary,
+        title: 'Sự kiện ngày $dateFormatted',
+        badge: '${selectedEvents.length} mục',
+        extraAction: TextButton.icon(
+          onPressed: () => setState(() => _selectedDate = null),
+          icon: const Icon(Icons.close_rounded, size: 16),
+          label: const Text('Xem tất cả'),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: AppConstants.primary,
           ),
         ),
-        const SizedBox(height: 16),
+        child: selectedEvents.isEmpty
+            ? _buildEmptyEvents('Không có sự kiện hoặc bài thi nào diễn ra vào ngày này.')
+            : Column(
+                children: selectedEvents
+                    .map((e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildEventCard(e),
+                        ))
+                    .toList(),
+              ),
+      );
+    }
 
-        // This Week
+    // 1. Sự kiện hôm nay hoặc đang mở chưa làm
+    final todayEvents = _allEvents.where((e) {
+      final isToday = _isSameDay(e.dateTime, _today);
+      final isCurrentlyOpen = !e.isCompleted &&
+          (e.status == 'open' || e.status == 'available');
+      return isToday || isCurrentlyOpen;
+    }).toList();
+
+    // 2. Sắp tới (tương lai > hôm nay)
+    final upcomingEvents = _allEvents.where((e) {
+      return !e.isCompleted &&
+          e.dateTime.isAfter(_today) &&
+          !_isSameDay(e.dateTime, _today);
+    }).toList();
+
+    // 3. Đã hoàn thành gần đây
+    final completedEvents =
+        _allEvents.where((e) => e.isCompleted).take(5).toList();
+
+    return Column(
+      children: [
+        // Today & Active section
         _buildSection(
-          icon: Icons.view_week_outlined,
-          iconColor: AppConstants.secondary,
-          title: 'Sắp tới trong tuần',
-          badge: null,
-          child: _buildTimeline(),
+          icon: Icons.today_rounded,
+          iconColor: AppConstants.primary,
+          title: 'Sự kiện hôm nay & Đang mở',
+          badge: '${todayEvents.length} bài thi',
+          child: todayEvents.isEmpty
+              ? _buildEmptyEvents('Hôm nay bạn không có bài kiểm tra nào cần làm.')
+              : Column(
+                  children: todayEvents
+                      .map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildEventCard(e, isHighlight: true),
+                          ))
+                      .toList(),
+                ),
         ),
+        const SizedBox(height: 20),
+
+        // Upcoming section
+        _buildSection(
+          icon: Icons.schedule_rounded,
+          iconColor: const Color(0xFFD97706),
+          title: 'Lịch thi sắp tới',
+          badge: upcomingEvents.isNotEmpty ? '${upcomingEvents.length} kỳ thi' : null,
+          child: upcomingEvents.isEmpty
+              ? _buildEmptyEvents('Chưa có lịch thi nào được lên kế hoạch trong thời gian tới.')
+              : Column(
+                  children: upcomingEvents
+                      .map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildEventCard(e),
+                          ))
+                      .toList(),
+                ),
+        ),
+        const SizedBox(height: 20),
+
+        // Completed recently
+        if (completedEvents.isNotEmpty)
+          _buildSection(
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: AppConstants.secondary,
+            title: 'Đã hoàn thành gần đây',
+            badge: '${completedEvents.length} bài',
+            child: Column(
+              children: completedEvents
+                  .map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildEventCard(e),
+                      ))
+                  .toList(),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildEmptyEvents(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: AppConstants.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded,
+              color: AppConstants.onSurfaceVariant, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppConstants.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -171,6 +538,7 @@ class _SchedulePageState extends State<SchedulePage> {
     required Color iconColor,
     required String title,
     String? badge,
+    Widget? extraAction,
     required Widget child,
   }) {
     return Container(
@@ -191,32 +559,37 @@ class _SchedulePageState extends State<SchedulePage> {
                   const SizedBox(width: 8),
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                       color: AppConstants.onSurface,
                     ),
                   ),
                 ],
               ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppConstants.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppConstants.onSurface,
+              Row(
+                children: [
+                  if (badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppConstants.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        badge,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.onSurface,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  if (extraAction != null) extraAction,
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -226,48 +599,70 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  Widget _buildEventCard({
-    required String time,
-    required String period,
-    required String title,
-    required String desc,
-    required List<String> tags,
-    String? urgentTag,
-    required bool isHighlight,
-  }) {
+  Widget _buildEventCard(ScheduleEvent event, {bool isHighlight = false}) {
+    final timeStr = DateFormat('HH:mm').format(event.dateTime);
+    final dateStr = DateFormat('dd/MM').format(event.dateTime);
+
+    Color badgeBg = AppConstants.surfaceContainerHigh;
+    Color badgeColor = AppConstants.onSurfaceVariant;
+    String statusText = 'Đang mở';
+
+    if (event.isCompleted) {
+      badgeBg = const Color(0xFFD1FAE5);
+      badgeColor = AppConstants.secondary;
+      statusText = event.score10 != null
+          ? 'Đã làm (${event.score10!.toStringAsFixed(1)} đ)'
+          : 'Đã hoàn thành';
+    } else if (event.status == 'scheduled') {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeColor = const Color(0xFFD97706);
+      statusText = 'Chưa mở';
+    } else if (event.status == 'closed') {
+      badgeBg = AppConstants.errorContainer;
+      badgeColor = AppConstants.error;
+      statusText = 'Đã đóng';
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isHighlight ? AppConstants.surfaceContainerLow : AppConstants.surface,
-        borderRadius: BorderRadius.circular(8),
+        color: isHighlight && !event.isCompleted
+            ? AppConstants.primary.withValues(alpha: 0.04)
+            : AppConstants.surface,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isHighlight ? AppConstants.primary.withValues(alpha: 0.4) : AppConstants.outlineVariant,
+          color: isHighlight && !event.isCompleted
+              ? AppConstants.primary.withValues(alpha: 0.35)
+              : AppConstants.outlineVariant,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Time
+          // Time badge
           Container(
-            width: 60,
+            width: 64,
             padding: const EdgeInsets.only(right: 12),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(right: BorderSide(color: AppConstants.outlineVariant)),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  time,
+                  timeStr != '00:00' ? timeStr : '--:--',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: isHighlight ? AppConstants.primary : AppConstants.onSurface,
+                    color: isHighlight && !event.isCompleted
+                        ? AppConstants.primary
+                        : AppConstants.onSurface,
                   ),
                 ),
                 Text(
-                  period,
-                  style: const TextStyle(
+                  dateStr,
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
                     color: AppConstants.onSurfaceVariant,
@@ -276,38 +671,50 @@ class _SchedulePageState extends State<SchedulePage> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
+          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  event.title,
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppConstants.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  desc,
-                  style: const TextStyle(
+                  'Lớp: ${event.className} • ${event.durationMinutes} phút • ${event.questionCount} câu hỏi',
+                  style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 13,
+                    fontSize: 12,
                     color: AppConstants.onSurfaceVariant,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                if (event.endDateTime != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Hạn chót: ${DateFormat('HH:mm - dd/MM/yyyy').format(event.endDateTime!)}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.error,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
+                  runSpacing: 4,
                   children: [
-                    ...tags.map((t) => _buildTag(t, AppConstants.surfaceContainerHigh, AppConstants.onSurfaceVariant)),
-                    if (urgentTag != null)
-                      _buildTag(urgentTag, AppConstants.errorContainer, AppConstants.error),
+                    _buildTag(event.className, AppConstants.surfaceContainerHigh,
+                        AppConstants.onSurfaceVariant),
+                    _buildTag(statusText, badgeBg, badgeColor),
                   ],
                 ),
               ],
@@ -337,139 +744,6 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  Widget _buildTimeline() {
-    return Column(
-      children: [
-        _buildTimelineItem(
-          dateLabel: 'Thứ Tư, ${_getDateStr(3)}',
-          dateColor: AppConstants.secondary,
-          dotColor: AppConstants.secondary,
-          title: 'Nộp bài tập lớn C++',
-          desc: 'Hạn chót lúc 23:59. Đảm bảo commit code lên Git.',
-          isUrgent: false,
-        ),
-        const SizedBox(height: 20),
-        _buildTimelineItem(
-          dateLabel: 'Thứ Sáu, ${_getDateStr(5)}',
-          dateColor: AppConstants.error,
-          dotColor: AppConstants.error,
-          title: 'Thi Cuối Kỳ: Tiếng Anh B2',
-          desc: 'Kỳ thi quan trọng - 120 phút',
-          isUrgent: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimelineItem({
-    required String dateLabel,
-    required Color dateColor,
-    required Color dotColor,
-    required String title,
-    required String desc,
-    required bool isUrgent,
-  }) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline line + dot
-          Column(
-            children: [
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppConstants.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: dotColor, width: 2),
-                ),
-              ),
-              Expanded(
-                child: Container(width: 2, color: AppConstants.outlineVariant),
-              ),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dateLabel,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: dateColor,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isUrgent
-                          ? AppConstants.errorContainer.withValues(alpha: 0.25)
-                          : AppConstants.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isUrgent
-                            ? AppConstants.errorContainer
-                            : AppConstants.outlineVariant,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppConstants.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (isUrgent)
-                          Row(
-                            children: [
-                              const Icon(Icons.warning_amber_rounded,
-                                  size: 14, color: AppConstants.error),
-                              const SizedBox(width: 4),
-                              Text(
-                                desc,
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  color: AppConstants.error,
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          Text(
-                            desc,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              color: AppConstants.onSurfaceVariant,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCalendarWidget() {
     final daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final firstDayOfMonth = _focusedMonth;
@@ -477,6 +751,16 @@ class _SchedulePageState extends State<SchedulePage> {
         DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
     // Weekday: 1=Mon, 7=Sun. Grid starts Monday
     int startOffset = firstDayOfMonth.weekday - 1;
+
+    // Lập map các ngày có sự kiện trong tháng
+    final Map<int, List<ScheduleEvent>> daysEventsMap = {};
+    for (var event in _allEvents) {
+      if (event.dateTime.year == _focusedMonth.year &&
+          event.dateTime.month == _focusedMonth.month) {
+        final d = event.dateTime.day;
+        daysEventsMap[d] = (daysEventsMap[d] ?? [])..add(event);
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -493,23 +777,23 @@ class _SchedulePageState extends State<SchedulePage> {
             children: [
               Text(
                 _monthLabel(_focusedMonth),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppConstants.onSurface,
                 ),
               ),
               Row(
                 children: [
-                  _calNavBtn(Icons.chevron_left, () {
+                  _calNavBtn(Icons.chevron_left_rounded, () {
                     setState(() {
                       _focusedMonth = DateTime(
                           _focusedMonth.year, _focusedMonth.month - 1, 1);
                     });
                   }),
                   const SizedBox(width: 4),
-                  _calNavBtn(Icons.chevron_right, () {
+                  _calNavBtn(Icons.chevron_right_rounded, () {
                     setState(() {
                       _focusedMonth = DateTime(
                           _focusedMonth.year, _focusedMonth.month + 1, 1);
@@ -527,7 +811,7 @@ class _SchedulePageState extends State<SchedulePage> {
                       child: Text(
                         d,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -550,40 +834,87 @@ class _SchedulePageState extends State<SchedulePage> {
             itemBuilder: (context, index) {
               if (index < startOffset) return const SizedBox.shrink();
               final day = index - startOffset + 1;
-              final isToday = _today.year == _focusedMonth.year &&
-                  _today.month == _focusedMonth.month &&
-                  _today.day == day;
-              return Container(
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: isToday ? AppConstants.primary : Colors.transparent,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-                      color: isToday
-                          ? Colors.white
-                          : AppConstants.onSurface,
-                    ),
+              final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+              final isToday = _isSameDay(_today, cellDate);
+              final isSelected = _selectedDate != null && _isSameDay(_selectedDate!, cellDate);
+
+              final dayEvents = daysEventsMap[day] ?? [];
+              final hasEvents = dayEvents.isNotEmpty;
+              final hasUncompleted = dayEvents.any((e) => !e.isCompleted);
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedDate = null;
+                    } else {
+                      _selectedDate = cellDate;
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppConstants.primary
+                        : (isToday
+                            ? AppConstants.primary.withValues(alpha: 0.12)
+                            : Colors.transparent),
+                    shape: BoxShape.circle,
+                    border: isToday && !isSelected
+                        ? Border.all(color: AppConstants.primary, width: 1.5)
+                        : null,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        '$day',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: isToday || isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isToday
+                                  ? AppConstants.primary
+                                  : AppConstants.onSurface),
+                        ),
+                      ),
+                      if (hasEvents)
+                        Positioned(
+                          bottom: 3,
+                          child: Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (hasUncompleted
+                                      ? const Color(0xFFD97706)
+                                      : AppConstants.secondary),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               );
             },
           ),
           const SizedBox(height: 16),
-          const Divider(color: AppConstants.outlineVariant),
-          const SizedBox(height: 12),
+          Divider(color: AppConstants.outlineVariant),
+          const SizedBox(height: 10),
           // Legend
           _buildLegendItem(AppConstants.primary, 'Hôm nay'),
           const SizedBox(height: 6),
-          _buildLegendItem(AppConstants.secondary, 'Bài tập / Tiểu luận'),
+          _buildLegendItem(const Color(0xFFD97706), 'Bài kiểm tra / Kỳ thi'),
           const SizedBox(height: 6),
-          _buildLegendItem(AppConstants.error, 'Kỳ thi quan trọng'),
+          _buildLegendItem(AppConstants.secondary, 'Đã hoàn thành'),
         ],
       ),
     );
@@ -604,14 +935,14 @@ class _SchedulePageState extends State<SchedulePage> {
     return Row(
       children: [
         Container(
-          width: 10,
-          height: 10,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 12,
             color: AppConstants.onSurfaceVariant,
@@ -623,16 +954,20 @@ class _SchedulePageState extends State<SchedulePage> {
 
   String _monthLabel(DateTime dt) {
     const months = [
-      '', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-      'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+      '',
+      'Tháng 1',
+      'Tháng 2',
+      'Tháng 3',
+      'Tháng 4',
+      'Tháng 5',
+      'Tháng 6',
+      'Tháng 7',
+      'Tháng 8',
+      'Tháng 9',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12'
     ];
     return '${months[dt.month]}, ${dt.year}';
-  }
-
-  String _getDateStr(int weekday) {
-    final now = DateTime.now();
-    final diff = weekday - now.weekday;
-    final target = now.add(Duration(days: diff < 0 ? diff + 7 : diff));
-    return '${target.day}/${target.month}';
   }
 }

@@ -10,7 +10,6 @@ import 'services/user_service.dart';
 import 'services/auth_sync_service.dart';
 import 'services/quiz_schedule_service.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'utils/constants.dart';
 import 'package:provider/provider.dart';
 import 'utils/theme_provider.dart';
 
@@ -41,54 +40,77 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return MaterialApp(
-            title: 'Student Quiz App',
-            themeMode: themeProvider.themeMode,
-            theme: ThemeData(
-              colorScheme: ColorScheme(
-                brightness: Brightness.light,
-                primary: AppConstants.primary,
-                onPrimary: AppConstants.onPrimary,
-                primaryContainer: AppConstants.primaryContainer,
-                onPrimaryContainer: AppConstants.onPrimaryContainer,
-                secondary: AppConstants.secondary,
-                onSecondary: AppConstants.onSecondary,
-                secondaryContainer: AppConstants.secondaryContainer,
-                onSecondaryContainer: AppConstants.onSecondaryContainer,
-                tertiary: AppConstants.tertiary,
-                onTertiary: AppConstants.onTertiary,
-                tertiaryContainer: AppConstants.tertiaryContainer,
-                onTertiaryContainer: AppConstants.onTertiaryContainer,
-                error: AppConstants.error,
-                onError: AppConstants.onError,
-                errorContainer: AppConstants.errorContainer,
-                onErrorContainer: AppConstants.onErrorContainer,
-                background: AppConstants.background,
-                onBackground: AppConstants.onBackground,
-                surface: AppConstants.surface,
-                onSurface: AppConstants.onSurface,
-                surfaceVariant: AppConstants.surfaceVariant,
-                onSurfaceVariant: AppConstants.onSurfaceVariant,
-                outline: AppConstants.outline,
-                outlineVariant: AppConstants.outlineVariant,
-              ),
-              scaffoldBackgroundColor: AppConstants.background,
-              textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
-              useMaterial3: true,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Student Quiz App',
+          themeMode: themeProvider.themeMode,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: const Color(0xFFF9F9FF),
+            colorScheme: const ColorScheme(
+              brightness: Brightness.light,
+              primary: Color(0xFF003D9B),
+              onPrimary: Color(0xFFFFFFFF),
+              primaryContainer: Color(0xFF0052CC),
+              onPrimaryContainer: Color(0xFFC4D2FF),
+              secondary: Color(0xFF006C47),
+              onSecondary: Color(0xFFFFFFFF),
+              secondaryContainer: Color(0xFF82F9BE),
+              onSecondaryContainer: Color(0xFF00734C),
+              tertiary: Color(0xFF851800),
+              onTertiary: Color(0xFFFFFFFF),
+              tertiaryContainer: Color(0xFFB02300),
+              onTertiaryContainer: Color(0xFFFFC6B9),
+              error: Color(0xFFBA1A1A),
+              onError: Color(0xFFFFFFFF),
+              errorContainer: Color(0xFFFFDAD6),
+              onErrorContainer: Color(0xFF93000A),
+              background: Color(0xFFF9F9FF),
+              onBackground: Color(0xFF041B3C),
+              surface: Color(0xFFFFFFFF),
+              onSurface: Color(0xFF041B3C),
+              surfaceVariant: Color(0xFFD7E2FF),
+              onSurfaceVariant: Color(0xFF434654),
+              outline: Color(0xFF737685),
+              outlineVariant: Color(0xFFC3C6D6),
             ),
-            darkTheme: ThemeData(
+            textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: const Color(0xFF121418),
+            colorScheme: const ColorScheme(
               brightness: Brightness.dark,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: AppConstants.primary,
-                brightness: Brightness.dark,
-              ),
-              textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-              useMaterial3: true,
+              primary: Color(0xFF6B9BFF),
+              onPrimary: Color(0xFFFFFFFF),
+              primaryContainer: Color(0xFF1E3A70),
+              onPrimaryContainer: Color(0xFFD8E4FF),
+              secondary: Color(0xFF34D399),
+              onSecondary: Color(0xFFFFFFFF),
+              secondaryContainer: Color(0xFF064E3B),
+              onSecondaryContainer: Color(0xFFA7F3D0),
+              tertiary: Color(0xFFFB923C),
+              onTertiary: Color(0xFFFFFFFF),
+              tertiaryContainer: Color(0xFF7C2D12),
+              onTertiaryContainer: Color(0xFFFFEDD5),
+              error: Color(0xFFF87171),
+              onError: Color(0xFFFFFFFF),
+              errorContainer: Color(0xFF7F1D1D),
+              onErrorContainer: Color(0xFFFECACA),
+              background: Color(0xFF121418),
+              onBackground: Color(0xFFF1F3F7),
+              surface: Color(0xFF1E2128),
+              onSurface: Color(0xFFF1F3F7),
+              surfaceVariant: Color(0xFF282C37),
+              onSurfaceVariant: Color(0xFF9EA3B0),
+              outline: Color(0xFF5A606E),
+              outlineVariant: Color(0xFF2F333D),
             ),
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+            useMaterial3: true,
+          ),
             builder: (context, child) {
               return MediaQuery(
                 data: MediaQuery.of(context).copyWith(
@@ -140,8 +162,7 @@ class MyApp extends StatelessWidget {
       },
           );
         },
-      ),
-    );
+      );
   }
 }
 

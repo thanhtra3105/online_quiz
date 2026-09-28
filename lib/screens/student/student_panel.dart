@@ -125,7 +125,7 @@ class StudentPanelState extends State<StudentPanel> {
   Widget _buildDesktopLayout() {
     final user = _auth.currentUser;
     return Scaffold(
-      backgroundColor: AppConstants.background,
+      backgroundColor: AppConstants.bg(context),
       body: Row(
         children: [
           // Side Navigation
@@ -149,9 +149,9 @@ class StudentPanelState extends State<StudentPanel> {
     return Container(
       width: 256,
       height: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppConstants.surfaceContainer,
-        border: Border(right: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surfLow(context),
+        border: Border(right: BorderSide(color: AppConstants.border(context))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,7 +161,7 @@ class StudentPanelState extends State<StudentPanel> {
             padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
             child: Row(
               children: [
-                Icon(Icons.school, color: AppConstants.primary, size: 32),
+                Icon(Icons.school, color: AppConstants.brand(context), size: 32),
                 const SizedBox(width: 12),
                 Text(
                   'QuizMaster Pro',
@@ -169,7 +169,7 @@ class StudentPanelState extends State<StudentPanel> {
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.primary,
+                    color: AppConstants.brand(context),
                   ),
                 ),
               ],
@@ -181,14 +181,14 @@ class StudentPanelState extends State<StudentPanel> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppConstants.surfaceContainerHigh,
+                color: AppConstants.surfHigh(context),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppConstants.primary,
+                    backgroundColor: AppConstants.brand(context),
                     child: Text(
                       _getInitials(user),
                       style: const TextStyle(
@@ -205,21 +205,21 @@ class StudentPanelState extends State<StudentPanel> {
                       children: [
                         Text(
                           user?.displayName ?? widget.studentId,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppConstants.onSurface,
+                            color: AppConstants.txt(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           widget.className,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -256,7 +256,7 @@ class StudentPanelState extends State<StudentPanel> {
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             child: Column(
               children: [
-                const Divider(color: AppConstants.outlineVariant),
+                Divider(color: AppConstants.border(context)),
                 _buildSideNavItem(
                   icon: Icons.arrow_back_outlined,
                   label: 'Đổi lớp',
@@ -285,24 +285,27 @@ class StudentPanelState extends State<StudentPanel> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    final itemColor = color ?? (isSelected ? AppConstants.primary : AppConstants.onSurfaceVariant);
+    final itemColor = color ??
+        (isSelected
+            ? AppConstants.brand(context)
+            : AppConstants.txtMuted(context));
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppConstants.primary.withValues(alpha: 0.1)
+                ? AppConstants.surfHigh(context)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 22, color: itemColor),
+              Icon(icon, size: 20, color: itemColor),
               const SizedBox(width: 12),
               Text(
                 label,
@@ -324,66 +327,108 @@ class StudentPanelState extends State<StudentPanel> {
   Widget _buildMobileLayout() {
     final user = _auth.currentUser;
     return Scaffold(
-      backgroundColor: AppConstants.background,
-      appBar: _buildMobileAppBar(user),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: _buildBottomNav(),
-    );
-  }
-
-  PreferredSizeWidget _buildMobileAppBar(User? user) {
-    return AppBar(
-      backgroundColor: AppConstants.surface,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppConstants.outlineVariant),
-      ),
-      title: Row(
+      backgroundColor: AppConstants.bg(context),
+      body: Column(
         children: [
-          Icon(Icons.school, color: AppConstants.primary, size: 24),
-          const SizedBox(width: 8),
-          Text(
-            'QuizMaster Pro',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppConstants.primary,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        // Avatar + menu
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: GestureDetector(
-            onTap: () => _showMobileMenu(),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppConstants.primary,
-              child: Text(
-                _getInitials(user),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+          // Mobile Top Nav (đồng bộ hoàn toàn với màn hình chọn lớp)
+          SafeArea(
+            bottom: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppConstants.surf(context),
+                border: Border(
+                    bottom: BorderSide(color: AppConstants.border(context))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      // Nút đổi lớp học ở góc trái trên cùng
+                      InkWell(
+                        onTap: _navigateToClassList,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: AppConstants.surfHigh(context),
+                            borderRadius: BorderRadius.circular(8),
+                            border:
+                                Border.all(color: AppConstants.border(context)),
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: AppConstants.txt(context),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.school,
+                          color: AppConstants.brand(context), size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'QuizMaster Pro',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppConstants.brand(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      // Nút đăng xuất đồng bộ với màn hình ngoài
+                      GestureDetector(
+                        onTap: _handleLogout,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppConstants.errorContainer
+                                .withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.logout_rounded,
+                              color: AppConstants.error, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => _showMobileMenu(),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppConstants.brand(context),
+                          child: Text(
+                            _getInitials(user),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ],
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(top: BorderSide(color: AppConstants.outlineVariant)),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(top: BorderSide(color: AppConstants.border(context))),
       ),
       child: SafeArea(
         child: SizedBox(
@@ -393,7 +438,7 @@ class StudentPanelState extends State<StudentPanel> {
               _buildBottomNavItem(
                 icon: Icons.dashboard_outlined,
                 iconFill: Icons.dashboard,
-                label: 'Home',
+                label: 'Trang chủ',
                 index: 0,
               ),
               _buildBottomNavItem(
@@ -407,13 +452,6 @@ class StudentPanelState extends State<StudentPanel> {
                 iconFill: Icons.history_edu,
                 label: 'Lịch sử',
                 index: 2,
-              ),
-              _buildBottomNavItem(
-                icon: Icons.logout_outlined,
-                iconFill: Icons.logout,
-                label: 'Thoát',
-                index: -1, // Special
-                onTap: _handleLogout,
               ),
             ],
           ),
@@ -430,11 +468,9 @@ class StudentPanelState extends State<StudentPanel> {
     VoidCallback? onTap,
   }) {
     final isSelected = _selectedIndex == index;
-    final color = index == -1
-        ? AppConstants.error
-        : isSelected
-            ? AppConstants.primary
-            : AppConstants.onSurfaceVariant;
+    final color = isSelected
+        ? AppConstants.brand(context)
+        : AppConstants.txtMuted(context);
 
     return Expanded(
       child: Material(
@@ -449,15 +485,16 @@ class StudentPanelState extends State<StudentPanel> {
             children: [
               if (isSelected && index >= 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppConstants.primary.withValues(alpha: 0.12),
+                    color: AppConstants.brand(context).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(iconFill, color: color, size: 22),
                 )
               else
-                Icon(index == -1 && isSelected ? iconFill : icon, color: color, size: 22),
+                Icon(icon, color: color, size: 22),
               const SizedBox(height: 2),
               Text(
                 label,
@@ -481,7 +518,7 @@ class StudentPanelState extends State<StudentPanel> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: AppConstants.surface,
+      backgroundColor: AppConstants.surf(context),
       builder: (context) {
         final user = _auth.currentUser;
         return SafeArea(
@@ -516,7 +553,7 @@ class StudentPanelState extends State<StudentPanel> {
                         children: [
                           Text(
                             user?.displayName ?? widget.studentId,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
                               color: AppConstants.onSurface,
@@ -524,7 +561,7 @@ class StudentPanelState extends State<StudentPanel> {
                           ),
                           Text(
                             widget.className,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppConstants.onSurfaceVariant,
                             ),
@@ -535,18 +572,18 @@ class StudentPanelState extends State<StudentPanel> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Divider(color: AppConstants.outlineVariant),
+                Divider(color: AppConstants.outlineVariant),
                 ListTile(
-                  leading: const Icon(Icons.arrow_back, color: AppConstants.onSurfaceVariant),
-                  title: const Text('Đổi lớp', style: TextStyle(color: AppConstants.onSurface)),
+                  leading: Icon(Icons.arrow_back, color: AppConstants.onSurfaceVariant),
+                  title: Text('Đổi lớp', style: TextStyle(color: AppConstants.onSurface)),
                   onTap: () {
                     Navigator.pop(context);
                     _navigateToClassList();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: AppConstants.error),
-                  title: const Text('Đăng xuất', style: TextStyle(color: AppConstants.error)),
+                  leading: Icon(Icons.logout_rounded, color: AppConstants.error),
+                  title: Text('Đăng xuất', style: TextStyle(color: AppConstants.error)),
                   onTap: () {
                     Navigator.pop(context);
                     _handleLogout();
