@@ -9,11 +9,15 @@ import '../../utils/helpers.dart';
 class DashboardPage extends StatelessWidget {
   final String studentId;
   final String classId;
+  final String? className;
+  final VoidCallback? onNavigateToQuizList;
 
   const DashboardPage({
     Key? key,
     required this.studentId,
     required this.classId,
+    this.className,
+    this.onNavigateToQuizList,
   }) : super(key: key);
 
   @override
@@ -37,7 +41,12 @@ class DashboardPage extends StatelessWidget {
             }
 
             final completedQuizIds = submissionSnapshot.data!.docs
-                .map((doc) => (doc.data() as Map<String, dynamic>)['quizId'] as String)
+                .map((doc) {
+                  final data = doc.data() as Map<String, dynamic>?;
+                  return data?['quizId']?.toString();
+                })
+                .where((id) => id != null && id.isNotEmpty)
+                .cast<String>()
                 .toSet();
 
             final availableQuizDocs = quizSnapshot.data!.docs
@@ -66,6 +75,10 @@ class DashboardPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Banner tên lớp học
+                      _buildClassBanner(context),
+                      const SizedBox(height: 16),
+
                       // Welcome Header
                       _buildWelcomeHeader(context, firstName),
                       const SizedBox(height: 32),
@@ -79,7 +92,7 @@ class DashboardPage extends StatelessWidget {
                               children: [
                                 Expanded(child: _buildStatCard(
                                   context: context,
-                                  title: 'TOTAL EXAMS TAKEN',
+                                  title: 'TỔNG BÀI THI ĐÃ LÀM',
                                   value: totalCompleted.toString(),
                                   icon: Icons.assignment_turned_in_outlined,
                                   iconBgColor: AppConstants.primary.withValues(alpha: 0.1),
@@ -88,7 +101,7 @@ class DashboardPage extends StatelessWidget {
                                 const SizedBox(width: 20),
                                 Expanded(child: _buildStatCard(
                                   context: context,
-                                  title: 'AVERAGE SCORE',
+                                  title: 'ĐIỂM TRUNG BÌNH',
                                   value: '$avgScore%',
                                   icon: Icons.analytics_outlined,
                                   iconBgColor: AppConstants.secondary.withValues(alpha: 0.1),
@@ -106,7 +119,7 @@ class DashboardPage extends StatelessWidget {
                               children: [
                                 _buildStatCard(
                                   context: context,
-                                  title: 'TOTAL EXAMS TAKEN',
+                                  title: 'TỔNG BÀI THI ĐÃ LÀM',
                                   value: totalCompleted.toString(),
                                   icon: Icons.assignment_turned_in_outlined,
                                   iconBgColor: AppConstants.primary.withValues(alpha: 0.1),
@@ -115,7 +128,7 @@ class DashboardPage extends StatelessWidget {
                                 const SizedBox(height: 16),
                                 _buildStatCard(
                                   context: context,
-                                  title: 'AVERAGE SCORE',
+                                  title: 'ĐIỂM TRUNG BÌNH',
                                   value: '$avgScore%',
                                   icon: Icons.analytics_outlined,
                                   iconBgColor: AppConstants.secondary.withValues(alpha: 0.1),
@@ -174,6 +187,57 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
+  // ==================== Class Banner ====================
+
+  Widget _buildClassBanner(BuildContext context) {
+    final name = className?.isNotEmpty == true ? className! : 'Lớp học';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppConstants.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppConstants.onSurface,
+                ),
+                children: [
+                  const TextSpan(
+                    text: 'Bạn đang ở lớp học: ',
+                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                  ),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppConstants.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== Welcome ====================
 
   Widget _buildWelcomeHeader(BuildContext context, String firstName) {
@@ -181,7 +245,7 @@ class DashboardPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Welcome back, $firstName!',
+          'Chào mừng trở lại, $firstName!',
           style: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 28,
@@ -192,7 +256,7 @@ class DashboardPage extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          "Here's an overview of your academic progress today.",
+          "Tổng quan về tiến độ học tập của bạn hôm nay.",
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 16,
@@ -337,7 +401,7 @@ class DashboardPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'WEEKLY GOAL',
+                      'MỤC TIÊU TUẦN',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
@@ -356,7 +420,7 @@ class DashboardPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Weekly Progress',
+                          'Tiến độ tuần',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
@@ -415,7 +479,7 @@ class DashboardPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Upcoming Exams',
+                'Bài thi sắp tới',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 20,
@@ -424,12 +488,12 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: onNavigateToQuizList,
                 child: const Text(
-                  'View All',
+                  'Xem tất cả',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppConstants.primary,
                   ),
@@ -469,7 +533,7 @@ class DashboardPage extends StatelessWidget {
                     width: cols == 2
                         ? (constraints.maxWidth - 16) / 2
                         : constraints.maxWidth,
-                    child: _buildUpcomingExamCard(context, data),
+                    child: _buildUpcomingExamCard(context, quiz.id, data),
                   );
                 }).toList(),
               );
@@ -479,69 +543,93 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildUpcomingExamCard(BuildContext context, Map<String, dynamic> data) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppConstants.surface,
+  Widget _buildUpcomingExamCard(BuildContext context, String quizId, Map<String, dynamic> data) {
+    final duration = data['duration'] ?? 0;
+    final questionCount = data['questionCount'] ?? 0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onNavigateToQuizList,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        hoverColor: AppConstants.primary.withValues(alpha: 0.04),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppConstants.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppConstants.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppConstants.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  'QUIZ / EXAM',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppConstants.primary,
-                    letterSpacing: 0.5,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: const Text(
+                      'BÀI THI',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppConstants.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
-                ),
+                  const Icon(Icons.arrow_forward_rounded, color: AppConstants.onSurfaceVariant, size: 20),
+                ],
               ),
-              const Icon(Icons.science_outlined, color: AppConstants.onSurfaceVariant, size: 22),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            data['title'] ?? 'Bài thi',
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppConstants.onSurface,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.schedule_outlined, size: 14, color: AppConstants.onSurfaceVariant),
-              const SizedBox(width: 6),
+              const SizedBox(height: 12),
               Text(
-                'Available now',
+                data['title'] ?? 'Bài thi',
                 style: const TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 12,
-                  color: AppConstants.onSurfaceVariant,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppConstants.onSurface,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.schedule_outlined, size: 14, color: AppConstants.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    duration > 0 ? '$duration phút' : 'Có thể làm ngay',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppConstants.onSurfaceVariant,
+                    ),
+                  ),
+                  if (questionCount > 0) ...[
+                    const SizedBox(width: 12),
+                    const Icon(Icons.format_list_bulleted, size: 14, color: AppConstants.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$questionCount câu',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppConstants.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -555,7 +643,7 @@ class DashboardPage extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(bottom: 12),
           child: Text(
-            'Recent Activity',
+            'Hoạt động gần đây',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
@@ -645,7 +733,7 @@ class DashboardPage extends StatelessWidget {
                               color: AppConstants.onSurface,
                             ),
                             children: [
-                              const TextSpan(text: 'Completed '),
+                              const TextSpan(text: 'Đã hoàn thành '),
                               TextSpan(
                                 text: data['quizTitle'] ?? 'Bài thi',
                                 style: const TextStyle(fontWeight: FontWeight.w700),
@@ -657,7 +745,7 @@ class DashboardPage extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              'Score: $percentage%',
+                              'Điểm: $percentage%',
                               style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
@@ -695,7 +783,7 @@ class DashboardPage extends StatelessWidget {
       final parts = user.displayName!.trim().split(' ');
       return parts.last; // Vietnamese names: last part is first name
     }
-    return 'Student';
+    return 'Học sinh';
   }
 
   Widget _buildErrorWidget(dynamic error) {

@@ -1036,9 +1036,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           // Columns: B=Số thẻ SV (1), C=Họ tên SV (2), E=Số điện thoại (4)
           // D=Lớp sinh hoạt (3) - optional
 
-          final studentIdStr = row[1]?.value?.toString().trim() ?? '';
-          final name = row[2]?.value?.toString().trim() ?? '';
-          final phone = row[4]?.value?.toString().trim() ?? '';
+          final studentIdStr = (row[1]?.value?.toString() ?? '').trim();
+          final name = (row[2]?.value?.toString() ?? '').trim();
+          final phone = (row[4]?.value?.toString() ?? '').trim();
 
           if (studentIdStr.isEmpty || name.isEmpty) {
             errorCount++;

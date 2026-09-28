@@ -6,15 +6,70 @@ import '../../utils/constants.dart';
 class HistoryPage extends StatefulWidget {
   final String studentId;
   final String classId;
+  final String? className;
 
-  const HistoryPage({Key? key, required this.studentId, required this.classId})
-      : super(key: key);
+  const HistoryPage({
+    Key? key,
+    required this.studentId,
+    required this.classId,
+    this.className,
+  }) : super(key: key);
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
 class _HistoryPageState extends State<HistoryPage> {
+  Widget _buildClassBanner(BuildContext context) {
+    final name = widget.className?.isNotEmpty == true ? widget.className! : 'Lớp học';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppConstants.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppConstants.onSurface,
+                ),
+                children: [
+                  const TextSpan(
+                    text: 'Bạn đang ở lớp học: ',
+                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                  ),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppConstants.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -27,8 +82,9 @@ class _HistoryPageState extends State<HistoryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildClassBanner(context),
               const Text(
-                'Exam History',
+                'Lịch sử làm bài thi',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 24,
@@ -127,6 +183,8 @@ class _HistoryPageState extends State<HistoryPage> {
                   final score = data['score'] ?? 0;
                   final total = data['totalQuestions'] ?? 1;
                   final percentage = (score / total * 100);
+                  final score10 = total > 0 ? (score / total * 10) : 0.0;
+                  final score10Text = score10.toStringAsFixed(score10 % 1 == 0 ? 0 : 1);
                   final scoreColor = _getScoreColor(percentage);
 
                   return Container(
@@ -167,12 +225,12 @@ class _HistoryPageState extends State<HistoryPage> {
                                       ),
                                     ),
                                     Text(
-                                      '$score/$total',
+                                      '$score10Text đ',
                                       style: TextStyle(
                                         fontFamily: 'Inter',
-                                        color: scoreColor.withValues(alpha: 0.7),
+                                        color: scoreColor.withValues(alpha: 0.85),
                                         fontSize: 10,
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
@@ -434,6 +492,10 @@ class _DetailDialog extends StatelessWidget {
     final score = submission['score'] ?? 0;
     final total = submission['totalQuestions'] ?? 1;
     final percentage = (score / total * 100);
+    final double score10 = total > 0 ? (score / total * 10) : 0.0;
+    final String score10Str =
+        score10.toStringAsFixed(score10 % 1 == 0 ? 1 : 2);
+    final int answeredCount = studentAnswers.length;
     final timeSpent = submission['timeSpent'] ?? 0;
     final scoreColor = _getScoreColor(percentage);
 
@@ -511,17 +573,17 @@ class _DetailDialog extends StatelessWidget {
               child: Row(
                 children: [
                   _buildStatChip(
-                    icon: Icons.check_circle_outline,
-                    value: score is double ? score.toStringAsFixed(1) : '$score',
-                    label: 'Số câu đúng',
+                    icon: Icons.stars_rounded,
+                    value: '$score10Str / 10',
+                    label: 'Điểm số',
                     color: AppConstants.secondary,
                   ),
                   const SizedBox(width: 12),
                   _buildStatChip(
-                    icon: Icons.cancel_outlined,
-                    value: '${total - (score is double ? score.round() : score as int)}',
-                    label: 'Sai',
-                    color: AppConstants.error,
+                    icon: Icons.task_alt_outlined,
+                    value: '$answeredCount/$total',
+                    label: 'Đã hoàn thành',
+                    color: AppConstants.primary,
                   ),
                   const SizedBox(width: 12),
                   _buildStatChip(
@@ -555,10 +617,94 @@ class _DetailDialog extends StatelessWidget {
 
             // Content
             Expanded(
-              child: allowViewDetail ? _buildQuestionsList() : _buildHiddenMessage(),
+              child: allowViewDetail
+                  ? Column(
+                      children: [
+                        _buildLegendBar(),
+                        Expanded(child: _buildQuestionsList()),
+                      ],
+                    )
+                  : _buildHiddenMessage(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLegendBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Text(
+            'Chú thích:',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppConstants.onSurfaceVariant,
+            ),
+          ),
+          _buildLegendChip(
+            color: const Color(0xFF2E7D32),
+            bgColor: const Color(0xFFE8F5E9),
+            icon: Icons.check_circle,
+            label: 'Bạn chọn đúng',
+          ),
+          _buildLegendChip(
+            color: const Color(0xFFD32F2F),
+            bgColor: const Color(0xFFFFEDED),
+            icon: Icons.cancel,
+            label: 'Bạn chọn sai',
+          ),
+          _buildLegendChip(
+            color: const Color(0xFFE65100),
+            bgColor: const Color(0xFFFFF8E1),
+            icon: Icons.info,
+            label: 'Đáp án đúng (chưa chọn)',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendChip({
+    required Color color,
+    required Color bgColor,
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -662,12 +808,27 @@ class _DetailDialog extends StatelessWidget {
         final questionId = questionDoc.id;
         final rawCorrect = questionData['correctAnswer'];
         final rawStudent = studentAnswers[questionId];
+        final isMultiple = rawCorrect is List;
 
-        final bool isCorrect = _checkAnswerCorrect(rawCorrect, rawStudent);
-        final borderColor = isCorrect ? AppConstants.secondary : AppConstants.error;
-        final bgColor = isCorrect
+        final double earnedScore = _calculateQuestionScore(rawCorrect, rawStudent);
+        final bool isFullyCorrect = earnedScore >= 0.99;
+        final bool isPartiallyCorrect = earnedScore > 0 && earnedScore < 0.99;
+
+        final Color borderColor = isFullyCorrect
+            ? AppConstants.secondary
+            : (isPartiallyCorrect
+                ? const Color(0xFFE65100)
+                : AppConstants.error);
+        final Color bgColor = isFullyCorrect
             ? const Color(0xFFEDF7ED)
-            : const Color(0xFFFFEDED);
+            : (isPartiallyCorrect
+                ? const Color(0xFFFFF8E1)
+                : const Color(0xFFFFEDED));
+        final IconData statusIcon = isFullyCorrect
+            ? Icons.check_circle_rounded
+            : (isPartiallyCorrect
+                ? Icons.warning_amber_rounded
+                : Icons.cancel_rounded);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
@@ -704,6 +865,25 @@ class _DetailDialog extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (isMultiple) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppConstants.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Nhiều đáp án',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: AppConstants.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -716,8 +896,32 @@ class _DetailDialog extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    // Điểm số nhận được cho câu này
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: borderColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        earnedScore == 1.0
+                            ? '+1.0 điểm'
+                            : (earnedScore == 0.0
+                                ? '+0.0 điểm'
+                                : '+${earnedScore.toStringAsFixed(2)} điểm'),
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: borderColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Icon(
-                      isCorrect ? Icons.check_circle_outline : Icons.cancel_outlined,
+                      statusIcon,
                       color: borderColor,
                       size: 20,
                     ),
@@ -729,7 +933,8 @@ class _DetailDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: () {
-                    final options = questionData['options'] as List? ?? [];
+                    final rawOptions = questionData['options'];
+                    final options = rawOptions is List ? rawOptions : [];
                     return List.generate(options.length, (i) {
                       final letter = String.fromCharCode(65 + i);
                       final bool isCorrectOption = _isCorrectOption(rawCorrect, letter);
@@ -738,24 +943,112 @@ class _DetailDialog extends StatelessWidget {
                       Color optBg = AppConstants.surface;
                       Color optBorder = AppConstants.outlineVariant;
                       Color optText = AppConstants.onSurface;
+                      Color badgeColor = AppConstants.surfaceContainerHigh;
+                      Color badgeTextColor = AppConstants.onSurfaceVariant;
+                      Widget? statusBadge;
 
-                      if (isCorrectOption) {
+                      if (isStudentSelected && isCorrectOption) {
+                        // 1. Sinh viên chọn ĐÚNG: Xanh lá
                         optBg = const Color(0xFFEDF7ED);
-                        optBorder = AppConstants.secondary;
-                        optText = AppConstants.secondary;
-                      } else if (isStudentSelected) {
+                        optBorder = const Color(0xFF2E7D32);
+                        optText = const Color(0xFF1B5E20);
+                        badgeColor = const Color(0xFF2E7D32);
+                        badgeTextColor = Colors.white;
+                        statusBadge = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC8E6C9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check, size: 13, color: Color(0xFF1B5E20)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Bạn đã chọn (Đúng)',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1B5E20),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else if (isStudentSelected && !isCorrectOption) {
+                        // 2. Sinh viên chọn SAI: Đỏ
                         optBg = const Color(0xFFFFEDED);
-                        optBorder = AppConstants.error;
-                        optText = AppConstants.error;
+                        optBorder = const Color(0xFFD32F2F);
+                        optText = const Color(0xFFC62828);
+                        badgeColor = const Color(0xFFD32F2F);
+                        badgeTextColor = Colors.white;
+                        statusBadge = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFCDD2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close, size: 13, color: Color(0xFFC62828)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Bạn đã chọn (Sai)',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFC62828),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else if (!isStudentSelected && isCorrectOption) {
+                        // 3. Đáp án ĐÚNG mà sinh viên CHƯA CHỌN / BỎ SÓT: Vàng/Cam
+                        optBg = const Color(0xFFFFF8E1);
+                        optBorder = const Color(0xFFFFA000);
+                        optText = const Color(0xFFB78103);
+                        badgeColor = const Color(0xFFFFA000);
+                        badgeTextColor = Colors.white;
+                        statusBadge = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFECB3),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.info_outline, size: 13, color: Color(0xFF8F6B00)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Đáp án đúng (Chưa chọn)',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF8F6B00),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
                       }
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: optBg,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: optBorder),
+                          border: Border.all(
+                            color: optBorder,
+                            width: statusBadge != null ? 1.5 : 1.0,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -763,39 +1056,40 @@ class _DetailDialog extends StatelessWidget {
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(
-                                color: isCorrectOption
-                                    ? AppConstants.secondary
-                                    : isStudentSelected
-                                        ? AppConstants.error
-                                        : AppConstants.surfaceContainerHigh,
-                                shape: BoxShape.circle,
+                                color: badgeColor,
+                                shape: isMultiple ? BoxShape.rectangle : BoxShape.circle,
+                                borderRadius: isMultiple ? BorderRadius.circular(4) : null,
                               ),
                               child: Center(
                                 child: Text(
                                   letter,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    color: (isCorrectOption || isStudentSelected)
-                                        ? Colors.white
-                                        : AppConstants.onSurfaceVariant,
+                                    color: badgeTextColor,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 12,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                options[i].toString(),
+                                options[i]?.toString() ?? '',
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   color: optText,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: statusBadge != null
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
                                   fontSize: 13,
                                 ),
                               ),
                             ),
+                            if (statusBadge != null) ...[
+                              const SizedBox(width: 8),
+                              statusBadge,
+                            ],
                           ],
                         ),
                       );
@@ -816,16 +1110,27 @@ class _DetailDialog extends StatelessWidget {
     return AppConstants.error;
   }
 
-  bool _checkAnswerCorrect(dynamic correct, dynamic student) {
-    if (student == null) return false;
-    if (correct is List) {
-      if (student is! List) return false;
-      final correctSet = Set.from(correct.map((e) => e.toString()));
-      final studentSet = Set.from(student.map((e) => e.toString()));
-      return correctSet.length == studentSet.length &&
-          correctSet.containsAll(studentSet);
+  double _calculateQuestionScore(dynamic rawCorrect, dynamic rawStudent) {
+    if (rawStudent == null) return 0.0;
+    if (rawCorrect is List) {
+      final correctList = List<String>.from(rawCorrect.map((e) => e.toString()));
+      final studentList = rawStudent is List
+          ? List<String>.from(rawStudent.map((e) => e.toString()))
+          : [rawStudent.toString()];
+      if (correctList.isEmpty) return 0.0;
+      double unitScore = 1.0 / correctList.length;
+      double penaltyScore = 2.0 * unitScore;
+      double score = 0.0;
+      for (var ans in studentList) {
+        if (correctList.contains(ans)) {
+          score += unitScore;
+        } else {
+          score -= penaltyScore;
+        }
+      }
+      return score < 0 ? 0.0 : score;
     } else {
-      return student.toString() == correct.toString();
+      return (rawStudent.toString() == rawCorrect.toString()) ? 1.0 : 0.0;
     }
   }
 

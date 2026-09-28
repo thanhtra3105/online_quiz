@@ -21,6 +21,14 @@ class ClassListPage extends StatefulWidget {
 class _ClassListPageState extends State<ClassListPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   int _selectedIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   // Cycle through a set of subject icons
   static const List<IconData> _subjectIcons = [
@@ -422,6 +430,13 @@ class _ClassListPageState extends State<ClassListPage> {
         }
 
         final classes = snapshot.data!;
+        final filteredClasses = classes.where((classData) {
+          if (_searchQuery.trim().isEmpty) return true;
+          final query = _searchQuery.toLowerCase().trim();
+          final name = (classData['name'] ?? '').toString().toLowerCase();
+          final desc = (classData['description'] ?? '').toString().toLowerCase();
+          return name.contains(query) || desc.contains(query);
+        }).toList();
 
         return SingleChildScrollView(
           padding: EdgeInsets.all(isDesktop ? 24 : 16),
@@ -457,32 +472,82 @@ class _ClassListPageState extends State<ClassListPage> {
                             color: AppConstants.onSurfaceVariant,
                           ),
                         ),
+                        const SizedBox(height: 20),
+
+                        // Thanh tìm kiếm lớp học
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppConstants.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppConstants.outlineVariant),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (val) {
+                              setState(() {
+                                _searchQuery = val;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm lớp học theo tên hoặc mô tả...',
+                              hintStyle: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                color: AppConstants.onSurfaceVariant,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                color: AppConstants.onSurfaceVariant,
+                                size: 22,
+                              ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() {
+                                          _searchQuery = '';
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                  // Bento Grid
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cols = constraints.maxWidth > 520 ? 2 : 1;
-                      return Wrap(
-                        spacing: 24,
-                        runSpacing: 24,
-                        children: classes.asMap().entries.map((entry) {
-                          final i = entry.key;
-                          final classData = entry.value;
-                          final classId = classData['id'] as String;
-                          return SizedBox(
-                            width: cols == 2
-                                ? (constraints.maxWidth - 24) / 2
-                                : constraints.maxWidth,
-                            child: _buildClassCard(
-                                context, classId, classData, i),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
+                  // Bento Grid hoặc thông báo rỗng khi tìm kiếm
+                  if (filteredClasses.isEmpty)
+                    _buildSearchEmptyState(context)
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cols = constraints.maxWidth > 520 ? 2 : 1;
+                        return Wrap(
+                          spacing: 24,
+                          runSpacing: 24,
+                          children: filteredClasses.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final classData = entry.value;
+                            final classId = classData['id'] as String;
+                            return SizedBox(
+                              width: cols == 2
+                                  ? (constraints.maxWidth - 24) / 2
+                                  : constraints.maxWidth,
+                              child: _buildClassCard(
+                                  context, classId, classData, i),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -728,6 +793,60 @@ class _ClassListPageState extends State<ClassListPage> {
                 color: AppConstants.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: AppConstants.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: AppConstants.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Không tìm thấy lớp học',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppConstants.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Không có lớp học nào phù hợp với từ khóa "$_searchQuery".',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: AppConstants.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Xem tất cả lớp học'),
             ),
           ],
         ),

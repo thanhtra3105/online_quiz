@@ -34,9 +34,22 @@ class StudentPanelState extends State<StudentPanel> {
   void initState() {
     super.initState();
     _pages = [
-      DashboardPage(studentId: widget.studentId, classId: widget.classId),
-      QuizListPage(studentId: widget.studentId, classId: widget.classId),
-      HistoryPage(studentId: widget.studentId, classId: widget.classId),
+      DashboardPage(
+        studentId: widget.studentId,
+        classId: widget.classId,
+        className: widget.className,
+        onNavigateToQuizList: () => setState(() => _selectedIndex = 1),
+      ),
+      QuizListPage(
+        studentId: widget.studentId,
+        classId: widget.classId,
+        className: widget.className,
+      ),
+      HistoryPage(
+        studentId: widget.studentId,
+        classId: widget.classId,
+        className: widget.className,
+      ),
     ];
   }
 

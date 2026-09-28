@@ -604,13 +604,21 @@ class ResultDetailPage extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${_formatScore(earnedScore)} pts',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: statusColor,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  '+${_formatScore(earnedScore)} điểm',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
                 ),
               ),
             ],
@@ -636,31 +644,112 @@ class ResultDetailPage extends StatelessWidget {
             Color optBg = AppConstants.surface;
             Color optBorder = AppConstants.outlineVariant;
             Color optText = AppConstants.onSurface;
-            IconData? optIcon;
+            Color badgeColor = AppConstants.surfaceContainerHigh;
+            Color badgeTextColor = AppConstants.onSurfaceVariant;
+            Widget? statusBadge;
 
-            if (isCorrectOption) {
+            if (isUserSelected && isCorrectOption) {
+              // 1. Sinh viên chọn ĐÚNG: Xanh lá
               optBg = const Color(0xFFEDF7ED);
-              optBorder = AppConstants.secondary;
-              optText = AppConstants.secondary;
-              optIcon = Icons.check_circle_outline;
-            }
-            if (isUserSelected && !isCorrectOption) {
+              optBorder = const Color(0xFF2E7D32);
+              optText = const Color(0xFF1B5E20);
+              badgeColor = const Color(0xFF2E7D32);
+              badgeTextColor = Colors.white;
+              statusBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC8E6C9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: 13, color: Color(0xFF1B5E20)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Bạn đã chọn (Đúng)',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1B5E20),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            } else if (isUserSelected && !isCorrectOption) {
+              // 2. Sinh viên chọn SAI: Đỏ
               optBg = const Color(0xFFFFEDED);
-              optBorder = AppConstants.error;
-              optText = AppConstants.error;
-              optIcon = Icons.cancel_outlined;
+              optBorder = const Color(0xFFD32F2F);
+              optText = const Color(0xFFC62828);
+              badgeColor = const Color(0xFFD32F2F);
+              badgeTextColor = Colors.white;
+              statusBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFCDD2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.close, size: 13, color: Color(0xFFC62828)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Bạn đã chọn (Sai)',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC62828),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            } else if (!isUserSelected && isCorrectOption) {
+              // 3. Đáp án ĐÚNG mà sinh viên CHƯA CHỌN / BỎ SÓT: Vàng/Cam
+              optBg = const Color(0xFFFFF8E1);
+              optBorder = const Color(0xFFFFA000);
+              optText = const Color(0xFFB78103);
+              badgeColor = const Color(0xFFFFA000);
+              badgeTextColor = Colors.white;
+              statusBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFECB3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline, size: 13, color: Color(0xFF8F6B00)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Đáp án đúng (Chưa chọn)',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF8F6B00),
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: optBg,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: optBorder,
-                    width: (isCorrectOption || isUserSelected) ? 1.5 : 1),
+                  color: optBorder,
+                  width: statusBadge != null ? 1.5 : 1,
+                ),
               ),
               child: Row(
                 children: [
@@ -668,11 +757,7 @@ class ResultDetailPage extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: isCorrectOption
-                          ? AppConstants.secondary
-                          : isUserSelected
-                              ? AppConstants.error
-                              : AppConstants.surfaceContainerHigh,
+                      color: badgeColor,
                       shape: isMultiple ? BoxShape.rectangle : BoxShape.circle,
                       borderRadius: isMultiple ? BorderRadius.circular(6) : null,
                     ),
@@ -681,9 +766,7 @@ class ResultDetailPage extends StatelessWidget {
                         letter,
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          color: (isCorrectOption || isUserSelected)
-                              ? Colors.white
-                              : AppConstants.onSurfaceVariant,
+                          color: badgeTextColor,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),
@@ -698,14 +781,16 @@ class ResultDetailPage extends StatelessWidget {
                         fontFamily: 'Inter',
                         fontSize: 14,
                         color: optText,
-                        fontWeight: (isCorrectOption || isUserSelected)
+                        fontWeight: statusBadge != null
                             ? FontWeight.w600
                             : FontWeight.normal,
                       ),
                     ),
                   ),
-                  if (optIcon != null)
-                    Icon(optIcon, color: optBorder, size: 18),
+                  if (statusBadge != null) ...[
+                    const SizedBox(width: 8),
+                    statusBadge,
+                  ],
                 ],
               ),
             );

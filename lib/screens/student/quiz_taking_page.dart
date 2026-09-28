@@ -47,18 +47,16 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   int _maxSuspiciousActions = 5;
   bool _hasShownWarning = false;
   DateTime? _lastFocusLossTime;
-  bool _isInitialFullscreenEntry = true;
   bool _isCurrentlyAway = false;
+  bool _hasEnteredFullscreenOnce = false;
 
   // ============================================
-  // FULLSCREEN & WINDOW MONITORING VARIABLES
+  // FULLSCREEN & MONITORING VARIABLES
   // ============================================
   bool _isFullscreen = false;
   bool _isEnteringFullscreen = false;
-  Size? _initialWindowSize;
-  Timer? _windowMonitorTimer;
+  bool _isReenterDialogShowing = false;
   html.EventListener? _fullscreenChangeListener;
-  html.EventListener? _windowResizeListener;
 
   @override
   void initState() {
@@ -70,18 +68,24 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enforceFullscreen();
-      _startWindowMonitoring();
+      // Nếu sau 800ms mà trình duyệt không cho tự động fullscreen, hiện hộp thoại yêu cầu người dùng bấm vào
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted && !_isFullscreen && html.document.fullscreenElement == null) {
+          _showReenterFullscreenDialog();
+        }
+      });
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _windowMonitorTimer?.cancel();
     _pageController.dispose();
     _cleanupFullscreenListeners();
     if (_isFullscreen) {
-      html.document.exitFullscreen();
+      try {
+        html.document.exitFullscreen();
+      } catch (_) {}
     }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -118,27 +122,54 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   void _showReenterFullscreenDialog() {
+    if (_isReenterDialogShowing || !mounted || _isSubmitting) return;
+    _isReenterDialogShowing = true;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (context) => PopScope(
+        canPop: false,
         child: AlertDialog(
-          title: const Text('Vào lại chế độ fullscreen'),
-          content: const Text('Bạn phải làm bài trong chế độ fullscreen.'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.fullscreen_exit_rounded, color: Theme.of(context).colorScheme.error, size: 28),
+              const SizedBox(width: 8),
+              const Text('Yêu cầu toàn màn hình'),
+            ],
+          ),
+          content: Text(
+            _hasEnteredFullscreenOnce
+                ? 'Bạn vừa thoát khỏi chế độ toàn màn hình.\n\nĐể đảm bảo tính công bằng và chống gian lận, bạn bắt buộc phải làm bài ở chế độ toàn màn hình.'
+                : 'Bài thi yêu cầu làm trong chế độ toàn màn hình.\nVui lòng bấm nút bên dưới để bắt đầu làm bài.',
+            style: const TextStyle(fontSize: 15),
+          ),
           actions: [
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
+                _isReenterDialogShowing = false;
                 _isEnteringFullscreen = true;
-                html.document.documentElement?.requestFullscreen();
+                try {
+                  html.document.documentElement?.requestFullscreen();
+                } catch (_) {
+                  _isEnteringFullscreen = false;
+                }
               },
-              child: const Text('Vào fullscreen'),
+              icon: const Icon(Icons.fullscreen),
+              label: const Text('Vào toàn màn hình'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      _isReenterDialogShowing = false;
+    });
   }
 
   void _onFullscreenChange() {
@@ -146,16 +177,16 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     if (isCurrentlyFullscreen) {
       if (mounted) setState(() => _isFullscreen = true);
       _isEnteringFullscreen = false;
-      _isInitialFullscreenEntry = false;
-      _initialWindowSize = Size(
-        html.window.innerWidth!.toDouble(),
-        html.window.innerHeight!.toDouble(),
-      );
+      _hasEnteredFullscreenOnce = true;
     } else if (!isCurrentlyFullscreen && !_isSubmitting && !_isLoading) {
-      if (_isEnteringFullscreen && !_isFullscreen) return;
-      _isEnteringFullscreen = false;
+      if (_isEnteringFullscreen) return;
       if (mounted) setState(() => _isFullscreen = false);
-      _handleSuspiciousAction('Exited fullscreen mode');
+
+      // Nếu đã từng vào toàn màn hình mà người dùng bấm Esc hoặc F11 để thoát
+      if (_hasEnteredFullscreenOnce) {
+        _handleSuspiciousAction('Thoát chế độ toàn màn hình');
+      }
+
       if (mounted && _suspiciousActionCount < _maxSuspiciousActions) {
         _showReenterFullscreenDialog();
       }
@@ -184,68 +215,25 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   // ============================================
-  // WINDOW MONITORING LOGIC
-  // ============================================
-  void _startWindowMonitoring() {
-    _initialWindowSize = Size(
-      html.window.innerWidth!.toDouble(),
-      html.window.innerHeight!.toDouble(),
-    );
-    _windowResizeListener = (html.Event event) => _onWindowResize();
-    html.window.addEventListener('resize', _windowResizeListener!);
-    _windowMonitorTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (!_isSubmitting && !_isLoading) _checkWindowSize();
-    });
-  }
-
-  void _onWindowResize() {
-    if (_isSubmitting ||
-        _isLoading ||
-        _isEnteringFullscreen ||
-        _isInitialFullscreenEntry)
-      return;
-    _checkWindowSize();
-  }
-
-  void _checkWindowSize() {
-    if (_initialWindowSize == null ||
-        _isEnteringFullscreen ||
-        _isInitialFullscreenEntry)
-      return;
-    final isCurrentlyFullscreen = html.document.fullscreenElement != null;
-    if (!isCurrentlyFullscreen) return;
-
-    final currentSize = Size(
-      html.window.innerWidth!.toDouble(),
-      html.window.innerHeight!.toDouble(),
-    );
-    final widthDiff = (currentSize.width - _initialWindowSize!.width).abs();
-    final heightDiff = (currentSize.height - _initialWindowSize!.height).abs();
-
-    if (widthDiff > 10 || heightDiff > 10) {
-      _handleSuspiciousAction('Window resize detected');
-      _initialWindowSize = currentSize;
-    }
-  }
-
-  // ============================================
-  // LIFECYCLE LOGIC
+  // LIFECYCLE LOGIC (TAB SWITCHING / MINIMIZING)
   // ============================================
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isSubmitting || _isLoading) return;
-    if ((state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden)) {
-      if (_isEnteringFullscreen || _isInitialFullscreenEntry) return;
+    if (_isSubmitting || _isLoading || _isEnteringFullscreen) {
+      return;
+    }
+    // Chỉ bắt khi rời khỏi tab hoặc ẩn trình duyệt (không bắt inactive vì tooltip fullscreen của trình duyệt gây ra)
+    if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
       if (!_isCurrentlyAway) {
         _isCurrentlyAway = true;
-        _handleSuspiciousAction('Tab/Window switch detected');
+        _handleSuspiciousAction('Chuyển tab hoặc rời cửa sổ bài thi');
       }
     } else if (state == AppLifecycleState.resumed) {
-      if (_isEnteringFullscreen || _isInitialFullscreenEntry) return;
       _isCurrentlyAway = false;
-      if (!_isFullscreen) _enforceFullscreen();
+      final isCurrentlyFullscreen = html.document.fullscreenElement != null;
+      if (!isCurrentlyFullscreen && !_isSubmitting && mounted && _suspiciousActionCount < _maxSuspiciousActions) {
+        _showReenterFullscreenDialog();
+      }
     }
   }
 
@@ -253,10 +241,15 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // VIOLATION HANDLING
   // ============================================
   void _handleSuspiciousAction(String reason) {
+    if (_isSubmitting || _isLoading || _isEnteringFullscreen) {
+      return;
+    }
+
     final now = DateTime.now();
     if (_lastFocusLossTime != null &&
-        now.difference(_lastFocusLossTime!).inSeconds < 2)
+        now.difference(_lastFocusLossTime!).inSeconds < 2) {
       return;
+    }
     _lastFocusLossTime = now;
 
     setState(() => _suspiciousActionCount++);
@@ -267,19 +260,30 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         !_hasShownWarning) {
       _showFinalWarning();
     } else {
-      _showViolationNotification();
+      _showViolationNotification(reason);
     }
   }
 
-  void _showViolationNotification() {
+  void _showViolationNotification(String reason) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Cảnh báo vi phạm! Lần $_suspiciousActionCount/$_maxSuspiciousActions',
+        content: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Cảnh báo vi phạm! Lần $_suspiciousActionCount/$_maxSuspiciousActions: $reason',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: Colors.orange.shade700,
+        backgroundColor: Colors.orange.shade800,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -293,7 +297,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
       builder: (context) => AlertDialog(
         title: const Text('Cảnh báo cuối cùng!'),
         content: Text(
-          'Bạn đã vi phạm $_suspiciousActionCount lần. Lần tới bài thi sẽ tự nộp.',
+          'Bạn đã vi phạm $_suspiciousActionCount lần. Nếu tiếp tục rời màn hình bài thi, hệ thống sẽ tự động nộp bài.',
         ),
         actions: [
           ElevatedButton(
@@ -323,9 +327,15 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   Future<void> _submitQuizWithCheatingFlag() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
+    _timer?.cancel();
 
     try {
       double score = _calculateTotalScore();
+      final double score10 =
+          _questions.isEmpty ? 0.0 : (score / _questions.length) * 10;
+      final String formattedScore =
+          score10.toStringAsFixed(score10 % 1 == 0 ? 1 : 2);
+      final int timeSpent = (widget.duration * 60) - _secondsRemaining;
 
       await FirebaseFirestore.instance.collection('submissions').add({
         'studentId': widget.studentId,
@@ -336,30 +346,132 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         'score': score,
         'totalQuestions': _questions.length,
         'timestamp': FieldValue.serverTimestamp(),
-        'timeSpent': (widget.duration * 60) - _secondsRemaining,
+        'timeSpent': timeSpent,
         'cheatingDetected': true,
         'suspiciousActionCount': _suspiciousActionCount,
         'autoSubmitted': true,
-        'submissionReason': 'Auto-submitted due to excessive violations',
+        'submissionReason':
+            'Tự động nộp do vi phạm quy chế thi quá số lần quy định',
       });
 
       if (mounted) {
-        Navigator.pop(context);
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text('Bài thi đã nộp'),
-            content: Text(
-              'Bài thi đã tự động nộp do vi phạm. Điểm: $score/${_questions.length}',
+          builder: (dialogContext) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 44,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Bài thi đã tự động nộp',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Hệ thống tự động nộp do bạn vi phạm quy chế thi.',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: Colors.redAccent,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Điểm số đạt được',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            formattedScore,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '/ 10 điểm',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+            actionsAlignment: MainAxisAlignment.center,
             actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text('Đóng'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade800,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'Đóng và quay lại',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
             ],
           ),
@@ -373,9 +485,15 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   void _forceSubmit() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
+    _timer?.cancel();
 
     try {
       double score = _calculateTotalScore();
+      final double score10 =
+          _questions.isEmpty ? 0.0 : (score / _questions.length) * 10;
+      final String formattedScore =
+          score10.toStringAsFixed(score10 % 1 == 0 ? 1 : 2);
+      final int timeSpent = (widget.duration * 60) - _secondsRemaining;
 
       await FirebaseFirestore.instance.collection('submissions').add({
         'studentId': widget.studentId,
@@ -386,20 +504,127 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         'score': score,
         'totalQuestions': _questions.length,
         'timestamp': FieldValue.serverTimestamp(),
-        'timeSpent': (widget.duration * 60) - _secondsRemaining,
+        'timeSpent': timeSpent,
         'cheatingDetected': false,
         'suspiciousActionCount': _suspiciousActionCount,
         'autoSubmitted': false,
       });
 
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Nộp bài thành công! Điểm số: ${score.toStringAsFixed(2)}/${_questions.length}',
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.green,
+                    size: 44,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Nộp bài thành công!',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Điểm số đạt được',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        formattedScore,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        '/ 10 điểm',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Thời gian làm bài: ${_formatTime(timeSpent)}',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
             ),
-            backgroundColor: Colors.green,
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'Về danh sách bài thi',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       }
@@ -439,16 +664,19 @@ class _QuizTakingPageState extends State<QuizTakingPage>
           double unitScore = 1.0 / correctList.length;
           double penaltyScore = 2.0 * unitScore;
           for (var ans in studentList) {
-            if (correctList.contains(ans))
+            if (correctList.contains(ans)) {
               questionScore += unitScore;
-            else
+            } else {
               questionScore -= penaltyScore;
+            }
           }
         }
         if (questionScore < 0) questionScore = 0.0;
       } else {
         // Single Choice logic
-        if (rawStudent.toString() == rawCorrect.toString()) questionScore = 1.0;
+        if (rawStudent.toString() == rawCorrect.toString()) {
+          questionScore = 1.0;
+        }
       }
       totalScore += questionScore;
     }
@@ -577,17 +805,18 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   Widget build(BuildContext context) {
     final isTimeRunningOut = _secondsRemaining < 300;
 
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Bạn không thể thoát khi đang làm bài!'),
           ),
         );
-        return false;
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         endDrawer: MediaQuery.of(context).size.width <= 800 ? _buildMobileDrawer() : null,
         body: SafeArea(
           child: Column(
@@ -680,7 +909,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Q ${_currentIndex + 1} of ${_questions.length}',
+                      'Câu ${_currentIndex + 1}/${_questions.length}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.bold,
@@ -752,7 +981,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     elevation: 0,
                   ),
-                  child: const Text('End Exam'),
+                  child: const Text('Nộp bài'),
                 )
               else
                 IconButton(
@@ -802,7 +1031,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                     );
                   },
                   icon: const Icon(Icons.arrow_back, size: 20),
-                  label: const Text('Previous'),
+                  label: const Text('Câu trước'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -821,7 +1050,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                   }
                 : _confirmSubmit,
             icon: Icon(_currentIndex < _questions.length - 1 ? Icons.arrow_forward : Icons.check, size: 20),
-            label: Text(_currentIndex < _questions.length - 1 ? 'Next' : 'Submit'),
+            label: Text(_currentIndex < _questions.length - 1 ? 'Câu tiếp theo' : 'Nộp bài'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -839,7 +1068,10 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     final doc = _questions[index];
     final data = doc.data() as Map<String, dynamic>;
     final questionId = doc.id;
-    final options = List<String>.from(data['options'] ?? []);
+    final rawOptions = data['options'];
+    final List<String> options = rawOptions is List
+        ? rawOptions.map((e) => e?.toString() ?? '').toList()
+        : [];
     final isMultiple = data['correctAnswer'] is List;
 
     return SingleChildScrollView(
@@ -876,7 +1108,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
-                            'Question ${index + 1}',
+                            'Câu ${index + 1}',
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.bold,
@@ -892,7 +1124,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              'Multiple Answers',
+                              'Nhiều đáp án',
                               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.bold,
@@ -999,7 +1231,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Question Navigator',
+                'Danh sách câu hỏi',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onSurface,
@@ -1009,9 +1241,9 @@ class _QuizTakingPageState extends State<QuizTakingPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  _buildLegendItem(Theme.of(context).colorScheme.primary, 'Answered', true),
+                  _buildLegendItem(Theme.of(context).colorScheme.primary, 'Đã làm', true),
                   const SizedBox(width: 16),
-                  _buildLegendItem(Theme.of(context).colorScheme.surface, 'Unanswered', false),
+                  _buildLegendItem(Theme.of(context).colorScheme.surface, 'Chưa làm', false),
                 ],
               ),
             ],
@@ -1079,13 +1311,13 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Progress',
+                    'Tiến độ',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                   Text(
-                    '$answeredCount/${_questions.length} completed',
+                    '$answeredCount/${_questions.length} đã hoàn thành',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -1098,7 +1330,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                 width: double.infinity,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: FractionallySizedBox(
@@ -1124,7 +1356,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       elevation: 0,
                     ),
-                    child: const Text('End Exam'),
+                    child: const Text('Nộp bài'),
                   ),
                 ),
               ],

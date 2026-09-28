@@ -7,17 +7,37 @@ import '../../models/quiz_schedule_model.dart';
 import '../../utils/constants.dart';
 import 'quiz_taking_page.dart';
 
-class QuizListPage extends StatelessWidget {
+class QuizListPage extends StatefulWidget {
   final String studentId;
   final String classId;
+  final String? className;
 
-  const QuizListPage({Key? key, required this.studentId, required this.classId})
-      : super(key: key);
+  const QuizListPage({
+    Key? key,
+    required this.studentId,
+    required this.classId,
+    this.className,
+  }) : super(key: key);
+
+  @override
+  State<QuizListPage> createState() => _QuizListPageState();
+}
+
+class _QuizListPageState extends State<QuizListPage> {
+  String _selectedFilter = 'Tất cả';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseService.getClassQuizzes(classId),
+      stream: FirebaseService.getClassQuizzes(widget.classId),
       builder: (context, quizSnapshot) {
         if (quizSnapshot.hasError) {
           return _buildErrorWidget(quizSnapshot.error);
@@ -29,8 +49,8 @@ class QuizListPage extends StatelessWidget {
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseService.getStudentClassSubmissions(
-            studentId,
-            classId,
+            widget.studentId,
+            widget.classId,
           ),
           builder: (context, submissionSnapshot) {
             if (!submissionSnapshot.hasData) {
@@ -38,10 +58,12 @@ class QuizListPage extends StatelessWidget {
             }
 
             final completedQuizIds = submissionSnapshot.data!.docs
-                .map(
-                  (doc) =>
-                      (doc.data() as Map<String, dynamic>)['quizId'] as String,
-                )
+                .map((doc) {
+                  final data = doc.data() as Map<String, dynamic>?;
+                  return data?['quizId']?.toString();
+                })
+                .where((id) => id != null && id.isNotEmpty)
+                .cast<String>()
                 .toSet();
 
             // Lọc quiz: chưa hoàn thành
@@ -49,46 +71,204 @@ class QuizListPage extends StatelessWidget {
                 .where((quiz) => !completedQuizIds.contains(quiz.id))
                 .toList();
 
+            // Thu thập các môn học / chủ đề có trong bài thi của lớp
+            final detectedSubjects = <String>{};
+            for (var quiz in availableQuizzes) {
+              final data = quiz.data() as Map<String, dynamic>;
+              final rawSub = data['subject'] ?? data['category'] ?? data['topic'];
+              if (rawSub != null) {
+                final sub = rawSub.toString().trim();
+                if (sub.isNotEmpty) {
+                  detectedSubjects.add(sub);
+                }
+              }
+            }
+
+            // Danh sách bộ lọc phù hợp với học sinh / sinh viên
+            final List<String> filterList = [
+              'Tất cả',
+              'Đang mở',
+              if (detectedSubjects.isNotEmpty)
+                ...detectedSubjects
+              else ...[
+                'Toán học',
+                'Tin học',
+                'Tiếng Anh',
+                'Khoa học',
+              ],
+            ];
+
+            // Nếu bộ lọc hiện tại không còn trong danh sách, đặt lại về 'Tất cả'
+            if (!filterList.contains(_selectedFilter)) {
+              _selectedFilter = 'Tất cả';
+            }
+
+            // Áp dụng bộ lọc và từ khóa tìm kiếm cho danh sách bài thi
+            final filteredQuizzes = availableQuizzes.where((quiz) {
+              final data = quiz.data() as Map<String, dynamic>;
+              final title = (data['title'] ?? '').toString().toLowerCase();
+
+              // Lọc theo từ khóa tìm kiếm
+              if (_searchQuery.trim().isNotEmpty) {
+                final query = _searchQuery.toLowerCase().trim();
+                if (!title.contains(query)) {
+                  return false;
+                }
+              }
+
+              if (_selectedFilter == 'Tất cả') return true;
+
+              final rawSub = data['subject'] ?? data['category'] ?? data['topic'];
+              final sub = rawSub != null ? rawSub.toString().toLowerCase().trim() : '';
+
+              if (_selectedFilter == 'Đang mở') {
+                return data['status'] == null ||
+                    data['status'] == 'available' ||
+                    data['status'] == 'open';
+              }
+
+              if (_selectedFilter == 'Toán học') {
+                return sub.contains('toán') ||
+                    title.contains('toán') ||
+                    title.contains('math');
+              }
+
+              if (_selectedFilter == 'Tin học') {
+                return sub.contains('tin') ||
+                    sub.contains('lập trình') ||
+                    title.contains('tin') ||
+                    title.contains('lập trình') ||
+                    title.contains('code') ||
+                    title.contains('cntt') ||
+                    title.contains('web') ||
+                    title.contains('python') ||
+                    title.contains('java');
+              }
+
+              if (_selectedFilter == 'Tiếng Anh') {
+                return sub.contains('anh') ||
+                    sub.contains('english') ||
+                    title.contains('anh') ||
+                    title.contains('english');
+              }
+
+              if (_selectedFilter == 'Khoa học') {
+                return sub.contains('khoa học') ||
+                    sub.contains('lý') ||
+                    sub.contains('hóa') ||
+                    sub.contains('sinh') ||
+                    title.contains('khoa học') ||
+                    title.contains('vật lý') ||
+                    title.contains('hóa học') ||
+                    title.contains('sinh học') ||
+                    title.contains('lý') ||
+                    title.contains('hóa') ||
+                    title.contains('sinh');
+              }
+
+              return sub == _selectedFilter.toLowerCase() ||
+                  title.contains(_selectedFilter.toLowerCase());
+            }).toList();
+
             return Container(
-              color: Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.surface,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Page Header & Filters
+                    // Banner tên lớp học
+                    _buildClassBanner(context),
+
+                    // Tiêu đề trang & Mô tả
                     Text(
-                      'Exam Library',
+                      'Danh sách bài thi',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontWeight: FontWeight.bold,
-                      ),
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Browse and select from our comprehensive collection of practice exams to prepare for your next big test.',
+                      'Xem và chọn các bài kiểm tra, bài thi của lớp để luyện tập và hoàn thành.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Thanh tìm kiếm bài thi
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppConstants.outlineVariant),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (val) {
+                          setState(() {
+                            _searchQuery = val;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm bài thi theo tên...',
+                          hintStyle: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            color: AppConstants.onSurfaceVariant,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: AppConstants.onSurfaceVariant,
+                            size: 22,
+                          ),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    // Filter Chips (Dummy UI to match prototype)
+                    const SizedBox(height: 16),
+
+                    // Thanh bộ lọc môn học / trạng thái
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: [
-                          _buildFilterChip(context, 'All Subjects', true),
-                          _buildFilterChip(context, 'Biology', false),
-                          _buildFilterChip(context, 'Chemistry', false),
-                          _buildFilterChip(context, 'Physics', false),
-                          _buildFilterChip(context, 'Mathematics', false),
-                        ],
+                        children: filterList.map((filter) {
+                          final isSelected = _selectedFilter == filter;
+                          return _buildFilterChip(
+                            context,
+                            filter,
+                            isSelected,
+                            () {
+                              setState(() {
+                                _selectedFilter = filter;
+                              });
+                            },
+                          );
+                        }).toList(),
                       ),
                     ),
                     const SizedBox(height: 32),
 
                     if (availableQuizzes.isEmpty)
                       _buildEmptyState(context)
+                    else if (filteredQuizzes.isEmpty)
+                      _buildFilterEmptyState(context)
                     else
                       LayoutBuilder(
                         builder: (context, constraints) {
@@ -104,13 +284,13 @@ class QuizListPage extends StatelessWidget {
                           return Wrap(
                             spacing: 24,
                             runSpacing: 24,
-                            children: availableQuizzes.map((quiz) {
+                            children: filteredQuizzes.map((quiz) {
                               final quizId = quiz.id;
                               final data = quiz.data() as Map<String, dynamic>;
 
                               return FutureBuilder<QuizSchedule?>(
                                 future: QuizScheduleService.getSchedule(
-                                    classId, quizId),
+                                    widget.classId, quizId),
                                 builder: (context, scheduleSnapshot) {
                                   if (scheduleSnapshot.connectionState ==
                                       ConnectionState.waiting) {
@@ -124,7 +304,7 @@ class QuizListPage extends StatelessWidget {
                                   final canTake = _checkCanTakeQuiz(schedule);
                                   final statusInfo = _getStatusInfo(schedule);
 
-                                  // KHÔNG HIỂN THỊ NẾU ĐÃ ĐÓNG
+                                  // Không hiển thị nếu bài thi đã đóng
                                   if (schedule != null && schedule.isClosed) {
                                     return const SizedBox.shrink();
                                   }
@@ -156,13 +336,68 @@ class QuizListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterChip(BuildContext context, String label, bool isSelected) {
+  Widget _buildClassBanner(BuildContext context) {
+    final name = widget.className?.isNotEmpty == true ? widget.className! : 'Lớp học';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppConstants.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppConstants.onSurface,
+                ),
+                children: [
+                  const TextSpan(
+                    text: 'Bạn đang ở lớp học: ',
+                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                  ),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppConstants.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(
+    BuildContext context,
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: onTap,
           borderRadius: BorderRadius.circular(24),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -183,7 +418,7 @@ class QuizListPage extends StatelessWidget {
                     color: isSelected
                         ? Theme.of(context).colorScheme.onPrimary
                         : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   ),
             ),
           ),
@@ -220,10 +455,68 @@ class QuizListPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Hiện tại không có bài thi nào mới dành cho bạn.',
+              'Hiện tại không có bài thi nào mới dành cho bạn trong lớp này.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterEmptyState(BuildContext context) {
+    final isSearching = _searchQuery.trim().isNotEmpty;
+    final message = isSearching
+        ? 'Không tìm thấy bài thi nào phù hợp với từ khóa "$_searchQuery".'
+        : 'Không có bài thi nào phù hợp với bộ lọc "$_selectedFilter".';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isSearching ? Icons.search_off_rounded : Icons.filter_list_off_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Không tìm thấy bài thi',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                setState(() {
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _selectedFilter = 'Tất cả';
+                });
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Xem tất cả bài thi'),
             ),
           ],
         ),
@@ -239,8 +532,8 @@ class QuizListPage extends StatelessWidget {
     Map<String, dynamic> statusInfo,
     QuizSchedule? schedule,
   ) {
-    final statusColor = statusInfo['color'] as Color;
-    final statusText = statusInfo['text'] as String;
+    final Color statusColor = (statusInfo['color'] as Color?) ?? Colors.grey;
+    final String statusText = (statusInfo['text']?.toString()) ?? 'Chưa xác định';
 
     return Container(
       height: 220,
@@ -275,7 +568,7 @@ class QuizListPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'QUIZ / EXAM',
+                  'BÀI THI',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.bold,
@@ -285,7 +578,7 @@ class QuizListPage extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.science,
+                Icons.assignment_outlined,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 24,
               ),
@@ -304,7 +597,7 @@ class QuizListPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'A practice exam to test your knowledge.',
+            'Bài kiểm tra đánh giá kiến thức.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -333,20 +626,20 @@ class QuizListPage extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${data['questionCount'] ?? 0} Qs',
+                      '${data['questionCount'] ?? 0} câu',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                     const SizedBox(width: 12),
                     Icon(
-                      Icons.timer,
+                      Icons.timer_outlined,
                       size: 16,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${data['duration'] ?? 0}m',
+                      '${data['duration'] ?? 0} phút',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -362,7 +655,7 @@ class QuizListPage extends StatelessWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          'Start',
+                          'Bắt đầu',
                           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.bold,
@@ -411,7 +704,7 @@ class QuizListPage extends StatelessWidget {
   Map<String, dynamic> _getStatusInfo(QuizSchedule? schedule) {
     if (schedule == null) {
       return {
-        'text': 'Ready',
+        'text': 'Sẵn sàng',
         'color': Colors.green,
         'icon': Icons.check_circle_outline,
       };
@@ -420,19 +713,19 @@ class QuizListPage extends StatelessWidget {
     final now = DateTime.now();
 
     if (schedule.closeTime != null && now.isAfter(schedule.closeTime!)) {
-      return {'text': 'Closed', 'color': Colors.red, 'icon': Icons.lock};
+      return {'text': 'Đã đóng', 'color': Colors.red, 'icon': Icons.lock};
     }
 
     if (schedule.openTime != null && now.isBefore(schedule.openTime!)) {
       final timeUntil = schedule.openTime!.difference(now);
       String timeText;
       if (timeUntil.inDays > 0) {
-        timeText = 'Opens in ${timeUntil.inDays}d';
+        timeText = 'Mở sau ${timeUntil.inDays} ngày';
       } else if (timeUntil.inHours > 0) {
-        timeText = 'Opens in ${timeUntil.inHours}h';
+        timeText = 'Mở sau ${timeUntil.inHours} giờ';
       } else {
         final minutes = (timeUntil.inSeconds / 60).ceil();
-        timeText = 'Opens in ${minutes}m';
+        timeText = 'Mở sau $minutes phút';
       }
       return {'text': timeText, 'color': Colors.orange, 'icon': Icons.schedule};
     }
@@ -442,12 +735,12 @@ class QuizListPage extends StatelessWidget {
         final timeLeft = schedule.closeTime!.difference(now);
         String timeText;
         if (timeLeft.inDays > 0) {
-          timeText = '${timeLeft.inDays}d left';
+          timeText = 'Còn ${timeLeft.inDays} ngày';
         } else if (timeLeft.inHours > 0) {
-          timeText = '${timeLeft.inHours}h left';
+          timeText = 'Còn ${timeLeft.inHours} giờ';
         } else {
           final minutes = (timeLeft.inSeconds / 60).ceil();
-          timeText = '${minutes}m left';
+          timeText = 'Còn $minutes phút';
         }
         return {
           'text': timeText,
@@ -456,14 +749,14 @@ class QuizListPage extends StatelessWidget {
         };
       }
       return {
-        'text': 'Open',
+        'text': 'Đang mở',
         'color': Colors.green,
         'icon': Icons.lock_open,
       };
     }
 
     return {
-      'text': 'Scheduled',
+      'text': 'Đã lên lịch',
       'color': Colors.orange,
       'icon': Icons.schedule,
     };
@@ -478,7 +771,7 @@ class QuizListPage extends StatelessWidget {
     String quizId,
     Map<String, dynamic> data,
   ) async {
-    final canTake = await QuizScheduleService.canTakeQuiz(classId, quizId);
+    final canTake = await QuizScheduleService.canTakeQuiz(widget.classId, quizId);
 
     if (!canTake) {
       if (context.mounted) {
@@ -502,15 +795,17 @@ class QuizListPage extends StatelessWidget {
       return;
     }
 
+    if (!context.mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => QuizTakingPage(
           quizId: quizId,
-          classId: classId,
-          quizTitle: data['title'] ?? 'Quiz',
+          classId: widget.classId,
+          quizTitle: data['title'] ?? 'Bài thi',
           duration: data['duration'] ?? 30,
-          studentId: studentId,
+          studentId: widget.studentId,
         ),
       ),
     );
