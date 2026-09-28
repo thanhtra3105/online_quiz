@@ -1684,6 +1684,7 @@ limitations under the License.
 --------------------------------------------------------------------------------
 cross_file
 flutter_plugin_android_lifecycle
+google_fonts
 path_provider_android
 path_provider_foundation
 shared_preferences_android
