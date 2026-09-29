@@ -22,43 +22,44 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   Widget _buildClassBanner(BuildContext context) {
     final name = widget.className?.isNotEmpty == true ? widget.className! : 'Lớp học';
+    final brandColor = AppConstants.brand(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppConstants.primary.withValues(alpha: 0.08),
+        color: brandColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: brandColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppConstants.primary.withValues(alpha: 0.12),
+              color: brandColor.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: brandColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
                 children: [
-                  const TextSpan(
+                  TextSpan(
                     text: 'Bạn đang ở lớp học: ',
-                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                    style: TextStyle(color: AppConstants.txtMuted(context)),
                   ),
                   TextSpan(
                     text: name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: AppConstants.primary,
+                      color: brandColor,
                     ),
                   ),
                 ],
@@ -78,34 +79,34 @@ class _HistoryPageState extends State<HistoryPage> {
         Container(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
           width: double.infinity,
-          color: AppConstants.surface,
+          color: AppConstants.surf(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildClassBanner(context),
-              const Text(
+              Text(
                 'Lịch sử làm bài thi',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                   letterSpacing: -0.3,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Xem lại điểm số và chi tiết bài làm của bạn.',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  color: AppConstants.onSurfaceVariant,
+                  color: AppConstants.txtMuted(context),
                 ),
               ),
             ],
           ),
         ),
-        Container(height: 1, color: AppConstants.outlineVariant),
+        Container(height: 1, color: AppConstants.border(context)),
 
         // Submissions List
         Expanded(
@@ -143,21 +144,21 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'Không thể tải lịch sử bài làm',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppConstants.onSurface,
+                            color: AppConstants.txt(context),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '${snapshot.error}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -168,7 +169,7 @@ class _HistoryPageState extends State<HistoryPage> {
               }
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return _buildEmptyState();
+                return _buildEmptyState(context);
               }
 
               final submissions = snapshot.data!.docs;
@@ -190,9 +191,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: AppConstants.surface,
+                      color: AppConstants.surf(context),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppConstants.outlineVariant),
+                      border: Border.all(color: AppConstants.border(context)),
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -208,7 +209,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: scoreColor.withValues(alpha: 0.08),
+                                  color: scoreColor.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                   border: Border.all(color: scoreColor, width: 2.5),
                                 ),
@@ -244,11 +245,11 @@ class _HistoryPageState extends State<HistoryPage> {
                                   children: [
                                     Text(
                                       data['quizTitle'] ?? 'Bài thi',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontFamily: 'Inter',
                                         fontWeight: FontWeight.w600,
                                         fontSize: 15,
-                                        color: AppConstants.onSurface,
+                                        color: AppConstants.txt(context),
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -256,33 +257,33 @@ class _HistoryPageState extends State<HistoryPage> {
                                     const SizedBox(height: 6),
                                     Row(
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.calendar_today_outlined,
                                           size: 12,
-                                          color: AppConstants.onSurfaceVariant,
+                                          color: AppConstants.txtMuted(context),
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           _formatDate(data['timestamp']),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontFamily: 'Inter',
                                             fontSize: 12,
-                                            color: AppConstants.onSurfaceVariant,
+                                            color: AppConstants.txtMuted(context),
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        const Icon(
+                                        Icon(
                                           Icons.timer_outlined,
                                           size: 12,
-                                          color: AppConstants.onSurfaceVariant,
+                                          color: AppConstants.txtMuted(context),
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           _formatDuration(data['timeSpent'] ?? 0),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontFamily: 'Inter',
                                             fontSize: 12,
-                                            color: AppConstants.onSurfaceVariant,
+                                            color: AppConstants.txtMuted(context),
                                           ),
                                         ),
                                       ],
@@ -292,7 +293,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: scoreColor.withValues(alpha: 0.1),
+                                        color: scoreColor.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
                                       ),
@@ -310,9 +311,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                 ),
                               ),
                               // Arrow
-                              const Icon(
+                              Icon(
                                 Icons.chevron_right_rounded,
-                                color: AppConstants.onSurfaceVariant,
+                                color: AppConstants.txtMuted(context),
                                 size: 22,
                               ),
                             ],
@@ -330,7 +331,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
@@ -340,32 +341,32 @@ class _HistoryPageState extends State<HistoryPage> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppConstants.surfaceContainerHigh,
+                color: AppConstants.surfHigh(context),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.history_edu_outlined,
                 size: 56,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Chưa có bài làm nào',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Hoàn thành bài thi đầu tiên của bạn để xem lịch sử.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -501,7 +502,7 @@ class _DetailDialog extends StatelessWidget {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: AppConstants.surface,
+      backgroundColor: AppConstants.surf(context),
       child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.85,
@@ -510,22 +511,22 @@ class _DetailDialog extends StatelessWidget {
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppConstants.surfaceContainer,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+              decoration: BoxDecoration(
+                color: AppConstants.surfLow(context),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border(bottom: BorderSide(color: AppConstants.border(context))),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppConstants.primary.withValues(alpha: 0.1),
+                      color: AppConstants.brand(context).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.assignment_turned_in_outlined,
-                      color: AppConstants.primary,
+                      color: AppConstants.brand(context),
                       size: 24,
                     ),
                   ),
@@ -534,13 +535,13 @@ class _DetailDialog extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Chi tiết bài làm',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: AppConstants.onSurface,
+                            color: AppConstants.txt(context),
                           ),
                         ),
                         Text(
@@ -548,7 +549,7 @@ class _DetailDialog extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -557,7 +558,7 @@ class _DetailDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: AppConstants.onSurfaceVariant),
+                    icon: Icon(Icons.close_rounded, color: AppConstants.txtMuted(context)),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -568,11 +569,12 @@ class _DetailDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+                border: Border(bottom: BorderSide(color: AppConstants.border(context))),
               ),
               child: Row(
                 children: [
                   _buildStatChip(
+                    context: context,
                     icon: Icons.stars_rounded,
                     value: '$score10Str / 10',
                     label: 'Điểm số',
@@ -580,24 +582,26 @@ class _DetailDialog extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   _buildStatChip(
+                    context: context,
                     icon: Icons.task_alt_outlined,
                     value: '$answeredCount/$total',
                     label: 'Đã hoàn thành',
-                    color: AppConstants.primary,
+                    color: AppConstants.brand(context),
                   ),
                   const SizedBox(width: 12),
                   _buildStatChip(
+                    context: context,
                     icon: Icons.schedule_outlined,
                     value: _formatTime(timeSpent),
                     label: 'Thời gian',
-                    color: AppConstants.outline,
+                    color: AppConstants.txtMuted(context),
                   ),
                   const Spacer(),
                   // Score badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: scoreColor.withValues(alpha: 0.1),
+                      color: scoreColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
                     ),
@@ -620,11 +624,11 @@ class _DetailDialog extends StatelessWidget {
               child: allowViewDetail
                   ? Column(
                       children: [
-                        _buildLegendBar(),
-                        Expanded(child: _buildQuestionsList()),
+                        _buildLegendBar(context),
+                        Expanded(child: _buildQuestionsList(context)),
                       ],
                     )
-                  : _buildHiddenMessage(),
+                  : _buildHiddenMessage(context),
             ),
           ],
         ),
@@ -632,13 +636,14 @@ class _DetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildLegendBar() {
+  Widget _buildLegendBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
       ),
       child: Wrap(
         spacing: 16,
@@ -651,24 +656,24 @@ class _DetailDialog extends StatelessWidget {
               fontFamily: 'Inter',
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: AppConstants.onSurfaceVariant,
+              color: AppConstants.txtMuted(context),
             ),
           ),
           _buildLegendChip(
-            color: const Color(0xFF2E7D32),
-            bgColor: const Color(0xFFE8F5E9),
+            color: isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32),
+            bgColor: isDark ? const Color(0xFF1B382B) : const Color(0xFFE8F5E9),
             icon: Icons.check_circle,
             label: 'Bạn chọn đúng',
           ),
           _buildLegendChip(
-            color: const Color(0xFFD32F2F),
-            bgColor: const Color(0xFFFFEDED),
+            color: isDark ? const Color(0xFFE57373) : const Color(0xFFD32F2F),
+            bgColor: isDark ? const Color(0xFF3E1B1B) : const Color(0xFFFFEDED),
             icon: Icons.cancel,
             label: 'Bạn chọn sai',
           ),
           _buildLegendChip(
-            color: const Color(0xFFE65100),
-            bgColor: const Color(0xFFFFF8E1),
+            color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
+            bgColor: isDark ? const Color(0xFF3E2D1B) : const Color(0xFFFFF8E1),
             icon: Icons.info,
             label: 'Đáp án đúng (chưa chọn)',
           ),
@@ -710,6 +715,7 @@ class _DetailDialog extends StatelessWidget {
   }
 
   Widget _buildStatChip({
+    required BuildContext context,
     required IconData icon,
     required String value,
     required String label,
@@ -718,9 +724,9 @@ class _DetailDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -743,7 +749,7 @@ class _DetailDialog extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 10,
-                  color: AppConstants.onSurfaceVariant,
+                  color: AppConstants.txtMuted(context),
                 ),
               ),
             ],
@@ -753,7 +759,7 @@ class _DetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildHiddenMessage() {
+  Widget _buildHiddenMessage(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -763,7 +769,7 @@ class _DetailDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppConstants.errorContainer.withValues(alpha: 0.5),
+                color: AppConstants.errorContainer.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -779,7 +785,7 @@ class _DetailDialog extends StatelessWidget {
                 fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
               ),
             ),
             const SizedBox(height: 8),
@@ -789,7 +795,7 @@ class _DetailDialog extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
           ],
@@ -798,7 +804,9 @@ class _DetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildQuestionsList() {
+  Widget _buildQuestionsList(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView.builder(
       padding: const EdgeInsets.all(20),
       itemCount: questions.length,
@@ -819,11 +827,11 @@ class _DetailDialog extends StatelessWidget {
             : (isPartiallyCorrect
                 ? const Color(0xFFE65100)
                 : AppConstants.error);
-        final Color bgColor = isFullyCorrect
-            ? const Color(0xFFEDF7ED)
+        final Color headerBgColor = isFullyCorrect
+            ? (isDark ? const Color(0xFF132B1F) : const Color(0xFFEDF7ED))
             : (isPartiallyCorrect
-                ? const Color(0xFFFFF8E1)
-                : const Color(0xFFFFEDED));
+                ? (isDark ? const Color(0xFF2E2312) : const Color(0xFFFFF8E1))
+                : (isDark ? const Color(0xFF2E1515) : const Color(0xFFFFEDED)));
         final IconData statusIcon = isFullyCorrect
             ? Icons.check_circle_rounded
             : (isPartiallyCorrect
@@ -833,7 +841,7 @@ class _DetailDialog extends StatelessWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: AppConstants.surface,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor.withValues(alpha: 0.4), width: 1.5),
           ),
@@ -844,7 +852,7 @@ class _DetailDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: bgColor,
+                  color: headerBgColor,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
                 ),
                 child: Row(
@@ -870,7 +878,7 @@ class _DetailDialog extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppConstants.surfaceContainerHigh,
+                          color: AppConstants.surfHigh(context),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -879,7 +887,7 @@ class _DetailDialog extends StatelessWidget {
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                         ),
                       ),
@@ -892,7 +900,7 @@ class _DetailDialog extends StatelessWidget {
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: AppConstants.onSurface,
+                          color: AppConstants.txt(context),
                         ),
                       ),
                     ),
@@ -940,38 +948,38 @@ class _DetailDialog extends StatelessWidget {
                       final bool isCorrectOption = _isCorrectOption(rawCorrect, letter);
                       final bool isStudentSelected = _isStudentSelected(rawStudent, letter);
 
-                      Color optBg = AppConstants.surface;
-                      Color optBorder = AppConstants.outlineVariant;
-                      Color optText = AppConstants.onSurface;
-                      Color badgeColor = AppConstants.surfaceContainerHigh;
-                      Color badgeTextColor = AppConstants.onSurfaceVariant;
+                      Color optBg = isDark ? AppConstants.surfHigh(context) : AppConstants.surface;
+                      Color optBorder = AppConstants.border(context);
+                      Color optText = AppConstants.txt(context);
+                      Color badgeColor = isDark ? AppConstants.surf(context) : AppConstants.surfaceContainerHigh;
+                      Color badgeTextColor = AppConstants.txtMuted(context);
                       Widget? statusBadge;
 
                       if (isStudentSelected && isCorrectOption) {
                         // 1. Sinh viên chọn ĐÚNG: Xanh lá
-                        optBg = const Color(0xFFEDF7ED);
-                        optBorder = const Color(0xFF2E7D32);
-                        optText = const Color(0xFF1B5E20);
+                        optBg = isDark ? const Color(0xFF163322) : const Color(0xFFEDF7ED);
+                        optBorder = isDark ? const Color(0xFF388E3C) : const Color(0xFF2E7D32);
+                        optText = isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20);
                         badgeColor = const Color(0xFF2E7D32);
                         badgeTextColor = Colors.white;
                         statusBadge = Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFC8E6C9),
+                            color: isDark ? const Color(0xFF2E7D32).withValues(alpha: 0.35) : const Color(0xFFC8E6C9),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check, size: 13, color: Color(0xFF1B5E20)),
-                              SizedBox(width: 4),
+                              Icon(Icons.check, size: 13, color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20)),
+                              const SizedBox(width: 4),
                               Text(
                                 'Bạn đã chọn (Đúng)',
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1B5E20),
+                                  color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20),
                                 ),
                               ),
                             ],
@@ -979,29 +987,29 @@ class _DetailDialog extends StatelessWidget {
                         );
                       } else if (isStudentSelected && !isCorrectOption) {
                         // 2. Sinh viên chọn SAI: Đỏ
-                        optBg = const Color(0xFFFFEDED);
-                        optBorder = const Color(0xFFD32F2F);
-                        optText = const Color(0xFFC62828);
+                        optBg = isDark ? const Color(0xFF351717) : const Color(0xFFFFEDED);
+                        optBorder = isDark ? const Color(0xFFE53935) : const Color(0xFFD32F2F);
+                        optText = isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828);
                         badgeColor = const Color(0xFFD32F2F);
                         badgeTextColor = Colors.white;
                         statusBadge = Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFCDD2),
+                            color: isDark ? const Color(0xFFD32F2F).withValues(alpha: 0.35) : const Color(0xFFFFCDD2),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.close, size: 13, color: Color(0xFFC62828)),
-                              SizedBox(width: 4),
+                              Icon(Icons.close, size: 13, color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828)),
+                              const SizedBox(width: 4),
                               Text(
                                 'Bạn đã chọn (Sai)',
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFFC62828),
+                                  color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
                                 ),
                               ),
                             ],
@@ -1009,29 +1017,29 @@ class _DetailDialog extends StatelessWidget {
                         );
                       } else if (!isStudentSelected && isCorrectOption) {
                         // 3. Đáp án ĐÚNG mà sinh viên CHƯA CHỌN / BỎ SÓT: Vàng/Cam
-                        optBg = const Color(0xFFFFF8E1);
-                        optBorder = const Color(0xFFFFA000);
-                        optText = const Color(0xFFB78103);
+                        optBg = isDark ? const Color(0xFF332712) : const Color(0xFFFFF8E1);
+                        optBorder = isDark ? const Color(0xFFFB8C00) : const Color(0xFFFFA000);
+                        optText = isDark ? const Color(0xFFFFE082) : const Color(0xFFB78103);
                         badgeColor = const Color(0xFFFFA000);
                         badgeTextColor = Colors.white;
                         statusBadge = Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFECB3),
+                            color: isDark ? const Color(0xFFFFA000).withValues(alpha: 0.35) : const Color(0xFFFFECB3),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.info_outline, size: 13, color: Color(0xFF8F6B00)),
-                              SizedBox(width: 4),
+                              Icon(Icons.info_outline, size: 13, color: isDark ? const Color(0xFFFFE082) : const Color(0xFF8F6B00)),
+                              const SizedBox(width: 4),
                               Text(
                                 'Đáp án đúng (Chưa chọn)',
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF8F6B00),
+                                  color: isDark ? const Color(0xFFFFE082) : const Color(0xFF8F6B00),
                                 ),
                               ),
                             ],

@@ -567,18 +567,18 @@ class _ClassListPageState extends State<ClassListPage> {
                             fontFamily: 'Inter',
                             fontSize: isDesktop ? 36 : 24,
                             fontWeight: FontWeight.w700,
-                            color: AppConstants.onSurface,
+                            color: AppConstants.txt(context),
                             letterSpacing: -0.5,
                             height: 1.2,
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'Chọn một lớp học để bắt đầu ôn tập và làm bài kiểm tra.',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 16,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -682,6 +682,7 @@ class _ClassListPageState extends State<ClassListPage> {
     Map<String, dynamic> data,
     int index,
   ) {
+    final isDark = AppConstants.isDarkMode(context);
     final icon = _subjectIcons[index % _subjectIcons.length];
     final className = data['name'] ?? 'Lớp học';
     final description = data['description'] ?? 'Không có mô tả';
@@ -725,27 +726,33 @@ class _ClassListPageState extends State<ClassListPage> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppConstants.surfaceContainerHigh,
+                        color: isDark
+                            ? AppConstants.surfHigh(context)
+                            : AppConstants.surfaceContainerHigh,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(icon,
-                          color: AppConstants.primary, size: 24),
+                          color: AppConstants.brand(context), size: 24),
                     ),
                     // Badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEBECF0),
+                        color: isDark
+                            ? AppConstants.surfHigh(context)
+                            : const Color(0xFFEBECF0),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
                         _getClassBadge(index),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF42526E),
+                          color: isDark
+                              ? AppConstants.txt(context)
+                              : const Color(0xFF42526E),
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -757,11 +764,11 @@ class _ClassListPageState extends State<ClassListPage> {
                 // Class name
                 Text(
                   className,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.onSurface,
+                    color: AppConstants.txt(context),
                     height: 1.2,
                   ),
                   maxLines: 1,
@@ -772,10 +779,10 @@ class _ClassListPageState extends State<ClassListPage> {
                 // Description
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
-                    color: AppConstants.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                     height: 1.5,
                   ),
                   maxLines: 2,
@@ -823,8 +830,10 @@ class _ClassListPageState extends State<ClassListPage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppConstants.primary,
-                      foregroundColor: AppConstants.onPrimary,
+                      backgroundColor: isDark
+                          ? const Color(0xFF2563EB)
+                          : AppConstants.primary,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -847,24 +856,27 @@ class _ClassListPageState extends State<ClassListPage> {
   }
 
   Widget _buildStatPill({required IconData icon, required String label}) {
+    final isDark = AppConstants.isDarkMode(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppConstants.surfaceContainerLow,
+        color: isDark
+            ? AppConstants.surfHigh(context)
+            : AppConstants.surfaceContainerLow,
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppConstants.onSurfaceVariant),
+          Icon(icon, size: 13, color: AppConstants.txtMuted(context)),
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
-              color: AppConstants.onSurfaceVariant,
+              color: AppConstants.txt(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -882,33 +894,33 @@ class _ClassListPageState extends State<ClassListPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(32),
-              decoration: const BoxDecoration(
-                color: AppConstants.surfaceContainerHigh,
+              decoration: BoxDecoration(
+                color: AppConstants.surfHigh(context),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.school_outlined,
                 size: 56,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Chưa tham gia lớp học nào',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Liên hệ giáo viên để được thêm vào lớp học.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -927,33 +939,33 @@ class _ClassListPageState extends State<ClassListPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppConstants.surfaceContainerHigh,
+              decoration: BoxDecoration(
+                color: AppConstants.surfHigh(context),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.search_off_rounded,
                 size: 48,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Không tìm thấy lớp học',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Không có lớp học nào phù hợp với từ khóa "$_searchQuery".',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -973,6 +985,7 @@ class _ClassListPageState extends State<ClassListPage> {
   }
 
   Widget _buildErrorWidget(dynamic error) {
+    final isDark = AppConstants.isDarkMode(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -981,8 +994,8 @@ class _ClassListPageState extends State<ClassListPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppConstants.errorContainer,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF7F1D1D) : AppConstants.errorContainer,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -992,22 +1005,22 @@ class _ClassListPageState extends State<ClassListPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Có lỗi xảy ra',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '$error',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
               textAlign: TextAlign.center,
             ),

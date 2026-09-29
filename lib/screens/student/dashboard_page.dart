@@ -194,39 +194,39 @@ class DashboardPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppConstants.primary.withValues(alpha: 0.08),
+        color: AppConstants.brand(context).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppConstants.primary.withValues(alpha: 0.12),
+              color: AppConstants.brand(context).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: AppConstants.brand(context), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
                 children: [
-                  const TextSpan(
+                  TextSpan(
                     text: 'Bạn đang ở lớp học: ',
-                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                    style: TextStyle(color: AppConstants.txtMuted(context)),
                   ),
                   TextSpan(
                     text: name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: AppConstants.primary,
+                      color: AppConstants.brand(context),
                     ),
                   ),
                 ],
@@ -246,21 +246,21 @@ class DashboardPage extends StatelessWidget {
       children: [
         Text(
           'Chào mừng trở lại, $firstName!',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 28,
             fontWeight: FontWeight.w700,
-            color: AppConstants.onSurface,
+            color: AppConstants.txt(context),
             letterSpacing: -0.01 * 28,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           "Tổng quan về tiến độ học tập của bạn hôm nay.",
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 16,
-            color: AppConstants.onSurfaceVariant,
+            color: AppConstants.txtMuted(context),
           ),
         ),
       ],
@@ -284,9 +284,9 @@ class DashboardPage extends StatelessWidget {
       height: 160,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,11 +299,11 @@ class DashboardPage extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                     letterSpacing: 0.04 * 12,
                   ),
                 ),
@@ -324,22 +324,22 @@ class DashboardPage extends StatelessWidget {
               children: [
                 Text(
                   rawValue,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 36,
                     fontWeight: FontWeight.w700,
-                    color: AppConstants.onSurface,
+                    color: AppConstants.txt(context),
                     letterSpacing: -0.02 * 36,
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 4, left: 2),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4, left: 2),
                   child: Text(
                     '%',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 22,
-                      color: AppConstants.onSurfaceVariant,
+                      color: AppConstants.txtMuted(context),
                     ),
                   ),
                 ),
@@ -348,11 +348,11 @@ class DashboardPage extends StatelessWidget {
           else
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: AppConstants.onSurface,
+                color: AppConstants.txt(context),
                 letterSpacing: -0.02 * 36,
               ),
             ),
@@ -366,16 +366,9 @@ class DashboardPage extends StatelessWidget {
       height: 160,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppConstants.surface.withValues(alpha: 0.9),
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: AppConstants.primary.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Stack(
         children: [
@@ -387,7 +380,7 @@ class DashboardPage extends StatelessWidget {
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppConstants.primary.withValues(alpha: 0.1),
+                color: AppConstants.brand(context).withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -397,7 +390,7 @@ class DashboardPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
@@ -406,17 +399,17 @@ class DashboardPage extends StatelessWidget {
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppConstants.onSurfaceVariant,
+                        color: AppConstants.txtMuted(context),
                         letterSpacing: 0.5,
                       ),
                     ),
-                    Icon(Icons.track_changes, color: AppConstants.primary, size: 24),
+                    Icon(Icons.track_changes, color: AppConstants.brand(context), size: 24),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
@@ -424,7 +417,7 @@ class DashboardPage extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                         ),
                         Text(
@@ -433,7 +426,7 @@ class DashboardPage extends StatelessWidget {
                             fontFamily: 'Inter',
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: AppConstants.primary,
+                            color: AppConstants.brand(context),
                           ),
                         ),
                       ],
@@ -443,7 +436,7 @@ class DashboardPage extends StatelessWidget {
                       height: 8,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: AppConstants.surfaceContainerHigh,
+                        color: AppConstants.surfHigh(context),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: FractionallySizedBox(
@@ -451,7 +444,7 @@ class DashboardPage extends StatelessWidget {
                         widthFactor: 0.75,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppConstants.primary,
+                            color: AppConstants.brand(context),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -478,44 +471,44 @@ class DashboardPage extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Bài thi sắp tới',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
               ),
               TextButton(
                 onPressed: onNavigateToQuizList,
-                child: const Text(
+                child: Text(
                   'Xem tất cả',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.primary,
+                    color: AppConstants.brand(context),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Divider(color: AppConstants.outlineVariant, height: 1),
+        Divider(color: AppConstants.border(context), height: 1),
         const SizedBox(height: 16),
         if (quizDocs.isEmpty)
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppConstants.surface,
+              color: AppConstants.surf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppConstants.outlineVariant),
+              border: Border.all(color: AppConstants.border(context)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'Bạn đã hoàn thành tất cả bài thi hiện có. 🎉',
-                style: TextStyle(color: AppConstants.onSurfaceVariant),
+                style: TextStyle(color: AppConstants.txtMuted(context)),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -552,13 +545,13 @@ class DashboardPage extends StatelessWidget {
       child: InkWell(
         onTap: onNavigateToQuizList,
         borderRadius: BorderRadius.circular(12),
-        hoverColor: AppConstants.primary.withValues(alpha: 0.04),
+        hoverColor: AppConstants.brand(context).withValues(alpha: 0.04),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppConstants.surface,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppConstants.outlineVariant),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,32 +562,32 @@ class DashboardPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppConstants.surfaceContainerLow,
+                      color: AppConstants.surfHigh(context),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+                      border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.3)),
                     ),
-                    child: const Text(
+                    child: Text(
                       'BÀI THI',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: AppConstants.primary,
+                        color: AppConstants.brand(context),
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  Icon(Icons.arrow_forward_rounded, color: AppConstants.onSurfaceVariant, size: 20),
+                  Icon(Icons.arrow_forward_rounded, color: AppConstants.txtMuted(context), size: 20),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
                 data['title'] ?? 'Bài thi',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -602,26 +595,26 @@ class DashboardPage extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.schedule_outlined, size: 14, color: AppConstants.onSurfaceVariant),
+                  Icon(Icons.schedule_outlined, size: 14, color: AppConstants.txtMuted(context)),
                   const SizedBox(width: 6),
                   Text(
                     duration > 0 ? '$duration phút' : 'Có thể làm ngay',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
-                      color: AppConstants.onSurfaceVariant,
+                      color: AppConstants.txtMuted(context),
                     ),
                   ),
                   if (questionCount > 0) ...[
                     const SizedBox(width: 12),
-                    Icon(Icons.format_list_bulleted, size: 14, color: AppConstants.onSurfaceVariant),
+                    Icon(Icons.format_list_bulleted, size: 14, color: AppConstants.txtMuted(context)),
                     const SizedBox(width: 4),
                     Text(
                       '$questionCount câu',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
-                        color: AppConstants.onSurfaceVariant,
+                        color: AppConstants.txtMuted(context),
                       ),
                     ),
                   ],
@@ -640,8 +633,8 @@ class DashboardPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Text(
             'Hoạt động gần đây',
             style: TextStyle(
@@ -656,9 +649,9 @@ class DashboardPage extends StatelessWidget {
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
-            color: AppConstants.surface,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppConstants.outlineVariant),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           clipBehavior: Clip.antiAlias,
           child: _buildRecentActivityList(),
@@ -674,7 +667,7 @@ class DashboardPage extends StatelessWidget {
         if (!snapshot.hasData) {
           return Padding(
             padding: const EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator(color: AppConstants.primary)),
+            child: Center(child: CircularProgressIndicator(color: AppConstants.brand(context))),
           );
         }
 
@@ -683,9 +676,9 @@ class DashboardPage extends StatelessWidget {
             padding: const EdgeInsets.all(32),
             child: Column(
               children: [
-                Icon(Icons.history_outlined, size: 40, color: AppConstants.outlineVariant),
+                Icon(Icons.history_outlined, size: 40, color: AppConstants.txtMuted(context)),
                 const SizedBox(height: 12),
-                Text('Chưa có hoạt động', style: TextStyle(color: AppConstants.onSurfaceVariant)),
+                Text('Chưa có hoạt động', style: TextStyle(color: AppConstants.txtMuted(context))),
               ],
             ),
           );
@@ -696,7 +689,7 @@ class DashboardPage extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: snapshot.data!.docs.length,
           separatorBuilder: (_, __) =>
-              Divider(height: 1, color: AppConstants.outlineVariant),
+              Divider(height: 1, color: AppConstants.border(context)),
           itemBuilder: (context, index) {
             final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
             final score = data['score'] ?? 0;
@@ -727,10 +720,10 @@ class DashboardPage extends StatelessWidget {
                       children: [
                         RichText(
                           text: TextSpan(
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 14,
-                              color: AppConstants.onSurface,
+                              color: AppConstants.txt(context),
                             ),
                             children: [
                               const TextSpan(text: 'Đã hoàn thành '),
@@ -756,10 +749,10 @@ class DashboardPage extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               '• ${Helpers.formatDate(data['timestamp'])}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
-                                color: AppConstants.onSurfaceVariant,
+                                color: AppConstants.txtMuted(context),
                               ),
                             ),
                           ],
@@ -802,7 +795,7 @@ class DashboardPage extends StatelessWidget {
               child: Icon(Icons.error_outline, size: 48, color: AppConstants.error),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Có lỗi xảy ra',
               style: TextStyle(
                 fontFamily: 'Inter',

@@ -292,17 +292,17 @@ class _SchedulePageState extends State<SchedulePage> {
                                           fontFamily: 'Inter',
                                           fontSize: 26,
                                           fontWeight: FontWeight.w700,
-                                          color: AppConstants.onSurface,
+                                          color: AppConstants.txt(context),
                                           letterSpacing: -0.3,
                                         ),
                                       ),
-                                      SizedBox(height: 6),
+                                      const SizedBox(height: 6),
                                       Text(
                                         'Theo dõi thời gian mở đề, hạn nộp và các bài kiểm tra theo lớp.',
                                         style: TextStyle(
                                           fontFamily: 'Inter',
                                           fontSize: 14,
-                                          color: AppConstants.onSurfaceVariant,
+                                          color: AppConstants.txtMuted(context),
                                         ),
                                       ),
                                     ],
@@ -310,7 +310,7 @@ class _SchedulePageState extends State<SchedulePage> {
                                 ),
                                 IconButton(
                                   tooltip: 'Làm mới dữ liệu',
-                                  icon: Icon(Icons.refresh_rounded, color: AppConstants.primary),
+                                  icon: Icon(Icons.refresh_rounded, color: AppConstants.brand(context)),
                                   onPressed: () {
                                     setState(() => _isLoading = true);
                                     _refreshQuizzesAndEvents();
@@ -401,7 +401,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
       return _buildSection(
         icon: Icons.event_rounded,
-        iconColor: AppConstants.primary,
+        iconColor: AppConstants.brand(context),
         title: 'Sự kiện ngày $dateFormatted',
         badge: '${selectedEvents.length} mục',
         extraAction: TextButton.icon(
@@ -410,7 +410,7 @@ class _SchedulePageState extends State<SchedulePage> {
           label: const Text('Xem tất cả'),
           style: TextButton.styleFrom(
             visualDensity: VisualDensity.compact,
-            foregroundColor: AppConstants.primary,
+            foregroundColor: AppConstants.brand(context),
           ),
         ),
         child: selectedEvents.isEmpty
@@ -450,7 +450,7 @@ class _SchedulePageState extends State<SchedulePage> {
         // Today & Active section
         _buildSection(
           icon: Icons.today_rounded,
-          iconColor: AppConstants.primary,
+          iconColor: AppConstants.brand(context),
           title: 'Sự kiện hôm nay & Đang mở',
           badge: '${todayEvents.length} bài thi',
           child: todayEvents.isEmpty
@@ -510,13 +510,13 @@ class _SchedulePageState extends State<SchedulePage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        color: AppConstants.surfaceContainerLow,
+        color: AppConstants.surfHigh(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
           Icon(Icons.info_outline_rounded,
-              color: AppConstants.onSurfaceVariant, size: 20),
+              color: AppConstants.txtMuted(context), size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -524,7 +524,7 @@ class _SchedulePageState extends State<SchedulePage> {
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
-                color: AppConstants.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
           ),
@@ -544,9 +544,9 @@ class _SchedulePageState extends State<SchedulePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         children: [
@@ -563,7 +563,7 @@ class _SchedulePageState extends State<SchedulePage> {
                       fontFamily: 'Inter',
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AppConstants.onSurface,
+                      color: AppConstants.txt(context),
                     ),
                   ),
                 ],
@@ -574,7 +574,7 @@ class _SchedulePageState extends State<SchedulePage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppConstants.surfaceContainerHigh,
+                        color: AppConstants.surfHigh(context),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
@@ -583,7 +583,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppConstants.onSurface,
+                          color: AppConstants.txt(context),
                         ),
                       ),
                     ),
@@ -600,26 +600,27 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Widget _buildEventCard(ScheduleEvent event, {bool isHighlight = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final timeStr = DateFormat('HH:mm').format(event.dateTime);
     final dateStr = DateFormat('dd/MM').format(event.dateTime);
 
-    Color badgeBg = AppConstants.surfaceContainerHigh;
-    Color badgeColor = AppConstants.onSurfaceVariant;
+    Color badgeBg = AppConstants.surfHigh(context);
+    Color badgeColor = AppConstants.txtMuted(context);
     String statusText = 'Đang mở';
 
     if (event.isCompleted) {
-      badgeBg = const Color(0xFFD1FAE5);
-      badgeColor = AppConstants.secondary;
+      badgeBg = isDark ? const Color(0xFF1B382B) : const Color(0xFFD1FAE5);
+      badgeColor = isDark ? const Color(0xFF81C784) : AppConstants.secondary;
       statusText = event.score10 != null
           ? 'Đã làm (${event.score10!.toStringAsFixed(1)} đ)'
           : 'Đã hoàn thành';
     } else if (event.status == 'scheduled') {
-      badgeBg = const Color(0xFFFEF3C7);
-      badgeColor = const Color(0xFFD97706);
+      badgeBg = isDark ? const Color(0xFF3E2D1B) : const Color(0xFFFEF3C7);
+      badgeColor = isDark ? const Color(0xFFFFB74D) : const Color(0xFFD97706);
       statusText = 'Chưa mở';
     } else if (event.status == 'closed') {
-      badgeBg = AppConstants.errorContainer;
-      badgeColor = AppConstants.error;
+      badgeBg = isDark ? const Color(0xFF3E1B1B) : AppConstants.errorContainer;
+      badgeColor = isDark ? const Color(0xFFE57373) : AppConstants.error;
       statusText = 'Đã đóng';
     }
 
@@ -627,13 +628,13 @@ class _SchedulePageState extends State<SchedulePage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isHighlight && !event.isCompleted
-            ? AppConstants.primary.withValues(alpha: 0.04)
-            : AppConstants.surface,
+            ? AppConstants.brand(context).withValues(alpha: 0.08)
+            : AppConstants.surf(context),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isHighlight && !event.isCompleted
-              ? AppConstants.primary.withValues(alpha: 0.35)
-              : AppConstants.outlineVariant,
+              ? AppConstants.brand(context).withValues(alpha: 0.4)
+              : AppConstants.border(context),
         ),
       ),
       child: Row(
@@ -644,7 +645,7 @@ class _SchedulePageState extends State<SchedulePage> {
             width: 64,
             padding: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: AppConstants.outlineVariant)),
+              border: Border(right: BorderSide(color: AppConstants.border(context))),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -656,8 +657,8 @@ class _SchedulePageState extends State<SchedulePage> {
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: isHighlight && !event.isCompleted
-                        ? AppConstants.primary
-                        : AppConstants.onSurface,
+                        ? AppConstants.brand(context)
+                        : AppConstants.txt(context),
                   ),
                 ),
                 Text(
@@ -665,7 +666,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
-                    color: AppConstants.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                   ),
                 ),
               ],
@@ -679,11 +680,11 @@ class _SchedulePageState extends State<SchedulePage> {
               children: [
                 Text(
                   event.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppConstants.onSurface,
+                    color: AppConstants.txt(context),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -692,7 +693,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
-                    color: AppConstants.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                   ),
                 ),
                 if (event.endDateTime != null) ...[
@@ -712,8 +713,8 @@ class _SchedulePageState extends State<SchedulePage> {
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    _buildTag(event.className, AppConstants.surfaceContainerHigh,
-                        AppConstants.onSurfaceVariant),
+                    _buildTag(event.className, AppConstants.surfHigh(context),
+                        AppConstants.txtMuted(context)),
                     _buildTag(statusText, badgeBg, badgeColor),
                   ],
                 ),
@@ -765,9 +766,9 @@ class _SchedulePageState extends State<SchedulePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         children: [
@@ -781,7 +782,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   fontFamily: 'Inter',
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
               ),
               Row(
@@ -815,7 +816,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           fontFamily: 'Inter',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppConstants.onSurfaceVariant,
+                          color: AppConstants.txtMuted(context),
                         ),
                       ),
                     ))
@@ -857,13 +858,13 @@ class _SchedulePageState extends State<SchedulePage> {
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppConstants.primary
+                        ? AppConstants.brand(context)
                         : (isToday
-                            ? AppConstants.primary.withValues(alpha: 0.12)
+                            ? AppConstants.brand(context).withValues(alpha: 0.16)
                             : Colors.transparent),
                     shape: BoxShape.circle,
                     border: isToday && !isSelected
-                        ? Border.all(color: AppConstants.primary, width: 1.5)
+                        ? Border.all(color: AppConstants.brand(context), width: 1.5)
                         : null,
                   ),
                   child: Stack(
@@ -880,8 +881,8 @@ class _SchedulePageState extends State<SchedulePage> {
                           color: isSelected
                               ? Colors.white
                               : (isToday
-                                  ? AppConstants.primary
-                                  : AppConstants.onSurface),
+                                  ? AppConstants.brand(context)
+                                  : AppConstants.txt(context)),
                         ),
                       ),
                       if (hasEvents)
@@ -907,10 +908,10 @@ class _SchedulePageState extends State<SchedulePage> {
             },
           ),
           const SizedBox(height: 16),
-          Divider(color: AppConstants.outlineVariant),
+          Divider(color: AppConstants.border(context)),
           const SizedBox(height: 10),
           // Legend
-          _buildLegendItem(AppConstants.primary, 'Hôm nay'),
+          _buildLegendItem(AppConstants.brand(context), 'Hôm nay'),
           const SizedBox(height: 6),
           _buildLegendItem(const Color(0xFFD97706), 'Bài kiểm tra / Kỳ thi'),
           const SizedBox(height: 6),
@@ -926,7 +927,7 @@ class _SchedulePageState extends State<SchedulePage> {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 20, color: AppConstants.onSurfaceVariant),
+        child: Icon(icon, size: 20, color: AppConstants.txtMuted(context)),
       ),
     );
   }
@@ -945,7 +946,7 @@ class _SchedulePageState extends State<SchedulePage> {
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 12,
-            color: AppConstants.onSurfaceVariant,
+            color: AppConstants.txtMuted(context),
           ),
         ),
       ],

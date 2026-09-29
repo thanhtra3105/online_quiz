@@ -324,7 +324,7 @@ class _TeacherPanelState extends State<TeacherPanel> {
         title: const Row(children: [
           Icon(Icons.school, color: Color(0xFF003D9B), size: 24),
           SizedBox(width: 8),
-          Text('QuizMaster Pro', style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF003D9B))),
+          Text('DUT QuizMaster', style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF003D9B))),
         ]),
         actions: [
           Padding(

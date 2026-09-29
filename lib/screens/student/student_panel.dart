@@ -58,12 +58,26 @@ class StudentPanelState extends State<StudentPanel> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Đăng xuất'),
-        content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+        backgroundColor: AppConstants.surf(context),
+        title: Text(
+          'Đăng xuất',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.bold,
+            color: AppConstants.txt(context),
+          ),
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn đăng xuất?',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: AppConstants.txtMuted(context),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Hủy', style: TextStyle(color: AppConstants.onSurfaceVariant)),
+            child: Text('Hủy', style: TextStyle(color: AppConstants.txtMuted(context))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -531,7 +545,7 @@ class StudentPanelState extends State<StudentPanel> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppConstants.outlineVariant,
+                    color: AppConstants.border(context),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -540,7 +554,7 @@ class StudentPanelState extends State<StudentPanel> {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: AppConstants.primary,
+                      backgroundColor: AppConstants.brand(context),
                       child: Text(
                         _getInitials(user),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -556,14 +570,14 @@ class StudentPanelState extends State<StudentPanel> {
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
-                              color: AppConstants.onSurface,
+                              color: AppConstants.txt(context),
                             ),
                           ),
                           Text(
                             widget.className,
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppConstants.onSurfaceVariant,
+                              color: AppConstants.txtMuted(context),
                             ),
                           ),
                         ],
@@ -572,10 +586,10 @@ class StudentPanelState extends State<StudentPanel> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Divider(color: AppConstants.outlineVariant),
+                Divider(color: AppConstants.border(context)),
                 ListTile(
-                  leading: Icon(Icons.arrow_back, color: AppConstants.onSurfaceVariant),
-                  title: Text('Đổi lớp', style: TextStyle(color: AppConstants.onSurface)),
+                  leading: Icon(Icons.arrow_back, color: AppConstants.txtMuted(context)),
+                  title: Text('Đổi lớp', style: TextStyle(color: AppConstants.txt(context))),
                   onTap: () {
                     Navigator.pop(context);
                     _navigateToClassList();

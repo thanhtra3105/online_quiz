@@ -4,6 +4,7 @@ import 'dart:html' as html;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 
 class QuizTakingPage extends StatefulWidget {
   final String quizId;
@@ -27,6 +28,7 @@ class QuizTakingPage extends StatefulWidget {
 
 class _QuizTakingPageState extends State<QuizTakingPage>
     with WidgetsBindingObserver {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PageController _pageController = PageController();
 
   // State variables
@@ -35,6 +37,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   Timer? _timer;
   bool _isSubmitting = false;
   bool _isLoading = true;
+  bool _canExit = false;
 
   // Data
   List<QueryDocumentSnapshot> _questions = [];
@@ -61,6 +64,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   @override
   void initState() {
     super.initState();
+    _canExit = false;
     _secondsRemaining = widget.duration * 60;
     _loadQuestions();
     _startTimer();
@@ -312,22 +316,73 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // ============================================
   // SUBMISSION LOGIC
   // ============================================
+  void _exitQuizPage() {
+    _timer?.cancel();
+    _cleanupFullscreenListeners();
+    if (_isFullscreen) {
+      try {
+        html.document.exitFullscreen();
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() {
+      _canExit = true;
+    });
+
+    // Close any dialogs if still open
+    Navigator.of(context, rootNavigator: true).popUntil((route) {
+      return route is! PopupRoute;
+    });
+
+    // Pop the QuizTakingPage itself
+    if (mounted) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushReplacementNamed('/');
+      }
+    }
+  }
+
   Future<void> _autoSubmitForCheating() async {
     if (_isSubmitting) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🚨 Bài thi tự động nộp do vi phạm quá nhiều lần!'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() {
+      _isSubmitting = true;
+      _canExit = true;
+    });
+    _timer?.cancel();
+
+    // Close any previous dialogs immediately
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🚨 Bài thi tự động nộp do vi phạm quá 5 lần!'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
     await _submitQuizWithCheatingFlag();
   }
 
   Future<void> _submitQuizWithCheatingFlag() async {
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
     _timer?.cancel();
+    setState(() {
+      _isSubmitting = true;
+      _canExit = true;
+    });
+
+    if (_isFullscreen) {
+      try {
+        html.document.exitFullscreen();
+      } catch (_) {}
+    }
 
     try {
       double score = _calculateTotalScore();
@@ -354,131 +409,153 @@ class _QuizTakingPageState extends State<QuizTakingPage>
             'Tự động nộp do vi phạm quy chế thi quá số lần quy định',
       });
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    shape: BoxShape.circle,
+      if (!mounted) return;
+
+      // Auto-exit safety timer: automatically exits after 5 seconds even if student doesn't tap
+      final autoExitTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          _exitQuizPage();
+        }
+      });
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: AppConstants.surf(dialogContext),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.gavel_rounded,
+                      color: Colors.redAccent,
+                      size: 40,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.orange,
-                    size: 44,
+                  const SizedBox(height: 16),
+                  Text(
+                    'Bài thi đã tự động nộp',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppConstants.txt(dialogContext),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Bài thi đã tự động nộp',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Bạn đã vi phạm quy chế thi 5 lần. Hệ thống tự động nộp bài và sẽ tự động thoát sau 5 giây.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Colors.redAccent,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Hệ thống tự động nộp do bạn vi phạm quy chế thi.',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    color: Colors.redAccent,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Điểm số đạt được',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: Colors.black54,
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2E2415) : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF8D6E18) : Colors.orange.shade200,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Điểm số đạt được',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: AppConstants.txtMuted(dialogContext),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            formattedScore,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.orange.shade900,
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              formattedScore,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 34,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? const Color(0xFFFFA726) : Colors.orange.shade900,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '/ 10 điểm',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.orange.shade900,
+                            const SizedBox(width: 4),
+                            Text(
+                              '/ 10 điểm',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? const Color(0xFFFFA726) : Colors.orange.shade900,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
+                    ),
+                    onPressed: () {
+                      autoExitTimer.cancel();
+                      Navigator.of(dialogContext).pop();
+                      _exitQuizPage();
+                    },
+                    child: const Text(
+                      'Đóng và thoát ngay',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ],
             ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade800,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Đóng và quay lại',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+          );
+        },
+      );
+
+      autoExitTimer.cancel();
+      if (mounted) {
+        _exitQuizPage();
       }
     } catch (e) {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        _exitQuizPage();
+      }
     }
   }
 
@@ -514,118 +591,125 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    shape: BoxShape.circle,
+          builder: (dialogContext) {
+            final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+            return AlertDialog(
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: AppConstants.surf(dialogContext),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1B382B) : Colors.green.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      color: isDark ? const Color(0xFF81C784) : Colors.green,
+                      size: 44,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.check_circle_rounded,
-                    color: Colors.green,
-                    size: 44,
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nộp bài thành công!',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppConstants.txt(dialogContext),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Nộp bài thành công!',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 6),
+                  Text(
+                    'Điểm số đạt được',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: AppConstants.txtMuted(dialogContext),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Điểm số đạt được',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    color: Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        formattedScore,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.green,
-                        ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1B382B) : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF2E7D32) : Colors.green.shade200,
                       ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        '/ 10 điểm',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          formattedScore,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 34,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? const Color(0xFF81C784) : Colors.green,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '/ 10 điểm',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFF81C784) : Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Thời gian làm bài: ${_formatTime(timeSpent)}',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    color: Colors.black54,
+                  const SizedBox(height: 16),
+                  Text(
+                    'Thời gian làm bài: ${_formatTime(timeSpent)}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: AppConstants.txtMuted(dialogContext),
+                    ),
+                  ),
+                ],
+              ),
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.brand(dialogContext),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _exitQuizPage();
+                    },
+                    child: const Text(
+                      'Về danh sách bài thi',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],
-            ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Về danh sách bài thi',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       }
     } catch (e) {
@@ -770,7 +854,30 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   void _jumpToQuestion(int index) {
-    _pageController.jumpToPage(index);
+    setState(() => _currentIndex = index);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+    }
+  }
+
+  void _openQuestionsDrawer() {
+    if (_scaffoldKey.currentState != null) {
+      _scaffoldKey.currentState!.openEndDrawer();
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(child: _buildSidebarGrid(isDrawer: true)),
+        ),
+      );
+    }
   }
 
   void _confirmSubmit() {
@@ -806,18 +913,21 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     final isTimeRunningOut = _secondsRemaining < 300;
 
     return PopScope(
-      canPop: false,
+      canPop: _canExit == true,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bạn không thể thoát khi đang làm bài!'),
-          ),
-        );
+        if (didPop == true) return;
+        if (!(_canExit == true)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bạn không thể thoát khi đang làm bài!'),
+            ),
+          );
+        }
       },
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: Theme.of(context).colorScheme.surface,
-        endDrawer: MediaQuery.of(context).size.width <= 800 ? _buildMobileDrawer() : null,
+        endDrawer: _buildMobileDrawer(),
         body: SafeArea(
           child: Column(
             children: [
@@ -985,8 +1095,10 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                 )
               else
                 IconButton(
-                  icon: const Icon(Icons.grid_view),
-                  onPressed: () => Scaffold.of(context).openEndDrawer(),
+                  icon: const Icon(Icons.grid_view_rounded),
+                  tooltip: 'Danh sách câu hỏi',
+                  color: Theme.of(context).colorScheme.onSurface,
+                  onPressed: _openQuestionsDrawer,
                 ),
             ],
           ),
@@ -1217,27 +1329,41 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     );
   }
 
-  Widget _buildSidebarGrid() {
+  Widget _buildSidebarGrid({bool isDrawer = false}) {
     int answeredCount = _answers.keys.length;
 
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Danh sách câu hỏi',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Danh sách câu hỏi',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                  ),
+                  if (isDrawer || MediaQuery.of(context).size.width <= 800)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Đóng',
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -1251,7 +1377,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         ),
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 5,
               childAspectRatio: 1,
@@ -1267,8 +1393,8 @@ class _QuizTakingPageState extends State<QuizTakingPage>
 
               return InkWell(
                 onTap: () {
-                  if (MediaQuery.of(context).size.width <= 800) {
-                    Navigator.pop(context);
+                  if (isDrawer || MediaQuery.of(context).size.width <= 800) {
+                    Navigator.of(context).pop();
                   }
                   _jumpToQuestion(index);
                 },
@@ -1299,7 +1425,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerLowest,
             border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
@@ -1344,19 +1470,23 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                   ),
                 ),
               ),
-              if (MediaQuery.of(context).size.width <= 800) ...[
-                const SizedBox(height: 24),
+              if (isDrawer || MediaQuery.of(context).size.width <= 800) ...[
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _confirmSubmit,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _confirmSubmit();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.error,
                       foregroundColor: Theme.of(context).colorScheme.onError,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 0,
                     ),
-                    child: const Text('Nộp bài'),
+                    child: const Text('Nộp bài', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -1368,9 +1498,11 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   Widget _buildMobileDrawer() {
+    final screenWidth = MediaQuery.of(context).size.width;
     return Drawer(
+      width: screenWidth > 400 ? 340 : screenWidth * 0.88,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      child: SafeArea(child: _buildSidebarGrid()),
+      child: SafeArea(child: _buildSidebarGrid(isDrawer: true)),
     );
   }
 

@@ -171,7 +171,7 @@ class _QuizListPageState extends State<QuizListPage> {
             }).toList();
 
             return Container(
-              color: Theme.of(context).colorScheme.surface,
+              color: AppConstants.bg(context),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -184,7 +184,7 @@ class _QuizListPageState extends State<QuizListPage> {
                     Text(
                       'Danh sách bài thi',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: AppConstants.txt(context),
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -192,7 +192,7 @@ class _QuizListPageState extends State<QuizListPage> {
                     Text(
                       'Xem và chọn các bài kiểm tra, bài thi của lớp để luyện tập và hoàn thành.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                     ),
                     const SizedBox(height: 20),
@@ -200,12 +200,17 @@ class _QuizListPageState extends State<QuizListPage> {
                     // Thanh tìm kiếm bài thi
                     Container(
                       decoration: BoxDecoration(
-                        color: AppConstants.surface,
+                        color: AppConstants.surf(context),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppConstants.outlineVariant),
+                        border: Border.all(color: AppConstants.border(context)),
                       ),
                       child: TextField(
                         controller: _searchController,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          color: AppConstants.txt(context),
+                        ),
                         onChanged: (val) {
                           setState(() {
                             _searchQuery = val;
@@ -216,16 +221,16 @@ class _QuizListPageState extends State<QuizListPage> {
                           hintStyle: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                           ),
                           prefixIcon: Icon(
                             Icons.search_rounded,
-                            color: AppConstants.onSurfaceVariant,
+                            color: AppConstants.txtMuted(context),
                             size: 22,
                           ),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  icon: Icon(Icons.clear_rounded, size: 18, color: AppConstants.txtMuted(context)),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() {
@@ -296,7 +301,7 @@ class _QuizListPageState extends State<QuizListPage> {
                                       ConnectionState.waiting) {
                                     return SizedBox(
                                       width: cardWidth,
-                                      child: _buildLoadingCard(),
+                                      child: _buildLoadingCard(context),
                                     );
                                   }
 
@@ -338,23 +343,24 @@ class _QuizListPageState extends State<QuizListPage> {
 
   Widget _buildClassBanner(BuildContext context) {
     final name = widget.className?.isNotEmpty == true ? widget.className! : 'Lớp học';
+    final brandColor = AppConstants.brand(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppConstants.primary.withValues(alpha: 0.08),
+        color: brandColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: brandColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppConstants.primary.withValues(alpha: 0.12),
+              color: brandColor.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.school_rounded, color: AppConstants.primary, size: 20),
+            child: Icon(Icons.school_rounded, color: brandColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -363,18 +369,18 @@ class _QuizListPageState extends State<QuizListPage> {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
                 children: [
                   TextSpan(
                     text: 'Bạn đang ở lớp học: ',
-                    style: TextStyle(color: AppConstants.onSurfaceVariant),
+                    style: TextStyle(color: AppConstants.txtMuted(context)),
                   ),
                   TextSpan(
                     text: name,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: AppConstants.primary,
+                      color: brandColor,
                     ),
                   ),
                 ],
@@ -403,23 +409,23 @@ class _QuizListPageState extends State<QuizListPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.surfaceContainer,
+                  ? AppConstants.brand(context)
+                  : AppConstants.surfContainer(context),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
+                    ? AppConstants.brand(context)
+                    : AppConstants.border(context),
               ),
             ),
             child: Text(
               label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  ),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: isSelected ? Colors.white : AppConstants.txt(context),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -437,13 +443,13 @@ class _QuizListPageState extends State<QuizListPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                color: AppConstants.brand(context).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.celebration,
                 size: 64,
-                color: Theme.of(context).colorScheme.primary,
+                color: AppConstants.brand(context),
               ),
             ),
             const SizedBox(height: 24),
@@ -451,13 +457,14 @@ class _QuizListPageState extends State<QuizListPage> {
               'Bạn đã hoàn thành tất cả bài thi!',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: AppConstants.txt(context),
                   ),
             ),
             const SizedBox(height: 8),
             Text(
               'Hiện tại không có bài thi nào mới dành cho bạn trong lớp này.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                   ),
             ),
           ],
@@ -481,13 +488,13 @@ class _QuizListPageState extends State<QuizListPage> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                color: AppConstants.surfHigh(context),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isSearching ? Icons.search_off_rounded : Icons.filter_list_off_rounded,
                 size: 48,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
               ),
             ),
             const SizedBox(height: 16),
@@ -495,14 +502,14 @@ class _QuizListPageState extends State<QuizListPage> {
               'Không tìm thấy bài thi',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: AppConstants.txt(context),
                   ),
             ),
             const SizedBox(height: 6),
             Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: AppConstants.txtMuted(context),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -539,11 +546,11 @@ class _QuizListPageState extends State<QuizListPage> {
       height: 220,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: canTake
-              ? Theme.of(context).colorScheme.outlineVariant
+              ? AppConstants.border(context)
               : Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
         ),
         boxShadow: [
@@ -564,22 +571,23 @@ class _QuizListPageState extends State<QuizListPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: AppConstants.surfHigh(context),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   'BÀI THI',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppConstants.txtMuted(context),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
               Icon(
                 Icons.assignment_outlined,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: AppConstants.txtMuted(context),
                 size: 24,
               ),
             ],
@@ -587,20 +595,24 @@ class _QuizListPageState extends State<QuizListPage> {
           const SizedBox(height: 16),
           Text(
             data['title'] ?? 'Bài thi chưa được đặt tên',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.bold,
-                  height: 1.2,
-                ),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: AppConstants.txt(context),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           Text(
             'Bài kiểm tra đánh giá kiến thức.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: AppConstants.txtMuted(context),
+              fontSize: 12,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -610,7 +622,7 @@ class _QuizListPageState extends State<QuizListPage> {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  color: AppConstants.border(context),
                 ),
               ),
             ),
@@ -622,27 +634,31 @@ class _QuizListPageState extends State<QuizListPage> {
                     Icon(
                       Icons.format_list_bulleted,
                       size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: AppConstants.txtMuted(context),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${data['questionCount'] ?? 0} câu',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppConstants.txtMuted(context),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Icon(
                       Icons.timer_outlined,
                       size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: AppConstants.txtMuted(context),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${data['duration'] ?? 0} phút',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppConstants.txtMuted(context),
+                      ),
                     ),
                   ],
                 ),
@@ -656,10 +672,12 @@ class _QuizListPageState extends State<QuizListPage> {
                         ),
                         child: Text(
                           'Bắt đầu',
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            color: AppConstants.brand(context),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       )
                     : Container(
@@ -671,10 +689,12 @@ class _QuizListPageState extends State<QuizListPage> {
                         ),
                         child: Text(
                           statusText,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: statusColor,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
               ],
@@ -748,6 +768,7 @@ class _QuizListPageState extends State<QuizListPage> {
           'icon': Icons.lock_open,
         };
       }
+
       return {
         'text': 'Đang mở',
         'color': Colors.green,
@@ -815,19 +836,19 @@ class _QuizListPageState extends State<QuizListPage> {
   // UI HELPERS
   // ============================================
 
-  Widget _buildLoadingCard() {
+  Widget _buildLoadingCard(BuildContext context) {
     return Container(
       height: 220,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: AppConstants.primaryColor,
+          color: AppConstants.brand(context),
         ),
       ),
     );

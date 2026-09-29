@@ -13,7 +13,7 @@ class ResultDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppConstants.background,
+      backgroundColor: AppConstants.bg(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -27,7 +27,7 @@ class ResultDetailPage extends StatelessWidget {
                   }
                   if (!snapshot.hasData) {
                     return Center(
-                      child: CircularProgressIndicator(color: AppConstants.primary),
+                      child: CircularProgressIndicator(color: AppConstants.brand(context)),
                     );
                   }
 
@@ -49,7 +49,7 @@ class ResultDetailPage extends StatelessWidget {
                     builder: (context, compositeSnapshot) {
                       if (!compositeSnapshot.hasData) {
                         return Center(
-                          child: CircularProgressIndicator(color: AppConstants.primary),
+                          child: CircularProgressIndicator(color: AppConstants.brand(context)),
                         );
                       }
 
@@ -118,7 +118,7 @@ class ResultDetailPage extends StatelessWidget {
                                 // Question Breakdown section
                                 if (allowViewDetail) ...[
                                   _buildSectionHeader(
-                                      context, 'Question Breakdown'),
+                                      context, 'Chi tiết từng câu hỏi'),
                                   const SizedBox(height: 20),
                                   ...questions.asMap().entries.map((entry) {
                                     return _buildQuestionDetail(
@@ -154,8 +154,8 @@ class ResultDetailPage extends StatelessWidget {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
-        border: Border(bottom: BorderSide(color: AppConstants.outlineVariant)),
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
       ),
       child: Row(
         children: [
@@ -165,17 +165,17 @@ class ResultDetailPage extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Icon(Icons.arrow_back_rounded,
-                  color: AppConstants.onSurfaceVariant),
+                  color: AppConstants.txtMuted(context)),
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            'Exam Results',
+            'Kết quả bài thi',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: AppConstants.primary,
+              color: AppConstants.brand(context),
             ),
           ),
         ],
@@ -203,9 +203,9 @@ class ResultDetailPage extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -223,9 +223,9 @@ class ResultDetailPage extends StatelessWidget {
                   child: CircularProgressIndicator(
                     value: pct / 100,
                     strokeWidth: 10,
-                    backgroundColor: AppConstants.surfaceContainerHigh,
+                    backgroundColor: AppConstants.surfHigh(context),
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppConstants.primary),
+                        AlwaysStoppedAnimation<Color>(AppConstants.brand(context)),
                     strokeCap: StrokeCap.round,
                   ),
                 ),
@@ -242,7 +242,7 @@ class ResultDetailPage extends StatelessWidget {
                             fontFamily: 'Inter',
                             fontSize: 36,
                             fontWeight: FontWeight.w700,
-                            color: AppConstants.primary,
+                            color: AppConstants.brand(context),
                             height: 1,
                           ),
                         ),
@@ -254,7 +254,7 @@ class ResultDetailPage extends StatelessWidget {
                               fontFamily: 'Inter',
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AppConstants.primary,
+                              color: AppConstants.brand(context),
                             ),
                           ),
                         ),
@@ -267,7 +267,7 @@ class ResultDetailPage extends StatelessWidget {
                         fontFamily: 'Inter',
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppConstants.onSurfaceVariant,
+                        color: AppConstants.txtMuted(context),
                         letterSpacing: 1.2,
                       ),
                     ),
@@ -284,25 +284,25 @@ class ResultDetailPage extends StatelessWidget {
             children: [
               Text(
                 pct >= 80
-                    ? 'Excellent Work!'
+                    ? 'Xuất sắc!'
                     : pct >= 60
-                        ? 'Good Job!'
-                        : 'Keep Practicing!',
+                        ? 'Khá tốt!'
+                        : 'Cần cố gắng thêm!',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                 ),
                 textAlign: isMobile ? TextAlign.center : TextAlign.left,
               ),
               const SizedBox(height: 6),
               Text(
-                'You have completed $quizTitle.',
+                'Bạn đã hoàn thành bài thi $quizTitle.',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
-                  color: AppConstants.onSurfaceVariant,
+                  color: AppConstants.txtMuted(context),
                 ),
                 textAlign: isMobile ? TextAlign.center : TextAlign.left,
               ),
@@ -314,22 +314,25 @@ class ResultDetailPage extends StatelessWidget {
                     isMobile ? WrapAlignment.center : WrapAlignment.start,
                 children: [
                   _buildStatChip(
+                    context,
                     icon: Icons.check_circle_outline,
                     iconColor: AppConstants.secondary,
                     value: '$correctCount',
-                    label: 'Correct',
+                    label: 'Đúng',
                   ),
                   _buildStatChip(
+                    context,
                     icon: Icons.cancel_outlined,
                     iconColor: AppConstants.error,
                     value: '${totalCount - correctCount}',
-                    label: 'Incorrect',
+                    label: 'Sai / Chưa làm',
                   ),
                   _buildStatChip(
+                    context,
                     icon: Icons.schedule_outlined,
-                    iconColor: AppConstants.outline,
+                    iconColor: AppConstants.txtMuted(context),
                     value: _formatTime(data['timeSpent'] ?? 0),
-                    label: 'Time',
+                    label: 'Thời gian',
                   ),
                 ],
               ),
@@ -343,7 +346,7 @@ class ResultDetailPage extends StatelessWidget {
               icon: const Icon(Icons.arrow_back_rounded),
               label: const Text('Quay lại'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppConstants.primary,
+                backgroundColor: AppConstants.brand(context),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 14),
@@ -387,7 +390,8 @@ class ResultDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatChip({
+  Widget _buildStatChip(
+    BuildContext context, {
     required IconData icon,
     required Color iconColor,
     required String value,
@@ -396,9 +400,9 @@ class ResultDetailPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppConstants.surfaceContainer,
+        color: AppConstants.surfHigh(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -414,7 +418,7 @@ class ResultDetailPage extends StatelessWidget {
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: AppConstants.onSurface,
+                  color: AppConstants.txt(context),
                   height: 1.1,
                 ),
               ),
@@ -423,7 +427,7 @@ class ResultDetailPage extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
-                  color: AppConstants.onSurfaceVariant,
+                  color: AppConstants.txtMuted(context),
                 ),
               ),
             ],
@@ -438,7 +442,7 @@ class ResultDetailPage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: AppConstants.outlineVariant),
+          bottom: BorderSide(color: AppConstants.border(context)),
         ),
       ),
       child: Text(
@@ -447,7 +451,7 @@ class ResultDetailPage extends StatelessWidget {
           fontFamily: 'Inter',
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: AppConstants.onSurface,
+          color: AppConstants.txt(context),
         ),
       ),
     );
@@ -458,16 +462,16 @@ class ResultDetailPage extends StatelessWidget {
       padding: const EdgeInsets.all(40),
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppConstants.errorContainer.withValues(alpha: 0.4),
+              color: AppConstants.errorContainer.withValues(alpha: 0.3),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -483,7 +487,7 @@ class ResultDetailPage extends StatelessWidget {
               fontFamily: 'Inter',
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppConstants.onSurface,
+              color: AppConstants.txt(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -493,7 +497,7 @@ class ResultDetailPage extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 14,
-              color: AppConstants.onSurfaceVariant,
+              color: AppConstants.txtMuted(context),
             ),
           ),
         ],
@@ -511,7 +515,7 @@ class ResultDetailPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppConstants.errorContainer,
+                color: AppConstants.errorContainer.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.error_outline,
@@ -523,14 +527,14 @@ class ResultDetailPage extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppConstants.onSurface)),
+                    color: AppConstants.txt(context))),
             const SizedBox(height: 8),
             Text('$error',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
-                    color: AppConstants.onSurfaceVariant)),
+                    color: AppConstants.txtMuted(context))),
           ],
         ),
       ),
@@ -544,6 +548,7 @@ class ResultDetailPage extends StatelessWidget {
     dynamic userAnswer,
     double earnedScore,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final data = questionDoc.data() as Map<String, dynamic>;
     final options = List<String>.from(data['options'] ?? []);
     final List<String> correctList = _normalizeToList(data['correctAnswer']);
@@ -551,15 +556,15 @@ class ResultDetailPage extends StatelessWidget {
     final isMultiple = data['correctAnswer'] is List;
 
     final Color statusColor = earnedScore >= 0.99
-        ? AppConstants.secondary
+        ? (isDark ? const Color(0xFF81C784) : AppConstants.secondary)
         : (earnedScore > 0
-            ? const Color(0xFFB86200)
-            : AppConstants.error);
+            ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFB86200))
+            : (isDark ? const Color(0xFFE57373) : AppConstants.error));
     final Color statusBg = earnedScore >= 0.99
-        ? const Color(0xFFEDF7ED)
+        ? (isDark ? const Color(0xFF1B382B) : const Color(0xFFEDF7ED))
         : (earnedScore > 0
-            ? const Color(0xFFFFF3E0)
-            : AppConstants.errorContainer);
+            ? (isDark ? const Color(0xFF3E2D1B) : const Color(0xFFFFF3E0))
+            : (isDark ? const Color(0xFF3E1B1B) : AppConstants.errorContainer));
     final IconData statusIcon = earnedScore >= 0.99
         ? Icons.check_circle_outline
         : (earnedScore > 0
@@ -570,9 +575,9 @@ class ResultDetailPage extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppConstants.surface,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppConstants.outlineVariant),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +635,7 @@ class ResultDetailPage extends StatelessWidget {
               fontFamily: 'Inter',
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppConstants.onSurface,
+              color: AppConstants.txt(context),
               height: 1.5,
             ),
           ),
@@ -641,38 +646,38 @@ class ResultDetailPage extends StatelessWidget {
             final bool isCorrectOption = correctList.contains(letter);
             final bool isUserSelected = userList.contains(letter);
 
-            Color optBg = AppConstants.surface;
-            Color optBorder = AppConstants.outlineVariant;
-            Color optText = AppConstants.onSurface;
-            Color badgeColor = AppConstants.surfaceContainerHigh;
-            Color badgeTextColor = AppConstants.onSurfaceVariant;
+            Color optBg = isDark ? AppConstants.surfHigh(context) : AppConstants.surface;
+            Color optBorder = AppConstants.border(context);
+            Color optText = AppConstants.txt(context);
+            Color badgeColor = isDark ? AppConstants.surf(context) : AppConstants.surfaceContainerHigh;
+            Color badgeTextColor = AppConstants.txtMuted(context);
             Widget? statusBadge;
 
             if (isUserSelected && isCorrectOption) {
               // 1. Sinh viên chọn ĐÚNG: Xanh lá
-              optBg = const Color(0xFFEDF7ED);
-              optBorder = const Color(0xFF2E7D32);
-              optText = const Color(0xFF1B5E20);
+              optBg = isDark ? const Color(0xFF163322) : const Color(0xFFEDF7ED);
+              optBorder = isDark ? const Color(0xFF388E3C) : const Color(0xFF2E7D32);
+              optText = isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20);
               badgeColor = const Color(0xFF2E7D32);
               badgeTextColor = Colors.white;
               statusBadge = Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC8E6C9),
+                  color: isDark ? const Color(0xFF2E7D32).withValues(alpha: 0.35) : const Color(0xFFC8E6C9),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check, size: 13, color: Color(0xFF1B5E20)),
-                    SizedBox(width: 4),
+                    Icon(Icons.check, size: 13, color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20)),
+                    const SizedBox(width: 4),
                     Text(
                       'Bạn đã chọn (Đúng)',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1B5E20),
+                        color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20),
                       ),
                     ),
                   ],
@@ -680,29 +685,29 @@ class ResultDetailPage extends StatelessWidget {
               );
             } else if (isUserSelected && !isCorrectOption) {
               // 2. Sinh viên chọn SAI: Đỏ
-              optBg = const Color(0xFFFFEDED);
-              optBorder = const Color(0xFFD32F2F);
-              optText = const Color(0xFFC62828);
+              optBg = isDark ? const Color(0xFF351717) : const Color(0xFFFFEDED);
+              optBorder = isDark ? const Color(0xFFE53935) : const Color(0xFFD32F2F);
+              optText = isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828);
               badgeColor = const Color(0xFFD32F2F);
               badgeTextColor = Colors.white;
               statusBadge = Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFCDD2),
+                  color: isDark ? const Color(0xFFD32F2F).withValues(alpha: 0.35) : const Color(0xFFFFCDD2),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.close, size: 13, color: Color(0xFFC62828)),
-                    SizedBox(width: 4),
+                    Icon(Icons.close, size: 13, color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828)),
+                    const SizedBox(width: 4),
                     Text(
                       'Bạn đã chọn (Sai)',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFC62828),
+                        color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
                       ),
                     ),
                   ],
@@ -710,29 +715,29 @@ class ResultDetailPage extends StatelessWidget {
               );
             } else if (!isUserSelected && isCorrectOption) {
               // 3. Đáp án ĐÚNG mà sinh viên CHƯA CHỌN / BỎ SÓT: Vàng/Cam
-              optBg = const Color(0xFFFFF8E1);
-              optBorder = const Color(0xFFFFA000);
-              optText = const Color(0xFFB78103);
+              optBg = isDark ? const Color(0xFF332712) : const Color(0xFFFFF8E1);
+              optBorder = isDark ? const Color(0xFFFB8C00) : const Color(0xFFFFA000);
+              optText = isDark ? const Color(0xFFFFE082) : const Color(0xFFB78103);
               badgeColor = const Color(0xFFFFA000);
               badgeTextColor = Colors.white;
               statusBadge = Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFECB3),
+                  color: isDark ? const Color(0xFFFFA000).withValues(alpha: 0.35) : const Color(0xFFFFECB3),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline, size: 13, color: Color(0xFF8F6B00)),
-                    SizedBox(width: 4),
+                    Icon(Icons.info_outline, size: 13, color: isDark ? const Color(0xFFFFE082) : const Color(0xFF8F6B00)),
+                    const SizedBox(width: 4),
                     Text(
                       'Đáp án đúng (Chưa chọn)',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF8F6B00),
+                        color: isDark ? const Color(0xFFFFE082) : const Color(0xFF8F6B00),
                       ),
                     ),
                   ],

@@ -79,11 +79,23 @@ class AppConstants {
   static Color surfHigh(BuildContext context) =>
       isDarkMode(context) ? darkSurfaceContainerHigh : surfaceContainerHigh;
 
+  static Color surfContainer(BuildContext context) =>
+      isDarkMode(context) ? darkSurfaceContainer : surfaceContainer;
+
   static Color border(BuildContext context) =>
       isDarkMode(context) ? darkOutlineVariant : outlineVariant;
 
   static Color brand(BuildContext context) =>
       isDarkMode(context) ? darkPrimary : primary;
+
+  static Color pillBg(BuildContext context) =>
+      isDarkMode(context) ? darkSurfaceContainerHigh : surfaceContainerLow;
+
+  static Color badgeBg(BuildContext context, {Color? lightBg}) =>
+      isDarkMode(context) ? darkSurfaceContainerHigh : (lightBg ?? const Color(0xFFEBECF0));
+
+  static Color badgeTxt(BuildContext context, {Color? lightTxt}) =>
+      isDarkMode(context) ? darkOnSurface : (lightTxt ?? const Color(0xFF42526E));
 
   // Legacy aliases
   static const Color primaryColor = primary;
