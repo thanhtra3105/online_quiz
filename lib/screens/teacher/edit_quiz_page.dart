@@ -1,13 +1,24 @@
 // lib/screens/teacher/edit_quiz_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
 
 class EditQuizPage extends StatefulWidget {
   final String quizId;
   final Map<String, dynamic> quizData;
+  final String? className;
+  final String? classId;
 
-  const EditQuizPage({Key? key, required this.quizId, required this.quizData})
-    : super(key: key);
+  final bool isQuestionBank;
+
+  const EditQuizPage({
+    super.key,
+    required this.quizId,
+    required this.quizData,
+    this.className,
+    this.classId,
+    this.isQuestionBank = false,
+  });
 
   @override
   State<EditQuizPage> createState() => _EditQuizPageState();
@@ -20,15 +31,16 @@ class _EditQuizPageState extends State<EditQuizPage> {
   late TextEditingController _maxViolationsController;
 
   List<Map<String, dynamic>> _questions = [];
+  final _scrollController = ScrollController();
   bool _isLoading = true;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.quizData['title']);
+    _titleController = TextEditingController(text: widget.quizData['title'] ?? '');
     _durationController = TextEditingController(
-      text: widget.quizData['duration'].toString(),
+      text: (widget.quizData['duration'] ?? 30).toString(),
     );
     _maxViolationsController = TextEditingController(
       text: (widget.quizData['maxSuspiciousActions'] ?? 5).toString(),
@@ -38,6 +50,7 @@ class _EditQuizPageState extends State<EditQuizPage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _titleController.dispose();
     _durationController.dispose();
     _maxViolationsController.dispose();
@@ -46,14 +59,12 @@ class _EditQuizPageState extends State<EditQuizPage> {
 
   Future<void> _loadQuestions() async {
     try {
+      final collectionName = widget.isQuestionBank ? 'quiz_banks' : 'quiz';
       final questionsSnapshot = await FirebaseFirestore.instance
-          .collection('quiz')
+          .collection(collectionName)
           .doc(widget.quizId)
           .collection('questions')
           .get();
-
-      // Sắp xếp câu hỏi (nếu cần, hiện tại lấy theo thứ tự Firebase trả về)
-      // Nếu muốn chính xác có thể thêm field 'createdAt' hoặc 'order' lúc lưu
 
       setState(() {
         _questions = questionsSnapshot.docs.map((doc) {
@@ -61,7 +72,6 @@ class _EditQuizPageState extends State<EditQuizPage> {
           return {
             'id': doc.id,
             'question': data['question'] ?? '',
-            // Copy sang List mới để có thể chỉnh sửa (mutable)
             'options': List<String>.from(data['options'] ?? []),
             'correctAnswer': data['correctAnswer'] ?? 'A',
           };
@@ -73,7 +83,7 @@ class _EditQuizPageState extends State<EditQuizPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Lỗi tải câu hỏi: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: const Color(0xFFDC2626),
           ),
         );
       }
@@ -81,352 +91,1075 @@ class _EditQuizPageState extends State<EditQuizPage> {
     }
   }
 
-  // --- LOGIC THÊM/XÓA ĐÁP ÁN ---
-  void _addOption(int questionIndex) {
-    setState(() {
-      _questions[questionIndex]['options'].add('');
-    });
-  }
-
-  void _removeOption(int questionIndex, int optionIndex) {
-    setState(() {
-      final options = _questions[questionIndex]['options'] as List<String>;
-      // Giữ lại ít nhất 2 đáp án
-      if (options.length > 2) {
-        options.removeAt(optionIndex);
-
-        // Reset đáp án đúng về A để tránh lỗi logic nếu đáp án bị xóa đang được chọn
-        // (Có thể làm logic thông minh hơn là check xem đáp án bị xóa có phải là đáp án đúng không)
-        _questions[questionIndex]['correctAnswer'] = 'A';
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Câu hỏi cần ít nhất 2 đáp án')),
-        );
-      }
-    });
-  }
-  // -----------------------------
-
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Scaffold(
-      // Giữ nguyên UI background gradient
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.orange.shade50,
-              Colors.white,
-              Colors.yellow.shade50,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // --- Header ---
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
+      backgroundColor: AppConstants.bg(context),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Nav / Header đồng bộ breadcrumbs
+            _buildTopAppBar(),
+
+            // Content Area
+            Expanded(
+              child: _isLoading
+                  ? Center(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Chỉnh sửa đề thi',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(AppConstants.brand(context)),
                           ),
+                          const SizedBox(height: 16),
                           Text(
-                            'Cập nhật thông tin và câu hỏi',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                            'Đang tải dữ liệu câu hỏi...',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              color: AppConstants.txtMuted(context),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    // Nút Save
-                    ElevatedButton.icon(
-                      onPressed: _isSaving ? null : _saveQuiz,
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.save_rounded, size: 20),
-                      label: Text(_isSaving ? 'Đang lưu' : 'Lưu'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // --- Content ---
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
+                    )
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
                         child: Form(
                           key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // --- Thông tin chung ---
-                              _buildInfoCard(),
-
-                              const SizedBox(height: 24),
-
-                              // --- Danh sách câu hỏi ---
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.quiz,
-                                        color: Colors.blue,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Câu hỏi (${_questions.length})',
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  ElevatedButton.icon(
-                                    onPressed: _addNewQuestion,
-                                    icon: const Icon(Icons.add, size: 20),
-                                    label: const Text('Thêm câu hỏi'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue.shade600,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              ..._questions.asMap().entries.map((entry) {
-                                return _buildQuestionCard(
-                                  entry.key,
-                                  entry.value,
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 24,
+                              vertical: 24,
+                            ),
+                            itemCount: 3 + _questions.length,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  child: _buildInfoCard(),
                                 );
-                              }).toList(),
-
-                              const SizedBox(height: 50),
-                            ],
+                              }
+                              if (index == 1) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildQuestionsHeader(),
+                                );
+                              }
+                              if (index == 2 + _questions.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8, bottom: 48),
+                                  child: _buildBottomActions(),
+                                );
+                              }
+                              final qIndex = index - 2;
+                              final qData = _questions[qIndex];
+                              final qId = qData['id']?.toString() ?? 'q_$qIndex';
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: _QuestionCardItem(
+                                  key: ValueKey(qId),
+                                  index: qIndex,
+                                  question: qData,
+                                  onDelete: () => _deleteQuestion(qIndex),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
-              ),
-            ],
-          ),
+                    ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTopAppBar() {
+    final hasClass = widget.className != null && widget.className!.isNotEmpty;
+    final isDark = AppConstants.isDarkMode(context);
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: isMobile
+          ? Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: AppConstants.txt(context)),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.isQuestionBank ? 'Chỉnh sửa ngân hàng' : 'Chỉnh sửa đề thi',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppConstants.txt(context),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _isSaving ? null : _saveQuiz,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.save_rounded, size: 16),
+                  label: Text(
+                    _isSaving ? 'Lưu...' : 'Lưu',
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppConstants.brand(context),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                if (widget.isQuestionBank) ...[
+                  Tooltip(
+                    message: 'Quay lại Ngân hàng câu hỏi',
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back_rounded, size: 16, color: AppConstants.txtMuted(context)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Ngân hàng câu hỏi',
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.border(context)),
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: AppConstants.brand(context), width: 2.5)),
+                    ),
+                    child: Text(
+                      'Chỉnh sửa ngân hàng',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppConstants.brand(context)),
+                    ),
+                  ),
+                ] else if (hasClass) ...[
+                  Tooltip(
+                    message: 'Quay lại Quản lý lớp học',
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context)
+                          ..pop()
+                          ..pop();
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back_rounded, size: 16, color: AppConstants.txtMuted(context)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Quản lý lớp học',
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.border(context)),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Quay lại Chi tiết lớp',
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Text(
+                          widget.className!,
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.border(context)),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Quay lại Chi tiết đề thi',
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Text(
+                          'Chi tiết đề thi',
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.border(context)),
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: AppConstants.brand(context), width: 2.5)),
+                    ),
+                    child: Text(
+                      'Chỉnh sửa đề thi',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppConstants.brand(context)),
+                    ),
+                  ),
+                ] else ...[
+                  Tooltip(
+                    message: 'Quay lại',
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back_rounded, size: 16, color: AppConstants.txtMuted(context)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Quay lại',
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.border(context)),
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: AppConstants.brand(context), width: 2.5)),
+                    ),
+                    child: Text(
+                      'Chỉnh sửa đề thi',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppConstants.brand(context)),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                // Nút Lưu thay đổi
+                FilledButton.icon(
+                  onPressed: _isSaving ? null : _saveQuiz,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.save_rounded, size: 18),
+                  label: Text(
+                    _isSaving ? 'Đang lưu...' : 'Lưu thay đổi',
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppConstants.brand(context),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: 'Thông báo',
+                  onPressed: () {},
+                  icon: Icon(Icons.notifications_none_rounded, color: AppConstants.txtMuted(context)),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Tài khoản',
+                  onPressed: () {},
+                  icon: Icon(Icons.account_circle_outlined, color: AppConstants.txtMuted(context)),
+                ),
+              ],
+            ),
     );
   }
 
   Widget _buildInfoCard() {
+    final isBank = widget.isQuestionBank;
+    final isDark = AppConstants.isDarkMode(context);
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextFormField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Tên đề thi',
-              prefixIcon: Icon(Icons.title),
-              border: OutlineInputBorder(),
-            ),
-            validator: (v) => v!.isEmpty ? 'Nhập tên đề thi' : null,
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _durationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Thời gian (phút)',
-                    prefixIcon: Icon(Icons.timer),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (v) => v!.isEmpty ? 'Nhập thời gian' : null,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppConstants.brand(context).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isBank ? Icons.inventory_2_outlined : Icons.info_outline_rounded,
+                  color: AppConstants.brand(context),
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: TextFormField(
-                  controller: _maxViolationsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Vi phạm tối đa',
-                    prefixIcon: Icon(Icons.warning_amber),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (v) => v!.isEmpty ? 'Nhập số lần' : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isBank ? 'Thông tin chung về ngân hàng câu hỏi' : 'Thông tin chung về đề thi',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppConstants.txt(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isBank
+                          ? 'Cập nhật tên ngân hàng và quản lý các câu hỏi bên trong'
+                          : 'Cập nhật tên đề thi, thời gian làm bài và số lần vi phạm tối đa cho phép',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                    ),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _titleController,
+            style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
+            decoration: InputDecoration(
+              labelText: isBank ? 'Tên ngân hàng câu hỏi' : 'Tên đề thi',
+              labelStyle: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+              prefixIcon: Icon(
+                isBank ? Icons.inventory_2_outlined : Icons.title_rounded,
+                color: AppConstants.brand(context),
+                size: 20,
+              ),
+              filled: true,
+              fillColor: AppConstants.surfLow(context),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.brand(context), width: 1.5)),
+            ),
+            validator: (v) => v!.isEmpty ? (isBank ? 'Vui lòng nhập tên ngân hàng' : 'Vui lòng nhập tên đề thi') : null,
+          ),
+          if (!isBank) ...[
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 500;
+                final durationField = TextFormField(
+                  controller: _durationController,
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
+                  decoration: InputDecoration(
+                    labelText: 'Thời gian làm bài (phút)',
+                    labelStyle: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+                    prefixIcon: Icon(Icons.timer_outlined, color: AppConstants.brand(context), size: 20),
+                    filled: true,
+                    fillColor: AppConstants.surfLow(context),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.brand(context), width: 1.5)),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v!.isEmpty ? 'Vui lòng nhập thời gian' : null,
+                );
+                final violationsField = TextFormField(
+                  controller: _maxViolationsController,
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
+                  decoration: InputDecoration(
+                    labelText: 'Số lần vi phạm tối đa',
+                    labelStyle: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+                    prefixIcon: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                    filled: true,
+                    fillColor: AppConstants.surfLow(context),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.brand(context), width: 1.5)),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v!.isEmpty ? 'Vui lòng nhập số lần' : null,
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    children: [
+                      durationField,
+                      const SizedBox(height: 16),
+                      violationsField,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: durationField),
+                    const SizedBox(width: 16),
+                    Expanded(child: violationsField),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionsHeader() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final titleWidget = Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppConstants.brand(context).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.quiz_rounded, color: AppConstants.brand(context), size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Danh sách câu hỏi (${_questions.length})',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.w700,
+              color: AppConstants.txt(context),
+              letterSpacing: -0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final btnWidget = FilledButton.icon(
+      onPressed: _addNewQuestion,
+      icon: const Icon(Icons.add_rounded, size: 18),
+      label: const Text(
+        'Thêm câu hỏi',
+        style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppConstants.brand(context),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          titleWidget,
+          const SizedBox(height: 12),
+          btnWidget,
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(child: titleWidget),
+        const SizedBox(width: 12),
+        btnWidget,
+      ],
+    );
+  }
+
+  Widget _buildBottomActions() {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final cancelBtn = OutlinedButton(
+      onPressed: _isSaving ? null : () => Navigator.pop(context),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        side: BorderSide(color: AppConstants.border(context)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: Text(
+        'Hủy bỏ',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppConstants.txtMuted(context),
+        ),
+      ),
+    );
+
+    final saveBtn = FilledButton.icon(
+      onPressed: _isSaving ? null : _saveQuiz,
+      icon: _isSaving
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.save_rounded, size: 18),
+      label: Text(
+        _isSaving ? 'Đang lưu...' : 'Lưu thay đổi',
+        style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppConstants.brand(context),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+
+    if (isMobile) {
+      return Row(
+        children: [
+          Expanded(child: cancelBtn),
+          const SizedBox(width: 12),
+          Expanded(child: saveBtn),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        cancelBtn,
+        const SizedBox(width: 14),
+        saveBtn,
+      ],
+    );
+  }
+
+  void _addNewQuestion() {
+    setState(() {
+      _questions.insert(0, {
+        'id': 'new_${DateTime.now().microsecondsSinceEpoch}',
+        'question': '',
+        'options': ['', '', '', ''],
+        'correctAnswer': 'A',
+      });
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          widget.isQuestionBank ? 80.0 : 180.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã thêm ô câu hỏi mới lên đầu danh sách (Câu 1)'),
+        duration: Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _deleteQuestion(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppConstants.surf(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppConstants.border(context)),
+        ),
+        title: Text(
+          'Xác nhận xóa',
+          style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: AppConstants.txt(context)),
+        ),
+        content: Text(
+          'Bạn có chắc muốn xóa câu ${index + 1}?',
+          style: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppConstants.border(context)),
+              foregroundColor: AppConstants.txt(context),
+            ),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () {
+              setState(() => _questions.removeAt(index));
+              Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Xóa'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuestionCard(int index, Map<String, dynamic> question) {
-    final options = question['options'] as List<String>;
+  Future<void> _saveQuiz() async {
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng kiểm tra lại thông tin các câu hỏi'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final isDark = AppConstants.isDarkMode(context);
+
+    // 1. Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppConstants.surf(ctx),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppConstants.border(ctx)),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? AppConstants.surfHigh(ctx) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.help_outline_rounded, color: AppConstants.brand(ctx), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              widget.isQuestionBank ? 'Xác nhận lưu ngân hàng' : 'Xác nhận lưu đề thi',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppConstants.txt(ctx),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          widget.isQuestionBank
+              ? 'Bạn có chắc chắn muốn lưu các thay đổi cho ngân hàng câu hỏi này (${_questions.length} câu hỏi)?'
+              : 'Bạn có chắc chắn muốn lưu các thay đổi cho đề thi này (${_questions.length} câu hỏi)?',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppConstants.txtMuted(ctx),
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppConstants.border(ctx)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: Text(
+              'Hủy bỏ',
+              style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(ctx)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppConstants.brand(ctx),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            child: const Text(
+              'Xác nhận lưu',
+              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final collectionName = widget.isQuestionBank ? 'quiz_banks' : 'quiz';
+      final targetRef = FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(widget.quizId);
+
+      // 2. Update Info
+      if (widget.isQuestionBank) {
+        await targetRef.update({
+          'title': _titleController.text.trim(),
+          'questionCount': _questions.length,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await targetRef.update({
+          'title': _titleController.text.trim(),
+          'duration': int.parse(_durationController.text),
+          'maxSuspiciousActions': int.parse(_maxViolationsController.text),
+          'questionCount': _questions.length,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 3. Update Questions in a single batch
+      final existingQuestions = await targetRef.collection('questions').get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in existingQuestions.docs) {
+        batch.delete(doc.reference);
+      }
+
+      for (var question in _questions) {
+        final newDoc = targetRef.collection('questions').doc();
+        batch.set(newDoc, {
+          'question': question['question'].toString().trim(),
+          'options': (question['options'] as List<dynamic>)
+              .map((opt) => opt.toString().trim())
+              .toList(),
+          'correctAnswer': question['correctAnswer'],
+        });
+      }
+
+      await batch.commit();
+
+      // 4. Show success dialog and pop
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            backgroundColor: AppConstants.surf(dialogCtx),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppConstants.border(dialogCtx)),
+            ),
+            content: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.4) : const Color(0xFFDCFCE7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 36),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.isQuestionBank ? 'Lưu ngân hàng thành công!' : 'Lưu đề thi thành công!',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppConstants.txt(dialogCtx),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.isQuestionBank
+                        ? 'Dữ liệu ngân hàng và ${_questions.length} câu hỏi đã được lưu thành công vào hệ thống.'
+                        : 'Dữ liệu đề thi và ${_questions.length} câu hỏi đã được lưu thành công vào hệ thống.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13.5,
+                      color: AppConstants.txtMuted(dialogCtx),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(dialogCtx);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppConstants.brand(dialogCtx),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Xong & Quay lại',
+                        style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi lưu: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+}
+
+class _QuestionCardItem extends StatefulWidget {
+  final int index;
+  final Map<String, dynamic> question;
+  final VoidCallback onDelete;
+
+  const _QuestionCardItem({
+    super.key,
+    required this.index,
+    required this.question,
+    required this.onDelete,
+  });
+
+  @override
+  State<_QuestionCardItem> createState() => _QuestionCardItemState();
+}
+
+class _QuestionCardItemState extends State<_QuestionCardItem> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  void _addOption() {
+    setState(() {
+      final opts = widget.question['options'];
+      if (opts is List) {
+        opts.add('');
+      }
+    });
+  }
+
+  void _removeOption(int optIndex) {
+    setState(() {
+      final opts = widget.question['options'];
+      if (opts is List) {
+        if (opts.length > 2) {
+          opts.removeAt(optIndex);
+          widget.question['correctAnswer'] = 'A';
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Câu hỏi cần ít nhất 2 đáp án')),
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final question = widget.question;
+    final index = widget.index;
+    final options = (question['options'] as List<dynamic>).map((e) => e.toString()).toList();
+    final qId = question['id']?.toString() ?? 'q_$index';
+    final isDark = AppConstants.isDarkMode(context);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 24), // Tăng khoảng cách
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
-        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card Header
+          // Header Card
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              color: AppConstants.surfLow(context),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: AppConstants.border(context))),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(20),
+                    color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? AppConstants.border(context) : const Color(0xFFDBEAFE)),
                   ),
                   child: Text(
                     'Câu ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
+                      color: AppConstants.brand(context),
                     ),
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete_rounded, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 20),
                   tooltip: 'Xóa câu hỏi',
-                  onPressed: () => _deleteQuestion(index),
+                  onPressed: widget.onDelete,
                 ),
               ],
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Question Input
                 TextFormField(
+                  key: ValueKey('${qId}_question'),
                   initialValue: question['question'],
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppConstants.txt(context)),
+                  decoration: InputDecoration(
                     labelText: 'Nội dung câu hỏi',
-                    prefixIcon: Icon(Icons.help_outline),
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+                    prefixIcon: Icon(Icons.help_outline_rounded, color: AppConstants.brand(context), size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.brand(context), width: 1.5)),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppConstants.surfLow(context),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                   maxLines: 2,
-                  onChanged: (val) => _questions[index]['question'] = val,
-                  validator: (val) =>
-                      val!.isEmpty ? 'Vui lòng nhập câu hỏi' : null,
+                  onChanged: (val) => question['question'] = val,
+                  validator: (val) => val!.isEmpty ? 'Vui lòng nhập câu hỏi' : null,
                 ),
 
-                const SizedBox(height: 20),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Đáp án (Chọn hình tròn để đánh dấu đúng)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey,
-                    ),
+                const SizedBox(height: 18),
+                Text(
+                  'Các phương án lựa chọn (Bấm vào chữ cái để chọn đáp án đúng):',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppConstants.txtMuted(context),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
                 // Dynamic Options
                 ...List.generate(options.length, (optIndex) {
                   final letter = String.fromCharCode(65 + optIndex);
                   final rawCorrect = question['correctAnswer'];
 
-                  // Logic check selection
-                  bool isMultiple = rawCorrect is List;
                   bool isSelected = false;
-                  if (isMultiple) {
-                    isSelected = (rawCorrect as List)
-                        .map((e) => e.toString())
-                        .contains(letter);
+                  if (rawCorrect is List) {
+                    isSelected = rawCorrect.map((e) => e.toString()).contains(letter);
                   } else {
                     isSelected = rawCorrect.toString() == letter;
                   }
 
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
-                        // Selection Bubble (Checkbox logic)
+                        // Selection Bubble
                         InkWell(
                           onTap: () {
                             setState(() {
@@ -444,43 +1177,38 @@ class _EditQuizPageState extends State<EditQuizPage> {
                                 currentAnswers.remove(letter);
                               }
 
-                              if (currentAnswers.isEmpty)
-                                currentAnswers.add('A'); // Fallback
+                              if (currentAnswers.isEmpty) {
+                                currentAnswers.add('A');
+                              }
 
                               if (currentAnswers.length == 1) {
-                                _questions[index]['correctAnswer'] =
-                                    currentAnswers.first;
+                                question['correctAnswer'] = currentAnswers.first;
                               } else {
-                                _questions[index]['correctAnswer'] =
-                                    currentAnswers;
+                                question['correctAnswer'] = currentAnswers;
                               }
                             });
                           },
+                          borderRadius: BorderRadius.circular(20),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
+                            duration: const Duration(milliseconds: 150),
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.green
-                                  : Colors.grey.shade100,
+                              color: isSelected ? const Color(0xFF16A34A) : AppConstants.surfLow(context),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSelected
-                                    ? Colors.green
-                                    : Colors.grey.shade400,
-                                width: 2,
+                                color: isSelected ? const Color(0xFF16A34A) : AppConstants.border(context),
+                                width: 1.5,
                               ),
                             ),
                             child: Center(
                               child: Text(
                                 letter,
                                 style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.grey.shade700,
+                                  fontFamily: 'Inter',
+                                  color: isSelected ? Colors.white : AppConstants.txt(context),
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
@@ -492,68 +1220,78 @@ class _EditQuizPageState extends State<EditQuizPage> {
                         // Option Text Input
                         Expanded(
                           child: TextFormField(
+                            key: ValueKey('${qId}_opt_$optIndex'),
                             initialValue: options[optIndex],
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
+                                  : AppConstants.txt(context),
+                            ),
                             decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              filled: true,
+                              fillColor: isSelected
+                                  ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : const Color(0xFFF0FDF4))
+                                  : AppConstants.surf(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(
-                                  color: isSelected
-                                      ? Colors.green
-                                      : Colors.grey.shade300,
+                                  color: isSelected ? const Color(0xFF86EFAC) : AppConstants.border(context),
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(
-                                  color: isSelected
-                                      ? Colors.green.withOpacity(0.5)
-                                      : Colors.grey.shade300,
+                                  color: isSelected ? const Color(0xFF86EFAC) : AppConstants.border(context),
+                                  width: isSelected ? 1.5 : 1,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                  color: Colors.blue,
-                                  width: 2,
+                                borderSide: BorderSide(
+                                  color: AppConstants.brand(context),
+                                  width: 1.5,
                                 ),
                               ),
-                              filled: true,
-                              fillColor: isSelected
-                                  ? Colors.green.withOpacity(0.05)
-                                  : Colors.white,
                             ),
-                            onChanged: (val) =>
-                                _questions[index]['options'][optIndex] = val,
-                            validator: (val) =>
-                                val!.isEmpty ? 'Nhập đáp án' : null,
+                            onChanged: (val) {
+                              (question['options'] as List)[optIndex] = val;
+                            },
+                            validator: (val) => val!.isEmpty ? 'Vui lòng nhập nội dung đáp án' : null,
                           ),
                         ),
 
                         // Remove Option Button (chỉ hiện khi > 2 đáp án)
-                        if (options.length > 2)
+                        if (options.length > 2) ...[
+                          const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () => _removeOption(index, optIndex),
+                            icon: Icon(Icons.close_rounded, color: AppConstants.txtMuted(context), size: 20),
+                            onPressed: () => _removeOption(optIndex),
+                            tooltip: 'Xóa đáp án này',
                           ),
+                        ],
                       ],
                     ),
                   );
                 }),
 
+                const SizedBox(height: 6),
                 // Add Option Button
-                TextButton.icon(
-                  onPressed: () => _addOption(index),
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Thêm đáp án khác'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue.shade700,
+                OutlinedButton.icon(
+                  onPressed: _addOption,
+                  icon: Icon(Icons.add_rounded, size: 16, color: AppConstants.brand(context)),
+                  label: Text(
+                    'Thêm đáp án khác',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.brand(context)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppConstants.border(context) : const Color(0xFFBFDBFE)),
+                    backgroundColor: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -562,111 +1300,5 @@ class _EditQuizPageState extends State<EditQuizPage> {
         ],
       ),
     );
-  }
-
-  void _addNewQuestion() {
-    setState(() {
-      _questions.add({
-        'id': null,
-        'question': '',
-        'options': ['', '', '', ''], // Mặc định 4 ô
-        'correctAnswer': 'A',
-      });
-    });
-    // Scroll xuống dưới cùng (Optional)
-  }
-
-  void _deleteQuestion(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa câu ${index + 1}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => _questions.removeAt(index));
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _saveQuiz() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng kiểm tra lại thông tin')),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final quizRef = FirebaseFirestore.instance
-          .collection('quiz')
-          .doc(widget.quizId);
-
-      // 1. Update Quiz Info
-      await quizRef.update({
-        'title': _titleController.text.trim(),
-        'duration': int.parse(_durationController.text),
-        'maxSuspiciousActions': int.parse(_maxViolationsController.text),
-        'questionCount': _questions.length,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. Update Questions (Xóa cũ thêm mới để đảm bảo đồng bộ options)
-      // Lưu ý: Việc xóa hết subcollection tốn write cost, nhưng đảm bảo sạch data
-      final existingQuestions = await quizRef.collection('questions').get();
-      final batch = FirebaseFirestore.instance.batch();
-
-      for (var doc in existingQuestions.docs) {
-        batch.delete(doc.reference);
-      }
-
-      await batch.commit(); // Commit delete trước
-
-      // Add mới từng câu (không dùng batch cho add nếu list quá dài > 500)
-      for (var question in _questions) {
-        await quizRef.collection('questions').add({
-          'question': question['question'].toString().trim(),
-          'options': (question['options'] as List<String>)
-              .map((opt) => opt.trim())
-              .toList(),
-          'correctAnswer': question['correctAnswer'],
-          // 'order': ... (nếu muốn lưu thứ tự)
-        });
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Đã lưu thay đổi thành công!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true); // Trả về true để reload list
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi lưu: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
   }
 }

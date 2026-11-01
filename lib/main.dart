@@ -12,6 +12,7 @@ import 'services/quiz_schedule_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'utils/theme_provider.dart';
+import 'utils/constants.dart';
 
 // IMPORT CÁC TRANG NGÂN HÀNG CÂU HỎI
 import 'screens/teacher/quiz_bank_list_page.dart';
@@ -43,7 +44,7 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
-          title: 'Student Quiz App',
+          title: 'DUT QuizMaster',
           themeMode: themeProvider.themeMode,
           theme: ThemeData(
             brightness: Brightness.light,
@@ -185,10 +186,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     super.dispose();
   }
 
-  Future<String?> _getRoleCached(User user, String studentId) {
+  Future<String?> _getRoleCached(User user) {
     if (_roleFuture == null || _lastUserId != user.uid) {
       _lastUserId = user.uid;
-      _roleFuture = _syncAndGetRole(user, studentId);
+      _roleFuture = _syncAndGetRole(user);
     }
     return _roleFuture!;
   }
@@ -200,15 +201,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
       builder: (context, snapshot) {
         // Đang kiểm tra trạng thái đăng nhập
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
+            backgroundColor: AppConstants.bg(context),
             body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Đang khởi động...'),
-                ],
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppConstants.brand(context)),
+                strokeWidth: 2.5,
               ),
             ),
           );
@@ -224,46 +222,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         print('👤 User logged in: ${user.uid}');
         print('📧 Email: ${user.email}');
 
-        // Trích xuất studentId từ email
+        // Đã đăng nhập - đồng bộ với Firestore và lấy role
+        final predictedRole = UserService.determineRoleFromEmail(user.email);
         final studentId = UserService.extractStudentId(user.email);
 
-        if (studentId.isEmpty) {
-          print('❌ Cannot extract student ID from email');
-          return _buildErrorScreen(
-            context,
-            title: 'Email không hợp lệ',
-            message:
-                'Email không chứa mã sinh viên hợp lệ (cần 9 chữ số).\nVui lòng sử dụng email sinh viên.',
-            showRetry: false,
-          );
-        }
-
-        print('🎓 Student ID: $studentId');
-
-        // Đã đăng nhập - đồng bộ với Firestore và lấy role
         return FutureBuilder<String?>(
-          future: _getRoleCached(user, studentId),
+          future: _getRoleCached(user),
+          initialData: predictedRole,
           builder: (context, roleSnapshot) {
-            // Đang đồng bộ và lấy role
-            if (roleSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Đang đồng bộ dữ liệu...'),
-                      SizedBox(height: 8),
-                      Text(
-                        '🔄 Authentication → Firestore',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
+            final role = roleSnapshot.data ?? predictedRole;
 
             // Có lỗi khi đồng bộ
             if (roleSnapshot.hasError) {
@@ -273,15 +240,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 title: 'Lỗi đồng bộ',
                 message:
                     'Không thể đồng bộ với máy chủ.\nVui lòng kiểm tra kết nối và thử lại.',
-                onRetry: () => setState(() {}),
+                onRetry: () => setState(() {
+                  _roleFuture = null;
+                }),
               );
             }
 
-            final role = roleSnapshot.data;
             print('🎭 Role detected: $role');
 
             // Không có role hoặc role rỗng
-            if (role == null || role.isEmpty) {
+            if (role.isEmpty) {
               print('⚠️ No role found after sync');
               return _buildErrorScreen(
                 context,
@@ -293,16 +261,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
             }
 
             // Chuyển hướng dựa trên role
-            print('✅ Redirecting to $role panel');
-            print('   Using Student ID: $studentId');
-            print(
-              '   ✨ Auto-sync enabled - changes will be reflected automatically',
-            );
-
-            if (role == 'student') {
-              return ClassListPage(studentId: studentId);
-            } else if (role == 'teacher') {
+            if (role == 'teacher') {
+              print('✅ Redirecting to teacher panel');
               return const TeacherPanel();
+            } else if (role == 'student') {
+              // Đối với sinh viên, kiểm tra mã sinh viên 9 chữ số
+              if (studentId.isEmpty || studentId.length < 9) {
+                print('❌ Cannot extract student ID from email');
+                return _buildErrorScreen(
+                  context,
+                  title: 'Email không hợp lệ',
+                  message:
+                      'Email sinh viên phải chứa mã sinh viên hợp lệ (cần 9 chữ số).\n'
+                      'Nếu bạn là giảng viên, vui lòng sử dụng tài khoản email trường @dut.udn.vn.',
+                  showRetry: false,
+                );
+              }
+              print('✅ Redirecting to student panel with ID: $studentId');
+              return ClassListPage(studentId: studentId);
             } else {
               // Role không hợp lệ
               print('⚠️ Invalid role: $role');
@@ -321,19 +297,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   /// Đồng bộ và lấy role
-  Future<String?> _syncAndGetRole(User user, String studentId) async {
+  Future<String?> _syncAndGetRole(User user) async {
     try {
-      // Bước 1: Kiểm tra và đồng bộ nếu data cũ
-      print('🔍 Checking if sync needed...');
-      final wasSynced = await AuthSyncService.checkAndSyncIfOutdated(studentId);
+      final userId = UserService.createUserId(user.email);
 
-      if (wasSynced) {
-        print('✅ Data was synced from Authentication');
-      } else {
-        print('✅ Data already up to date');
+      // Bước 1: Kiểm tra và đồng bộ nếu data cũ
+      if (userId.isNotEmpty) {
+        print('🔍 Checking if sync needed...');
+        final wasSynced = await AuthSyncService.checkAndSyncIfOutdated(userId);
+        if (wasSynced) {
+          print('✅ Data was synced from Authentication');
+        } else {
+          print('✅ Data already up to date');
+        }
       }
 
-      // Bước 2: Đồng bộ đầy đủ (đảm bảo)
+      // Bước 2: Đồng bộ đầy đủ (hỗ trợ cả GV và SV)
       final role = await UserService.syncUserAndGetRole(user);
 
       return role;

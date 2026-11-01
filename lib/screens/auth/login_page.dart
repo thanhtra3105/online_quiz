@@ -160,18 +160,27 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) {
       print('🚀 Navigating to $role panel');
 
-      if (role == 'student') {
-        // 🆕 Với sinh viên, cần có studentId
+      // Kiểm tra vai trò Giảng viên trước
+      if (role == 'teacher') {
+        print('👨‍🏫 Teacher detected -> Navigating to TeacherPanel');
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const TeacherPanel()),
+          (route) => false,
+        );
+      } else if (role == 'student') {
+        // Với sinh viên, kiểm tra studentId 9 số
         final studentId = await UserService.getStudentId(user);
 
         if (studentId == null || studentId.isEmpty) {
           setState(() {
-            _errorMessage = 'Email sinh viên phải chứa 9 chữ số mã sinh viên.';
+            _errorMessage = 'Email sinh viên phải chứa 9 chữ số mã sinh viên.\n'
+                'Nếu bạn là giảng viên, vui lòng sử dụng email tài khoản trường (@dut.udn.vn).';
           });
           await _auth.signOut();
           return;
         }
 
+        print('👨‍🎓 Student detected -> Navigating to ClassListPage');
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => ClassListPage(studentId: studentId),
@@ -179,7 +188,7 @@ class _LoginPageState extends State<LoginPage> {
           (route) => false,
         );
       } else {
-        // Giáo viên vào teacher panel
+        // Mặc định vào teacher panel
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const TeacherPanel()),
           (route) => false,
@@ -237,7 +246,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'QuizMaster',
+                    'DUT QuizMaster',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w900,
@@ -428,7 +437,7 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'SV: Email chứa 9 chữ số MSSV\nGV: Email @dut.udn.vn',
+                                        'GV: Email @dut.udn.vn\nSV: Email chứa 9 chữ số MSSV',
                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           height: 1.4,
@@ -457,7 +466,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                '© 2024 QuizMaster Educational Suite.',
+                '© 2026 DUT QuizMaster Educational Suite.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,

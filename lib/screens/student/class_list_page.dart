@@ -161,7 +161,7 @@ class _ClassListPageState extends State<ClassListPage> {
                 Icon(Icons.school, color: AppConstants.brand(context), size: 32),
                 const SizedBox(width: 12),
                 Text(
-                  'QuizMaster Pro',
+                  'DUT QuizMaster',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 20,
@@ -355,7 +355,7 @@ class _ClassListPageState extends State<ClassListPage> {
                         color: AppConstants.brand(context), size: 24),
                     const SizedBox(width: 8),
                     Text(
-                      'QuizMaster Pro',
+                      'DUT QuizMaster',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 20,

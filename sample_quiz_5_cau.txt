@@ -1,0 +1,32 @@
+Câu 1: Số 2 là số nguyên tố chẵn duy nhất.
+A. Đúng
+B. Sai
+Đáp án: A
+
+Câu 2: Đâu là một ngôn ngữ lập trình đa nền tảng được phát triển bởi Google để xây dựng ứng dụng Flutter?
+A. Python
+B. Dart
+C. Java
+Đáp án: B
+
+Câu 3: Thủ đô của Việt Nam hiện nay là thành phố nào?
+A. Hà Nội
+B. Đà Nẵng
+C. TP. Hồ Chí Minh
+D. Hải Phòng
+Đáp án: A
+
+Câu 4: Những ngôn ngữ nào sau đây thường được sử dụng trong lập trình Web Front-end? (Chọn nhiều đáp án)
+A. HTML
+B. C++
+C. CSS
+D. Assembly
+E. JavaScript
+Đáp án: A, C, E
+
+Câu 5: Giao thức mạng nào sau đây được sử dụng để truyền tải dữ liệu web an toàn có mã hóa?
+A. FTP
+B. HTTP
+C. HTTPS
+D. SMTP
+Đáp án: C

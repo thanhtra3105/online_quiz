@@ -7,6 +7,7 @@
       "name": "new_student_dash_board",
       "version": "1.0.0+1",
       "dependencies": [
+        "archive",
         "cloud_firestore",
         "cupertino_icons",
         "excel",
@@ -17,6 +18,7 @@
         "fl_chart",
         "flutter",
         "google_fonts",
+        "http",
         "intl",
         "path_provider",
         "pdf",
@@ -24,7 +26,8 @@
         "provider",
         "shared_preferences",
         "syncfusion_flutter_pdf",
-        "unorm_dart"
+        "unorm_dart",
+        "xml"
       ],
       "devDependencies": [
         "flutter_lints",
@@ -113,6 +116,33 @@
         "intl",
         "syncfusion_flutter_core",
         "xml"
+      ]
+    },
+    {
+      "name": "xml",
+      "version": "6.6.1",
+      "dependencies": [
+        "collection",
+        "meta",
+        "petitparser"
+      ]
+    },
+    {
+      "name": "archive",
+      "version": "3.6.1",
+      "dependencies": [
+        "crypto",
+        "path"
+      ]
+    },
+    {
+      "name": "http",
+      "version": "1.6.0",
+      "dependencies": [
+        "async",
+        "http_parser",
+        "meta",
+        "web"
       ]
     },
     {
@@ -345,16 +375,6 @@
       ]
     },
     {
-      "name": "http",
-      "version": "1.6.0",
-      "dependencies": [
-        "async",
-        "http_parser",
-        "meta",
-        "web"
-      ]
-    },
-    {
       "name": "crypto",
       "version": "3.0.7",
       "dependencies": [
@@ -392,26 +412,35 @@
       ]
     },
     {
-      "name": "xml",
-      "version": "6.6.1",
+      "name": "petitparser",
+      "version": "7.0.1",
       "dependencies": [
         "collection",
-        "meta",
-        "petitparser"
-      ]
-    },
-    {
-      "name": "archive",
-      "version": "3.6.1",
-      "dependencies": [
-        "crypto",
-        "path"
+        "meta"
       ]
     },
     {
       "name": "web",
       "version": "1.1.1",
       "dependencies": []
+    },
+    {
+      "name": "http_parser",
+      "version": "4.1.2",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner",
+        "typed_data"
+      ]
+    },
+    {
+      "name": "async",
+      "version": "2.13.0",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
     },
     {
       "name": "plugin_platform_interface",
@@ -726,14 +755,6 @@
       "dependencies": []
     },
     {
-      "name": "async",
-      "version": "2.13.0",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
       "name": "leak_tracker_testing",
       "version": "3.0.2",
       "dependencies": [
@@ -783,28 +804,10 @@
       ]
     },
     {
-      "name": "http_parser",
-      "version": "4.1.2",
-      "dependencies": [
-        "collection",
-        "source_span",
-        "string_scanner",
-        "typed_data"
-      ]
-    },
-    {
       "name": "typed_data",
       "version": "1.4.0",
       "dependencies": [
         "collection"
-      ]
-    },
-    {
-      "name": "petitparser",
-      "version": "7.0.1",
-      "dependencies": [
-        "collection",
-        "meta"
       ]
     },
     {

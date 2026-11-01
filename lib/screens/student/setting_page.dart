@@ -689,7 +689,7 @@ class _SettingPageState extends State<SettingPage> {
         ),
         _buildToggleRow(
           title: 'Cập nhật hệ thống',
-          desc: 'Tin tức và tính năng mới từ hệ thống thi QuizMaster',
+          desc: 'Tin tức và tính năng mới từ hệ thống thi DUT QuizMaster',
           value: _notifySystem,
           onChanged: (v) => setState(() => _notifySystem = v),
           hasDivider: false,

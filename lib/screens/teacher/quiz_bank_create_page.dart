@@ -2,8 +2,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'package:unorm_dart/unorm_dart.dart' as unorm;
+import 'package:flutter/services.dart';
+import '../../services/document_parser_service.dart';
+import '../../services/gemini_service.dart';
+import '../../utils/constants.dart';
+import 'gemini_quiz_dialog.dart';
 
 class QuizBankCreatePage extends StatefulWidget {
   const QuizBankCreatePage({Key? key}) : super(key: key);
@@ -19,6 +22,30 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
   final _maxViolationsController = TextEditingController(text: '5');
   bool _isUploading = false;
   double _uploadProgress = 0.0;
+
+  static const String _sampleQuizText = 'Câu 1: 2 là số chẵn hay lẻ?\n'
+      'A. Đúng\n'
+      'B. Sai\n'
+      'Đáp án: A\n\n'
+      'Câu 2: Ai là cầu thủ xuất sắc nhất thế giới?\n'
+      'A. Ronaldo\n'
+      'B. Messi\n'
+      'C. Cả hai\n'
+      'Đáp án: C\n\n'
+      'Câu 3: Thủ đô Việt Nam là?\n'
+      'A. Hà Nội\n'
+      'B. Đà Nẵng\n'
+      'C. TP.HCM\n'
+      'D. Hải Phòng\n'
+      'Đáp án: A\n\n'
+      'Câu 4: Những màu nào sau đây là màu nóng? (Chọn nhiều đáp án)\n'
+      'A. Đỏ\n'
+      'B. Xanh lá\n'
+      'C. Vàng\n'
+      'D. Xanh dương\n'
+      'E. Cam\n'
+      'F. Tím\n'
+      'Đáp án: A, C, E';
 
   @override
   void dispose() {
@@ -154,60 +181,94 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text(
-                                    'Hướng dẫn định dạng file',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.purple.shade700,
-                                      fontSize: 18,
+                                  Expanded(
+                                    child: Text(
+                                      'Hướng dẫn định dạng file',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.purple.shade700,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      Clipboard.setData(const ClipboardData(text: _sampleQuizText));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Row(
+                                            children: [
+                                              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                              SizedBox(width: 10),
+                                              Expanded(child: Text('Đã sao chép mẫu câu hỏi! Bạn có thể dán (Ctrl+V) vào Word.')),
+                                            ],
+                                          ),
+                                          backgroundColor: const Color(0xFF10B981),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.copy_rounded, size: 15),
+                                    label: const Text('Sao chép mẫu', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.purple.shade700,
+                                      side: BorderSide(color: Colors.purple.shade300),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
+                              SelectionArea(
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
                                   ),
-                                ),
-                                child: const Text(
-                                  'File PDF hoặc TXT phải có định dạng như các câu hỏi sau:\n'
-                                  'Câu 1: 2 là số chẵn hay lẻ? (Câu hỏi đúng sai)\n'
-                                  'A. Đúng\n'
-                                  'B. Sai\n'
-                                  'Đáp án: A\n\n'
-                                  'Câu 2: Ai là cầu thủ xuất sắc nhất thế giới? (Câu hỏi 3 đáp án)\n'
-                                  'A. Ronaldo\n'
-                                  'B. Messi\n'
-                                  'C. Cả hai\n'
-                                  'Đáp án: C\n\n'
-                                  'Câu 3: Thủ đô Việt Nam là? (Câu hỏi 4 đáp án)\n'
-                                  'A. Hà Nội\n'
-                                  'B. Đà Nẵng\n'
-                                  'C. TP.HCM\n'
-                                  'D. Hải Phòng\n'
-                                  'Đáp án: A\n\n'
-                                  'Câu 3: Những màu nào sau đây là màu nóng? (Câu hỏi nhiều đáp án)\n'
-                                  'A. Đỏ\n'
-                                  'B. Xanh lá\n'
-                                  'C. Vàng\n'
-                                  'D. Xanh dương\n'
-                                  'E. Cam\n'
-                                  'F. Tím\n'
-                                  'Đáp án: A, C, E\n\n'
-                                  'Lưu ý:\n'
-                                  '- Mỗi câu hỏi bắt đầu bằng "Câu X:"\n'
-                                  '- Đáp án đúng bắt đầu bằng "Đáp án:"\n'
-                                  '- Hỗ trợ cả dấu chấm (.) và dấu hai chấm (:) sau số câu và chữ đáp án.\n'
-                                  '- Đối với câu hỏi nhiều đáp án, các đáp án đúng cách nhau bằng dấu phẩy.\n',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    height: 1.5,
-                                    fontFamily: 'monospace',
+                                  child: const Text(
+                                    'File Word (.docx) hoặc PDF (.pdf) có định dạng như các câu hỏi sau (hoặc dùng AI tạo đề/sửa tự động):\n'
+                                    'Câu 1: 2 là số chẵn hay lẻ?\n'
+                                    'A. Đúng\n'
+                                    'B. Sai\n'
+                                    'Đáp án: A\n\n'
+                                    'Câu 2: Ai là cầu thủ xuất sắc nhất thế giới?\n'
+                                    'A. Ronaldo\n'
+                                    'B. Messi\n'
+                                    'C. Cả hai\n'
+                                    'Đáp án: C\n\n'
+                                    'Câu 3: Thủ đô Việt Nam là?\n'
+                                    'A. Hà Nội\n'
+                                    'B. Đà Nẵng\n'
+                                    'C. TP.HCM\n'
+                                    'D. Hải Phòng\n'
+                                    'Đáp án: A\n\n'
+                                    'Câu 4: Những màu nào sau đây là màu nóng? (Chọn nhiều đáp án)\n'
+                                    'A. Đỏ\n'
+                                    'B. Xanh lá\n'
+                                    'C. Vàng\n'
+                                    'D. Xanh dương\n'
+                                    'E. Cam\n'
+                                    'F. Tím\n'
+                                    'Đáp án: A, C, E\n\n'
+                                    'Lưu ý:\n'
+                                    '- Mỗi câu hỏi bắt đầu bằng "Câu X:"\n'
+                                    '- Đáp án đúng bắt đầu bằng "Đáp án:"\n'
+                                    '- Hỗ trợ cả dấu chấm (.) và dấu hai chấm (:) sau số câu và chữ đáp án.\n'
+                                    '- Đối với câu hỏi nhiều đáp án, các đáp án đúng cách nhau bằng dấu phẩy.\n'
+                                    '- Câu hỏi 1 đáp án không cần ghi chú thích; câu nhiều đáp án ghi thêm "(Chọn nhiều đáp án)" để học sinh dễ nhận biết.\n',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      height: 1.5,
+                                      fontFamily: 'monospace',
+                                    ),
                                   ),
                                 ),
                               ),
@@ -350,29 +411,70 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
 
                         const SizedBox(height: 24),
 
-                        // Upload button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton.icon(
-                            onPressed: _isUploading ? null : _uploadQuiz,
-                            icon: const Icon(Icons.upload_file, size: 28),
-                            label: const Text(
-                              'Upload File PDF/TXT',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        // Upload and Gemini AI buttons
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isNarrow = constraints.maxWidth < 550;
+                            final uploadBtn = ElevatedButton.icon(
+                              onPressed: _isUploading ? null : _uploadQuiz,
+                              icon: const Icon(Icons.cloud_upload_outlined, size: 24),
+                              label: const Text(
+                                'Tải lên Word / PDF',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple.shade600,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple.shade600,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(54),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+
+                            final geminiBtn = ElevatedButton.icon(
+                              onPressed: _isUploading ? null : _openGeminiGenerator,
+                              icon: const Icon(Icons.auto_awesome, size: 24),
+                              label: const Text(
+                                'Tạo đề bằng Gemini AI',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C3AED),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(54),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+
+                            if (isNarrow) {
+                              return Column(
+                                children: [
+                                  uploadBtn,
+                                  const SizedBox(height: 12),
+                                  geminiBtn,
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(child: uploadBtn),
+                                const SizedBox(width: 16),
+                                Expanded(child: geminiBtn),
+                              ],
+                            );
+                          },
                         ),
 
                         if (_isUploading) ...[
@@ -487,13 +589,29 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
     );
   }
 
+  Future<void> _openGeminiGenerator() async {
+    showDialog(
+      context: context,
+      builder: (context) => GeminiQuizDialog(
+        onQuizGenerated: (questions, suggestedTopic) async {
+          if (questions.isNotEmpty) {
+            if (_titleController.text.trim().isEmpty && suggestedTopic != null) {
+              _titleController.text = suggestedTopic;
+            }
+            await _saveQuestions(questions);
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _uploadQuiz() async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt'],
+        allowedExtensions: ['pdf', 'docx'],
         withData: true,
       );
 
@@ -507,27 +625,27 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
       final fileName = result.files.single.name;
       final bytes = result.files.single.bytes;
 
-      if (bytes == null) throw Exception('Không thể đọc file');
+      if (bytes == null) throw Exception('Không thể đọc dữ liệu file');
 
       String content = '';
-      if (fileName.endsWith('.txt')) {
-        content = String.fromCharCodes(bytes);
-      } else if (fileName.endsWith('.pdf')) {
-        content = await _extractTextFromPdf(bytes);
+      if (fileName.toLowerCase().endsWith('.docx')) {
+        content = await DocumentParserService.extractTextFromDocx(bytes);
+      } else if (fileName.toLowerCase().endsWith('.pdf')) {
+        content = await DocumentParserService.extractTextFromPdf(bytes);
+      } else {
+        throw Exception('Chỉ hỗ trợ file Word (.docx) hoặc PDF (.pdf)');
       }
 
-      if (content.isEmpty) throw Exception('File trống');
+      if (content.trim().isEmpty) throw Exception('File không có nội dung văn bản');
 
       setState(() => _uploadProgress = 0.5);
 
-      // --- GỌI HÀM PARSE MỚI ---
-      final parseResult = _parseQuestions(content);
+      final parseResult = DocumentParserService.parseQuestions(content);
       final List<Map<String, dynamic>> questions = parseResult['questions'];
       final List<String> errors = parseResult['errors'];
 
       setState(() => _uploadProgress = 0.7);
 
-      // --- NẾU CÓ LỖI: HIỆN THÔNG BÁO VÀ DỪNG ---
       if (errors.isNotEmpty) {
         setState(() {
           _isUploading = false;
@@ -538,121 +656,142 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
+              backgroundColor: AppConstants.surf(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppConstants.border(context)),
+              ),
               title: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Phát hiện lỗi định dạng'),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Phát hiện lỗi định dạng',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: AppConstants.txt(context),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               content: SizedBox(
-                width: double.maxFinite,
+                width: 540,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Tìm thấy ${questions.length} câu hợp lệ, nhưng có ${errors.length} lỗi:',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, color: AppConstants.txt(context)),
                     ),
-                    SizedBox(height: 12),
-                    Flexible(
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppConstants.isDarkMode(context)
+                            ? const Color(0xFF450A0A).withValues(alpha: 0.3)
+                            : const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppConstants.isDarkMode(context)
+                              ? const Color(0xFF7F1D1D)
+                              : const Color(0xFFFECACA),
                         ),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: errors.length,
-                          separatorBuilder: (ctx, i) => Divider(),
-                          itemBuilder: (ctx, i) => Text(
-                            '• ${errors[i]}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.red.shade800,
-                            ),
-                          ),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (int i = 0; i < errors.length; i++) ...[
+                              if (i > 0)
+                                Divider(
+                                  color: AppConstants.isDarkMode(context)
+                                      ? const Color(0xFF7F1D1D)
+                                      : const Color(0xFFFEE2E2),
+                                  height: 12,
+                                ),
+                              Text(
+                                '• ${errors[i]}',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  color: AppConstants.isDarkMode(context)
+                                      ? const Color(0xFFFCA5A5)
+                                      : const Color(0xFFB91C1C),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
-                      'Vui lòng sửa file và upload lại.',
-                      style: TextStyle(fontStyle: FontStyle.italic),
+                      'Bạn có thể để Gemini AI tự động chuẩn hóa lại cấu trúc của đề thi này.',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12.5,
+                        color: AppConstants.txtMuted(context),
+                      ),
                     ),
                   ],
                 ),
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Đóng'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppConstants.border(context)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  child: Text(
+                    'Đóng',
+                    style: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _autoFixWithGemini(content);
+                  },
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                  label: const Text(
+                    'Sửa tự động bằng AI Gemini',
+                    style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 13.5),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppConstants.brand(context),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
                 ),
               ],
             ),
           );
         }
-        return; // Dừng upload
+        return;
       }
 
-      // --- NẾU KHÔNG CÓ CÂU HỎI NÀO ---
       if (questions.isEmpty) {
         throw Exception('Không tìm thấy câu hỏi nào hợp lệ.');
       }
 
-      // --- TIẾP TỤC UPLOAD NHƯ CŨ ---
-      // (Phần code bên dưới giữ nguyên logic cũ của bạn, chỉ thay đổi biến questions)
-
-      // ... Logic tạo Quiz trên Firebase ...
-      final quizRef = await FirebaseFirestore.instance.collection('quiz').add({
-        'title': _titleController.text.trim(),
-        'questionCount': questions.length,
-        'duration': int.parse(_durationController.text),
-        'maxSuspiciousActions': int.parse(_maxViolationsController.text),
-        'status': 'available',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      for (var question in questions) {
-        await quizRef.collection('questions').add(question);
-      }
-
-      setState(() => _uploadProgress = 1.0);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text(
-                  'Thành công! Đã thêm ${questions.length} câu hỏi vào ngân hàng.',
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green.shade600,
-          ),
-        );
-        Navigator.pop(context);
-      }
-
-      // ... (Phần logic assign class nếu là trang class_create_quiz) ...
-      // Nếu là trang class_create_quiz_page, nhớ giữ lại đoạn logic gán vào class nhé!
-      // Ví dụ đoạn này (CHỈ DÀNH CHO class_create_quiz_page.dart):
-      /*
-      if (widget.classId != null) {
-          await FirebaseFirestore.instance
-            .collection('classes')
-            .doc(widget.classId)
-            .collection('quizzes')
-            .doc(quizRef.id)
-            .set({ ... });
-          // update count...
-      }
-      */
+      await _saveQuestions(questions);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -669,16 +808,121 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
     }
   }
 
-  Future<String> _extractTextFromPdf(List<int> bytes) async {
+  Future<void> _autoFixWithGemini(String originalContent) async {
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.2;
+    });
+
     try {
-      final PdfDocument document = PdfDocument(inputBytes: bytes);
-      String text = PdfTextExtractor(document).extractText();
-      document.dispose();
-      return text;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Text('Gemini AI đang phân tích và chuẩn hóa đề thi...'),
+              ],
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+
+      final fixedContent = await GeminiService.fixUnformattedContent(originalContent);
+      setState(() => _uploadProgress = 0.6);
+
+      final parseResult = DocumentParserService.parseQuestions(fixedContent);
+      final List<Map<String, dynamic>> questions = parseResult['questions'];
+      final List<String> errors = parseResult['errors'];
+
+      if (questions.isEmpty) {
+        throw Exception('Gemini AI không trích xuất được câu hỏi nào từ nội dung này.');
+      }
+
+      if (errors.isNotEmpty && questions.isEmpty) {
+        throw Exception('Lỗi sau khi AI chuẩn hóa: ${errors.first}');
+      }
+
+      setState(() => _uploadProgress = 0.8);
+      await _saveQuestions(questions);
     } catch (e) {
-      throw Exception('Lỗi khi đọc PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi sửa bằng Gemini: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0.0;
+        });
+      }
     }
   }
+
+  Future<void> _saveQuestions(List<Map<String, dynamic>> questions) async {
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.85;
+    });
+
+    try {
+      final title = _titleController.text.trim().isNotEmpty
+          ? _titleController.text.trim()
+          : 'Đề thi mới';
+      final duration = int.tryParse(_durationController.text) ?? 30;
+      final maxViolations = int.tryParse(_maxViolationsController.text) ?? 5;
+
+      final quizRef = await FirebaseFirestore.instance.collection('quiz').add({
+        'title': title,
+        'questionCount': questions.length,
+        'duration': duration,
+        'maxSuspiciousActions': maxViolations,
+        'status': 'available',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      for (var question in questions) {
+        await quizRef.collection('questions').add(question);
+      }
+
+      setState(() => _uploadProgress = 1.0);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(
+                  'Thành công! Đã thêm ${questions.length} câu hỏi vào ngân hàng.',
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0.0;
+        });
+      }
+    }
+  }
+
+
 
   // List<Map<String, dynamic>> _parseQuestions(String content) {
   //   List<Map<String, dynamic>> questions = [];
@@ -1071,161 +1315,7 @@ class _QuizBankCreatePageState extends State<QuizBankCreatePage> {
   //   return {'questions': questions, 'errors': errors};
   // }
 
-  // --- BẮT ĐẦU PHẦN CODE MỚI ---
 
-  /// Hàm chuẩn hóa nội dung file trước khi xử lý
-  String _standardizeQuizContent(String content) {
-    // 1. Thêm xuống dòng trước các từ khóa "Câu X:", "Bài X:" để tách khối
-    content = content.replaceAllMapped(
-      RegExp(
-        r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*(\d+)\s*[:.)]?\s*',
-        caseSensitive: false,
-      ),
-      (match) => '\n@@BLOCK_START@@Câu ${match.group(1)}: ',
-    );
 
-    // 2. Chuẩn hóa các đáp án (A. B. C. D. ...) thành format "A. "
-    // Hỗ trợ: A. | A: | A) | a.
-    content = content.replaceAllMapped(
-      RegExp(r'(?:^|\n)\s*([A-Z])\s*[:.)]\s+', caseSensitive: false),
-      (match) => '\n${match.group(1)!.toUpperCase()}. ',
-    );
 
-    // 3. Chuẩn hóa dòng đáp án
-    // Hỗ trợ: Đáp án: | DA: | Ans: | Result: | ĐA:
-    content = content.replaceAllMapped(
-      RegExp(
-        r'(?:^|\n)\s*(?:Đáp\s*án|DA|Answer|Result|KQ|ĐA)\s*[:.]?\s*([A-Z0-9\s,]+)',
-        caseSensitive: false,
-      ),
-      (match) => '\nĐáp án: ${match.group(1)!.toUpperCase()}',
-    );
-
-    return content;
-  }
-
-  /// Hàm phân tích câu hỏi động (Dynamic Parsing)
-  Map<String, dynamic> _parseQuestions(String content) {
-    List<Map<String, dynamic>> questions = [];
-    List<String> errors = [];
-
-    try {
-      // BƯỚC 1: Xử lý sơ bộ văn bản (Unicode, Newline)
-      content = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-      content = unorm.nfc(content); // Chuẩn hóa tiếng Việt
-
-      // BƯỚC 2: Chuẩn hóa format chung
-      content = _standardizeQuizContent(content);
-
-      // Xóa các ký tự điều khiển lạ
-      content = content.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
-
-      // BƯỚC 3: Tách các câu hỏi dựa trên marker @@BLOCK_START@@ đã thêm ở bước chuẩn hóa
-      final blocks = content.split('@@BLOCK_START@@');
-
-      for (var block in blocks) {
-        block = block.trim();
-        if (block.isEmpty) continue; // Bỏ qua block rỗng đầu tiên
-
-        // -- BẮT ĐẦU XỬ LÝ TỪNG CÂU --
-
-        // 1. Tách nội dung câu hỏi (Từ đầu cho đến khi gặp đáp án A.)
-        // Regex tìm điểm bắt đầu của đáp án đầu tiên (A.)
-        final questionMatch = RegExp(
-          r'^(.*?)(\n[A-Z]\.\s+)',
-          dotAll: true,
-        ).firstMatch(block);
-
-        if (questionMatch == null) {
-          // Nếu không tìm thấy đáp án A nào -> Lỗi định dạng hoặc text rác
-          if (block.contains('Câu') && block.length < 50)
-            continue; // Bỏ qua header ngắn
-          errors.add(
-            "Không tìm thấy các lựa chọn (A, B...) cho: \"${block.split('\n')[0]}\"",
-          );
-          continue;
-        }
-
-        String questionText = questionMatch.group(1)!.trim();
-        // Loại bỏ prefix "Câu X:" trong nội dung câu hỏi để đẹp hơn
-        questionText = questionText.replaceAll(
-          RegExp(r'^Câu\s+\d+:\s*', caseSensitive: false),
-          '',
-        );
-
-        // 2. Tìm tất cả các đáp án (A. ..., B. ...)
-        List<String> options = [];
-        List<String> optionKeys = []; // Lưu lại A, B, C để đối chiếu
-
-        // Regex này tìm: (Xuống dòng)(Chữ cái)(Chấm)(Nội dung)(Dừng lại trước chữ cái tiếp theo hoặc dòng Đáp án)
-        final optionMatches = RegExp(
-          r'\n([A-Z])\.\s+(.*?)(?=\n[A-Z]\.\s+|\nĐáp án:|$)',
-          dotAll: true,
-        ).allMatches(block);
-
-        for (var match in optionMatches) {
-          optionKeys.add(match.group(1)!); // A, B, C...
-          options.add(match.group(2)!.trim()); // Nội dung đáp án
-        }
-
-        if (options.length < 2) {
-          errors.add(
-            "Câu hỏi \"${questionText.substring(0, 20)}...\" có ít hơn 2 đáp án.",
-          );
-          continue;
-        }
-
-        // 3. Tìm đáp án đúng
-        final answerMatch = RegExp(
-          r'\nĐáp án:\s*([A-Z\s,]+)',
-        ).firstMatch(block);
-
-        if (answerMatch == null) {
-          errors.add(
-            "Câu hỏi \"${questionText.substring(0, 20)}...\" thiếu dòng 'Đáp án:'.",
-          );
-          continue;
-        }
-
-        // Xử lý chuỗi đáp án (VD: "A, C" hoặc "A C" hoặc "A")
-        String rawAnswer = answerMatch.group(1)!;
-        List<String> correctAnswers = rawAnswer
-            .split(RegExp(r'[,\s]+')) // Tách bằng dấu phẩy hoặc khoảng trắng
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-
-        // Validate đáp án có nằm trong danh sách option không
-        bool isValidAnswer = true;
-        for (var ans in correctAnswers) {
-          if (!optionKeys.contains(ans)) {
-            errors.add(
-              "Câu hỏi \"${questionText.substring(0, 20)}...\" có đáp án '$ans' không nằm trong các lựa chọn (${optionKeys.join(', ')}).",
-            );
-            isValidAnswer = false;
-            break;
-          }
-        }
-        if (!isValidAnswer) continue;
-
-        // 4. Đóng gói kết quả
-        questions.add({
-          'question': questionText,
-          'options': options,
-          // Nếu có nhiều đáp án đúng -> lưu List<String>, nếu 1 -> lưu String
-          'correctAnswer': correctAnswers.length > 1
-              ? correctAnswers
-              : correctAnswers.first,
-          'type': correctAnswers.length > 1 ? 'multiple' : 'single',
-        });
-      }
-    } catch (e) {
-      errors.add("Lỗi hệ thống khi phân tích file: $e");
-    }
-
-    return {'questions': questions, 'errors': errors};
-  }
-
-  // --- KẾT THÚC CODE MỚI ---
-  // --- KẾT THÚC ---
 } // <--- Dấu ngoặc đó

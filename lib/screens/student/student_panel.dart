@@ -178,7 +178,7 @@ class StudentPanelState extends State<StudentPanel> {
                 Icon(Icons.school, color: AppConstants.brand(context), size: 32),
                 const SizedBox(width: 12),
                 Text(
-                  'QuizMaster Pro',
+                  'DUT QuizMaster',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 20,
@@ -383,7 +383,7 @@ class StudentPanelState extends State<StudentPanel> {
                           color: AppConstants.brand(context), size: 24),
                       const SizedBox(width: 8),
                       Text(
-                        'QuizMaster Pro',
+                        'DUT QuizMaster',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 20,

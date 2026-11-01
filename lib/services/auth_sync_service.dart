@@ -80,17 +80,20 @@ class AuthSyncService {
       print('   Auth UID: ${user.uid}');
       print('   Email: ${user.email}');
 
-      // Trích xuất studentId từ email
-      final studentId = UserService.extractStudentId(user.email);
+      // Trích xuất userId từ email (SV dùng mã SV 9 số, GV dùng email)
+      final userId = UserService.createUserId(user.email);
 
-      if (studentId.isEmpty) {
-        print('⚠️ Cannot extract student ID from email: ${user.email}');
+      if (userId.isEmpty) {
+        print('⚠️ Cannot extract user ID from email: ${user.email}');
         return;
       }
 
-      print('   Student ID: $studentId');
+      final studentId = UserService.extractStudentId(user.email);
+      final isStudent = studentId.isNotEmpty && studentId.length >= 9;
 
-      final docRef = _firestore.collection('users').doc(studentId);
+      print('   User ID: $userId (isStudent: $isStudent)');
+
+      final docRef = _firestore.collection('users').doc(userId);
       final doc = await docRef.get();
 
       // Chuẩn bị dữ liệu đồng bộ từ Authentication
@@ -115,7 +118,7 @@ class AuthSyncService {
         // Giữ nguyên các field quan trọng từ Firestore (không ghi đè)
         final preservedData = {
           'role': currentData['role'], // Giữ nguyên role
-          'studentId': currentData['studentId'], // Giữ nguyên studentId
+          if (currentData.containsKey('studentId')) 'studentId': currentData['studentId'],
           'createdAt': currentData['createdAt'], // Giữ nguyên createdAt
         };
 
@@ -131,11 +134,12 @@ class AuthSyncService {
         print('🆕 Creating new user document from Authentication');
 
         // Xác định role mặc định
-        final role = _determineDefaultRole(user.email);
+        final role = UserService.determineRoleFromEmail(user.email);
 
         await docRef.set({
           ...syncData,
-          'studentId': studentId,
+          'userId': userId,
+          if (isStudent) 'studentId': studentId,
           'role': role,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -226,15 +230,15 @@ class AuthSyncService {
   }
 
   /// Kiểm tra và đồng bộ nếu data trong Firestore cũ hơn Authentication
-  static Future<bool> checkAndSyncIfOutdated(String studentId) async {
+  static Future<bool> checkAndSyncIfOutdated(String userId) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
 
-      final extractedId = UserService.extractStudentId(user.email);
-      if (extractedId != studentId) return false;
+      final currentUserId = UserService.createUserId(user.email);
+      if (currentUserId != userId) return false;
 
-      final doc = await _firestore.collection('users').doc(studentId).get();
+      final doc = await _firestore.collection('users').doc(userId).get();
       if (!doc.exists) {
         // Document không tồn tại - sync ngay
         await syncAuthToFirestore(user);

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-// import 'package:excel/excel.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
 
 import 'class_create_quiz_page.dart';
@@ -10,16 +9,17 @@ import 'class_quiz_detail_page.dart';
 import 'class_results_page.dart';
 import '../../services/quiz_schedule_service.dart';
 import '../../models/quiz_schedule_model.dart';
+import '../../utils/constants.dart';
 
 class ClassDetailPage extends StatefulWidget {
   final String classId;
   final String className;
 
   const ClassDetailPage({
-    Key? key,
+    super.key,
     required this.classId,
     required this.className,
-  }) : super(key: key);
+  });
 
   @override
   State<ClassDetailPage> createState() => _ClassDetailPageState();
@@ -177,33 +177,145 @@ class _ClassDetailPageState extends State<ClassDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppConstants.isDarkMode(context);
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: AppConstants.bg(context),
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar
+            // Top App Bar đồng bộ với trang Quản lý lớp học
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9F9FF),
-                border: Border(bottom: BorderSide(color: Color(0xFFC3C6D6))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF434654)),
-                    onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppConstants.surf(context),
+                border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('Quản lý lớp học', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0B57D0))),
-                  const SizedBox(width: 24),
-                  const Text('Chi tiết lớp học', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B57D0))),
-                  const Spacer(),
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF434654))),
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF434654))),
                 ],
               ),
+              child: isMobile
+                  ? Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.arrow_back_rounded, color: AppConstants.txt(context)),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppConstants.surfLow(context),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: AppConstants.border(context)),
+                            ),
+                            child: TextField(
+                              controller: _studentSearchController,
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
+                              onChanged: (value) => setState(() => _studentSearchQuery = value.toLowerCase().trim()),
+                              decoration: InputDecoration(
+                                hintText: 'Tìm kiếm tên hoặc MSSV...',
+                                hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                                prefixIcon: Icon(Icons.search_rounded, color: AppConstants.txtMuted(context), size: 18),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        // Search Bar
+                        Container(
+                          width: 300,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppConstants.surfLow(context),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: AppConstants.border(context)),
+                          ),
+                          child: TextField(
+                            controller: _studentSearchController,
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
+                            onChanged: (value) => setState(() => _studentSearchQuery = value.toLowerCase().trim()),
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm tên hoặc MSSV...',
+                              hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                              prefixIcon: Icon(Icons.search_rounded, color: AppConstants.txtMuted(context), size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 32),
+                        // Nav links / Breadcrumbs
+                        Row(
+                          children: [
+                            Tooltip(
+                              message: 'Quay lại Quản lý lớp học',
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.arrow_back_rounded, size: 16, color: AppConstants.txtMuted(context)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Quản lý lớp học',
+                                        style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: AppConstants.txtMuted(context)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right_rounded, size: 18, color: AppConstants.txtMuted(context)),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                border: Border(bottom: BorderSide(color: AppConstants.brand(context), width: 2.5)),
+                              ),
+                              child: Text(
+                                'Chi tiết lớp học',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppConstants.brand(context)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        // Actions
+                        Row(
+                          children: [
+                            IconButton(
+                              tooltip: 'Thông báo',
+                              onPressed: () {},
+                              icon: Icon(Icons.notifications_none_rounded, color: AppConstants.txtMuted(context)),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Tài khoản',
+                              onPressed: () {},
+                              icon: Icon(Icons.account_circle_outlined, color: AppConstants.txtMuted(context)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
             ),
 
             // Page Content
@@ -213,68 +325,123 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1000),
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(isMobile ? 16 : 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Breadcrumbs & Header
-                          Row(
-                            children: [
-                              const Text('CLASSES', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF434654), letterSpacing: 1.5)),
-                              const Icon(Icons.chevron_right, size: 16, color: Color(0xFF434654)),
-                              const Text('CHI TIẾT LỚP HỌC', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF003D9B), letterSpacing: 1.5)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(widget.className, style: const TextStyle(fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w700, color: Color(0xFF041B3C), letterSpacing: -0.5)),
-                                  const SizedBox(height: 8),
-                                  const Text('Quản lý danh sách học sinh và kết quả học tập', style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654))),
-                                ],
-                              ),
-                              if (_tabController.index == 0)
-                                FilledButton.icon(
-                                  onPressed: _showAddStudentOptionsDialog,
-                                  icon: const Icon(Icons.person_add),
-                                  label: const Text('Thêm học sinh', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF003D9B),
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                )
-                              else if (_tabController.index == 1)
-                                FilledButton.icon(
-                                  onPressed: _showQuizOptionsDialog,
-                                  icon: const Icon(Icons.post_add),
-                                  label: const Text('Thêm bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF003D9B),
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          if (isMobile)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.className,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppConstants.txt(context),
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
-                            ],
-                          ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Quản lý danh sách học sinh và kết quả học tập',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 14,
+                                    color: AppConstants.txtMuted(context),
+                                  ),
+                                ),
+                                if (_tabController.index == 0) ...[
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: _showAddStudentOptionsDialog,
+                                      icon: const Icon(Icons.person_add),
+                                      label: const Text('Thêm học sinh', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppConstants.brand(context),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (_tabController.index == 1) ...[
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: _showQuizOptionsDialog,
+                                      icon: const Icon(Icons.post_add),
+                                      label: const Text('Thêm bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppConstants.brand(context),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            )
+                          else
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(widget.className, style: TextStyle(fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w700, color: AppConstants.txt(context), letterSpacing: -0.5)),
+                                    const SizedBox(height: 8),
+                                    Text('Quản lý danh sách học sinh và kết quả học tập', style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: AppConstants.txtMuted(context))),
+                                  ],
+                                ),
+                                if (_tabController.index == 0)
+                                  FilledButton.icon(
+                                    onPressed: _showAddStudentOptionsDialog,
+                                    icon: const Icon(Icons.person_add),
+                                    label: const Text('Thêm học sinh', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppConstants.brand(context),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  )
+                                else if (_tabController.index == 1)
+                                  FilledButton.icon(
+                                    onPressed: _showQuizOptionsDialog,
+                                    icon: const Icon(Icons.post_add),
+                                    label: const Text('Thêm bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppConstants.brand(context),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           const SizedBox(height: 32),
 
                           // Tab Bar
                           Container(
-                            decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: Color(0xFFC3C6D6))),
+                            decoration: BoxDecoration(
+                              border: Border(bottom: BorderSide(color: AppConstants.border(context))),
                             ),
-                            child: Row(
-                              children: [
-                                _buildTabButton(0, 'Danh sách sinh viên', Icons.groups_outlined),
-                                _buildTabButton(1, 'Bài thi', Icons.assignment_outlined),
-                                _buildTabButton(2, 'Kết quả', Icons.bar_chart),
-                              ],
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildTabButton(0, 'Danh sách sinh viên', Icons.groups_outlined),
+                                  _buildTabButton(1, 'Bài thi', Icons.assignment_outlined),
+                                  _buildTabButton(2, 'Kết quả', Icons.bar_chart),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 32),
@@ -308,7 +475,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected ? const Color(0xFF0B57D0) : Colors.transparent, // Update color to match standard blue
+              color: isSelected ? AppConstants.brand(context) : Colors.transparent,
               width: 2,
             ),
           ),
@@ -319,7 +486,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
             Icon(
               icon,
               size: 20,
-              color: isSelected ? const Color(0xFF0B57D0) : const Color(0xFF434654),
+              color: isSelected ? AppConstants.brand(context) : AppConstants.txtMuted(context),
             ),
             const SizedBox(width: 8),
             Text(
@@ -328,7 +495,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFF0B57D0) : const Color(0xFF434654),
+                color: isSelected ? AppConstants.brand(context) : AppConstants.txtMuted(context),
               ),
             ),
           ],
@@ -377,144 +544,251 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           return _studentSortAscending ? comparison : -comparison;
         });
 
+        final isMobile = MediaQuery.of(context).size.width < 768;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Bento Stats
-            Row(
-              children: [
-                Expanded(child: _buildBentoStatCard('Tổng số học sinh', '${snapshot.data?.docs.length ?? 0}', const Color(0xFF003D9B))),
-                const SizedBox(width: 24),
-                Expanded(child: _buildBentoStatCard('Hoạt động (24h)', '${snapshot.data?.docs.length ?? 0}', const Color(0xFF006C47))), // Mock
-                const SizedBox(width: 24),
-                Expanded(flex: 2, child: _buildBentoStatCard('Điểm trung bình lớp', _isLoadingStats ? '...' : _classAverageScore.toStringAsFixed(1), const Color(0xFF041B3C), trending: '+0.2')), // Calculated
-              ],
-            ),
+            if (isMobile)
+              Column(
+                children: [
+                  _buildBentoStatCard('Tổng số học sinh', '${snapshot.data?.docs.length ?? 0}', AppConstants.brand(context)),
+                  const SizedBox(height: 12),
+                  _buildBentoStatCard('Hoạt động (24h)', '${snapshot.data?.docs.length ?? 0}', const Color(0xFF16A34A)),
+                  const SizedBox(height: 12),
+                  _buildBentoStatCard('Điểm trung bình lớp', _isLoadingStats ? '...' : _classAverageScore.toStringAsFixed(1), AppConstants.txt(context), trending: '+0.2'),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(child: _buildBentoStatCard('Tổng số học sinh', '${snapshot.data?.docs.length ?? 0}', AppConstants.brand(context))),
+                  const SizedBox(width: 24),
+                  Expanded(child: _buildBentoStatCard('Hoạt động (24h)', '${snapshot.data?.docs.length ?? 0}', const Color(0xFF16A34A))), // Mock
+                  const SizedBox(width: 24),
+                  Expanded(flex: 2, child: _buildBentoStatCard('Điểm trung bình lớp', _isLoadingStats ? '...' : _classAverageScore.toStringAsFixed(1), AppConstants.txt(context), trending: '+0.2')), // Calculated
+                ],
+              ),
             const SizedBox(height: 32),
 
             // Students Table Card
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF9F9FF),
+                color: AppConstants.surf(context),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFC3C6D6)),
+                border: Border.all(color: AppConstants.border(context)),
               ),
               child: Column(
                 children: [
                   // Table Header Actions
                   Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFFFFF),
-                      border: Border(bottom: BorderSide(color: Color(0xFFC3C6D6))),
-                      borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surf(context),
+                      border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Search Box
-                        Container(
-                          width: 300,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F3FF),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TextField(
-                            controller: _studentSearchController,
-                            onChanged: (value) => setState(() => _studentSearchQuery = value.toLowerCase()),
-                            decoration: const InputDecoration(
-                              icon: Icon(Icons.search, color: Color(0xFF737685)),
-                              hintText: 'Tìm kiếm tên hoặc MSSV...',
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                setState(() {
-                                  if (_studentSortBy == value) {
-                                    _studentSortAscending = !_studentSortAscending;
-                                  } else {
-                                    _studentSortBy = value;
-                                    _studentSortAscending = true;
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFFC3C6D6)),
+                                  color: AppConstants.surfLow(context),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppConstants.border(context)),
                                 ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.filter_list, color: Color(0xFF434654), size: 18),
-                                    const SizedBox(width: 8),
-                                    const Text('Lọc', style: TextStyle(color: Color(0xFF434654))),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      _studentSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                                      size: 14,
-                                      color: const Color(0xFF434654),
-                                    ),
-                                  ],
+                                child: TextField(
+                                  controller: _studentSearchController,
+                                  style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context), fontSize: 14),
+                                  onChanged: (value) => setState(() => _studentSearchQuery = value.toLowerCase()),
+                                  decoration: InputDecoration(
+                                    icon: Icon(Icons.search, color: AppConstants.txtMuted(context)),
+                                    hintText: 'Tìm kiếm tên hoặc MSSV...',
+                                    hintStyle: TextStyle(color: AppConstants.txtMuted(context), fontSize: 13),
+                                    border: InputBorder.none,
+                                  ),
                                 ),
                               ),
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'name', child: Text('Sắp xếp theo Tên')),
-                                const PopupMenuItem(value: 'id', child: Text('Sắp xếp theo MSSV')),
-                                const PopupMenuItem(value: 'class', child: Text('Sắp xếp theo Lớp')),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              onPressed: () => _exportStudentsToExcel(students),
-                              icon: const Icon(Icons.download, color: Color(0xFF434654)),
-                              label: const Text('Xuất CSV', style: TextStyle(color: Color(0xFF434654))),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: PopupMenuButton<String>(
+                                      color: AppConstants.surf(context),
+                                      onSelected: (value) {
+                                        setState(() {
+                                          if (_studentSortBy == value) {
+                                            _studentSortAscending = !_studentSortAscending;
+                                          } else {
+                                            _studentSortBy = value;
+                                            _studentSortAscending = true;
+                                          }
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: AppConstants.border(context)),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.filter_list, color: AppConstants.txt(context), size: 18),
+                                            const SizedBox(width: 6),
+                                            Text('Lọc', style: TextStyle(color: AppConstants.txt(context), fontSize: 13)),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              _studentSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                                              size: 14,
+                                              color: AppConstants.txt(context),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(value: 'name', child: Text('Sắp xếp theo Tên', style: TextStyle(color: AppConstants.txt(context)))),
+                                        PopupMenuItem(value: 'id', child: Text('Sắp xếp theo MSSV', style: TextStyle(color: AppConstants.txt(context)))),
+                                        PopupMenuItem(value: 'class', child: Text('Sắp xếp theo Lớp', style: TextStyle(color: AppConstants.txt(context)))),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _exportStudentsToExcel(students),
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(color: AppConstants.border(context)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      icon: Icon(Icons.download, color: AppConstants.txt(context), size: 18),
+                                      label: Text('Xuất CSV', style: TextStyle(color: AppConstants.txt(context), fontSize: 13)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Search Box
+                              Container(
+                                width: 300,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: AppConstants.surfLow(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppConstants.border(context)),
+                                ),
+                                child: TextField(
+                                  controller: _studentSearchController,
+                                  style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context), fontSize: 14),
+                                  onChanged: (value) => setState(() => _studentSearchQuery = value.toLowerCase()),
+                                  decoration: InputDecoration(
+                                    icon: Icon(Icons.search, color: AppConstants.txtMuted(context)),
+                                    hintText: 'Tìm kiếm tên hoặc MSSV...',
+                                    hintStyle: TextStyle(color: AppConstants.txtMuted(context), fontSize: 13),
+                                    border: InputBorder.none,
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  PopupMenuButton<String>(
+                                    color: AppConstants.surf(context),
+                                    onSelected: (value) {
+                                      setState(() {
+                                        if (_studentSortBy == value) {
+                                          _studentSortAscending = !_studentSortAscending;
+                                        } else {
+                                          _studentSortBy = value;
+                                          _studentSortAscending = true;
+                                        }
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: AppConstants.border(context)),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.filter_list, color: AppConstants.txt(context), size: 18),
+                                          const SizedBox(width: 8),
+                                          Text('Lọc', style: TextStyle(color: AppConstants.txt(context))),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            _studentSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                                            size: 14,
+                                            color: AppConstants.txt(context),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    itemBuilder: (context) => [
+                                      PopupMenuItem(value: 'name', child: Text('Sắp xếp theo Tên', style: TextStyle(color: AppConstants.txt(context)))),
+                                      PopupMenuItem(value: 'id', child: Text('Sắp xếp theo MSSV', style: TextStyle(color: AppConstants.txt(context)))),
+                                      PopupMenuItem(value: 'class', child: Text('Sắp xếp theo Lớp', style: TextStyle(color: AppConstants.txt(context)))),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: () => _exportStudentsToExcel(students),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: AppConstants.border(context)),
+                                    ),
+                                    icon: Icon(Icons.download, color: AppConstants.txt(context)),
+                                    label: Text('Xuất CSV', style: TextStyle(color: AppConstants.txt(context))),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                   ),
 
                   // Table Header
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    color: const Color(0xFFE8EDFF),
-                    child: const Row(
+                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 14),
+                    color: AppConstants.surfLow(context),
+                    child: Row(
                       children: [
-                        Expanded(flex: 2, child: Text('HỌC SINH', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF434654)))),
-                        Expanded(child: Text('MSSV', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF434654)))),
-                        Expanded(child: Text('LỚP', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF434654)))),
-                        SizedBox(width: 48), // Space for actions
+                        Expanded(flex: 2, child: Text('HỌC SINH', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context)))),
+                        if (!isMobile) ...[
+                          Expanded(child: Text('MSSV', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context)))),
+                          Expanded(child: Text('LỚP', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context)))),
+                        ] else
+                          Text('THÔNG TIN', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context))),
+                        const SizedBox(width: 40), // Space for actions
                       ],
                     ),
                   ),
 
                   // Table Data
                   if (students.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(48.0),
-                      child: Text('Chưa có học sinh nào', style: TextStyle(fontSize: 16, color: Color(0xFF434654))),
+                    Padding(
+                      padding: const EdgeInsets.all(48.0),
+                      child: Text('Chưa có học sinh nào', style: TextStyle(fontSize: 16, color: AppConstants.txtMuted(context))),
                     )
                   else
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: students.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFC3C6D6)),
+                      separatorBuilder: (context, index) => Divider(height: 1, color: AppConstants.border(context)),
                       itemBuilder: (context, index) {
                         final student = students[index];
                         final data = student.data() as Map<String, dynamic>;
                         return InkWell(
                           onTap: () {},
-                          hoverColor: const Color(0xFFF1F3FF),
+                          hoverColor: AppConstants.surfLow(context),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 14),
                             child: Row(
                               children: [
                                 // Name and Avatar
@@ -523,33 +797,58 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                   child: Row(
                                     children: [
                                       CircleAvatar(
-                                        backgroundColor: const Color(0xFFDAE2FF),
-                                        child: Text(data['name']?.substring(0, 1).toUpperCase() ?? 'S', style: const TextStyle(color: Color(0xFF003D9B), fontWeight: FontWeight.bold)),
+                                        radius: isMobile ? 18 : 20,
+                                        backgroundColor: AppConstants.isDarkMode(context) ? const Color(0xFF1E293B) : const Color(0xFFDAE2FF),
+                                        child: Text(data['name']?.substring(0, 1).toUpperCase() ?? 'S', style: TextStyle(color: AppConstants.brand(context), fontWeight: FontWeight.bold, fontSize: 14)),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(data['name'] ?? 'Không có tên', style: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF041B3C))),
-                                          Text(data['email'] ?? '', style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Color(0xFF434654))),
-                                        ],
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              data['name'] ?? 'Không có tên',
+                                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.txt(context)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              data['email'] ?? '',
+                                              style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppConstants.txtMuted(context)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (isMobile) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${data['studentId'] ?? ''} • ${data['class'] ?? widget.className}',
+                                                style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppConstants.brand(context)),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                // Student ID
-                                Expanded(
-                                  child: Text(data['studentId'] ?? '', style: const TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654))),
-                                ),
-                                // Class Name
-                                Expanded(
-                                  child: Text(data['class'] ?? widget.className, style: const TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654))),
-                                ),
+                                if (!isMobile) ...[
+                                  // Student ID
+                                  Expanded(
+                                    child: Text(data['studentId'] ?? '', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context))),
+                                  ),
+                                  // Class Name
+                                  Expanded(
+                                    child: Text(data['class'] ?? widget.className, style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context))),
+                                  ),
+                                ],
                                 // Actions
                                 PopupMenuButton(
-                                  icon: const Icon(Icons.more_vert, color: Color(0xFF434654)),
+                                  color: AppConstants.surf(context),
+                                  icon: Icon(Icons.more_vert, color: AppConstants.txtMuted(context), size: 20),
                                   itemBuilder: (context) => [
-                                    PopupMenuItem(value: 'edit', child: const Text('Chỉnh sửa'), onTap: () => _showEditStudentDialog(student.id, data)),
+                                    PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa', style: TextStyle(color: AppConstants.txt(context))), onTap: () => _showEditStudentDialog(student.id, data)),
                                     PopupMenuItem(value: 'delete', child: const Text('Xóa', style: TextStyle(color: Colors.red)), onTap: () => _deleteStudent(student.id, data)),
                                   ],
                                 ),
@@ -572,14 +871,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F9FF),
+        color: AppConstants.surf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC3C6D6)),
+        border: Border.all(color: AppConstants.border(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(), style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF434654))),
+          Text(title.toUpperCase(), style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context))),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -590,9 +889,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 const SizedBox(width: 8),
                 Row(
                   children: [
-                    const Icon(Icons.trending_up, size: 16, color: Color(0xFF006C47)),
+                    const Icon(Icons.trending_up, size: 16, color: Color(0xFF16A34A)),
                     const SizedBox(width: 4),
-                    Text(trending, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF006C47))),
+                    Text(trending, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF16A34A))),
                   ],
                 ),
               ],
@@ -616,7 +915,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Lỗi: ${snapshot.error}'));
+          return Center(child: Text('Lỗi: ${snapshot.error}', style: TextStyle(color: AppConstants.txt(context))));
         }
 
         final quizzes = snapshot.data?.docs ?? [];
@@ -624,33 +923,41 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Class Exams', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF041B3C))),
+            Text('Class Exams', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
             const SizedBox(height: 24),
             if (quizzes.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(48.0),
-                  child: Text('Chưa có bài thi nào', style: TextStyle(fontSize: 16, color: Color(0xFF434654))),
+                  padding: const EdgeInsets.all(48.0),
+                  child: Text('Chưa có bài thi nào', style: TextStyle(fontSize: 16, color: AppConstants.txtMuted(context))),
                 ),
               )
             else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 24,
-                  mainAxisSpacing: 24,
-                  mainAxisExtent: 220,
-                ),
-                itemCount: quizzes.length + 1, // +1 for "Create New" card
-                itemBuilder: (context, index) {
-                  if (index == quizzes.length) {
-                    return _buildAddExamCard();
-                  }
-                  final quiz = quizzes[index];
-                  final data = quiz.data() as Map<String, dynamic>;
-                  return _buildQuizCard(quiz.id, data);
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
+                  final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 950;
+                  final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      mainAxisExtent: isMobile ? 240 : 220,
+                    ),
+                    itemCount: quizzes.length + 1, // +1 for "Create New" card
+                    itemBuilder: (context, index) {
+                      if (index == quizzes.length) {
+                        return _buildAddExamCard();
+                      }
+                      final quiz = quizzes[index];
+                      final data = quiz.data() as Map<String, dynamic>;
+                      return _buildQuizCard(quiz.id, data);
+                    },
+                  );
                 },
               ),
           ],
@@ -662,10 +969,11 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   Widget _buildAddExamCard() {
     return InkWell(
       onTap: _showQuizOptionsDialog,
-      hoverColor: const Color(0xFF003D9B).withOpacity(0.05),
+      hoverColor: AppConstants.brand(context).withValues(alpha: 0.05),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFC3C6D6), style: BorderStyle.solid, width: 2), // dashed representation
+          color: AppConstants.surf(context),
+          border: Border.all(color: AppConstants.border(context), style: BorderStyle.solid, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -674,15 +982,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF003D9B).withOpacity(0.1),
+                color: AppConstants.brand(context).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add, color: Color(0xFF003D9B), size: 32),
+              child: Icon(Icons.add, color: AppConstants.brand(context), size: 32),
             ),
             const SizedBox(height: 16),
-            const Text('Tạo bài thi mới', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF041B3C))),
+            Text('Tạo bài thi mới', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600, color: AppConstants.txt(context))),
             const SizedBox(height: 8),
-            const Text('Chọn từ thư viện hoặc tự soạn thảo', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF737685)), textAlign: TextAlign.center),
+            Text('Chọn từ thư viện hoặc tự soạn thảo', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context)), textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -694,24 +1002,25 @@ class _ClassDetailPageState extends State<ClassDetailPage>
       future: QuizScheduleService.getSchedule(widget.classId, quizId),
       builder: (context, scheduleSnapshot) {
         final schedule = scheduleSnapshot.data;
+        final isDark = AppConstants.isDarkMode(context);
         
         // Define status color and text
-        Color statusBgColor = const Color(0xFFF1F3FF); // Default draft
-        Color statusTextColor = const Color(0xFF434654);
+        Color statusBgColor = AppConstants.surfLow(context);
+        Color statusTextColor = AppConstants.txtMuted(context);
         String statusText = 'Bản nháp';
         
         if (schedule != null) {
           if (schedule.isClosed) {
-            statusBgColor = const Color(0xFFC4D2FF).withOpacity(0.5); // primary-container
-            statusTextColor = const Color(0xFF003D9B);
+            statusBgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFC4D2FF).withValues(alpha: 0.5);
+            statusTextColor = AppConstants.brand(context);
             statusText = 'Đã kết thúc';
           } else if (schedule.isOpen) {
-            statusBgColor = const Color(0xFF82F9BE).withOpacity(0.5); // secondary-container
-            statusTextColor = const Color(0xFF00734C);
+            statusBgColor = isDark ? const Color(0xFF064E3B).withValues(alpha: 0.4) : const Color(0xFF82F9BE).withValues(alpha: 0.5);
+            statusTextColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF00734C);
             statusText = 'Đang diễn ra';
           } else {
-            statusBgColor = const Color(0xFFE8EDFF); 
-            statusTextColor = const Color(0xFF434654);
+            statusBgColor = AppConstants.surfLow(context);
+            statusTextColor = AppConstants.txtMuted(context);
             statusText = 'Sắp diễn ra';
           }
         }
@@ -725,6 +1034,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   classId: widget.classId,
                   quizId: quizId,
                   quizData: data,
+                  className: widget.className,
                 ),
               ),
             );
@@ -732,9 +1042,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFFFF),
+              color: AppConstants.surf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFC3C6D6)),
+              border: Border.all(color: AppConstants.border(context)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,34 +1063,34 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                     InkWell(
                       onTap: () => _removeQuizFromClass(quizId, data),
-                      child: const Icon(Icons.delete_outline, color: Color(0xFF737685)),
+                      child: Icon(Icons.delete_outline, color: AppConstants.txtMuted(context)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: Text(data['title'] ?? 'Bài thi', style: const TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF041B3C)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  child: Text(data['title'] ?? 'Bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.txt(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.schedule, size: 18, color: Color(0xFF434654)),
+                    Icon(Icons.schedule, size: 18, color: AppConstants.txtMuted(context)),
                     const SizedBox(width: 8),
-                    Text('${data['duration'] ?? 0} phút • ${data['questionCount'] ?? 0} câu hỏi', style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))),
+                    Text('${data['duration'] ?? 0} phút • ${data['questionCount'] ?? 0} câu hỏi', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context))),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Divider(height: 1, color: Color(0xFFC3C6D6)),
+                Divider(height: 1, color: AppConstants.border(context)),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Chi tiết bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: Color(0xFF434654), fontStyle: FontStyle.italic)),
+                    Text('Chi tiết bài thi', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppConstants.txtMuted(context), fontStyle: FontStyle.italic)),
                     Row(
                       children: [
-                        const Text('Chi tiết', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF003D9B))),
+                        Text('Chi tiết', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.brand(context))),
                         const SizedBox(width: 4),
-                        const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF003D9B)),
+                        Icon(Icons.arrow_forward, size: 16, color: AppConstants.brand(context)),
                       ],
                     ),
                   ],
@@ -798,13 +1108,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 500,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -814,7 +1126,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
+                      color: AppConstants.brand(context),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -824,14 +1136,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Thêm học sinh',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF041B3C),
+                        color: AppConstants.txt(context),
                       ),
                     ),
                   ),
@@ -849,25 +1161,26 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5FE),
+                    color: AppConstants.surfLow(context),
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppConstants.border(context)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD0DFFF),
+                          color: AppConstants.brand(context).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add,
-                          color: Color(0xFF2563EB),
+                          color: AppConstants.brand(context),
                           size: 28,
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -877,25 +1190,25 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Color(0xFF041B3C),
+                                color: AppConstants.txt(context),
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               'Nhập từng học sinh',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: Color(0xFF737685),
+                                color: AppConstants.txtMuted(context),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
                         size: 24,
-                        color: Color(0xFF737685),
+                        color: AppConstants.txtMuted(context),
                       ),
                     ],
                   ),
@@ -914,15 +1227,16 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1FEF4),
+                    color: AppConstants.surfLow(context),
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppConstants.border(context)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD0FFDD),
+                          color: const Color(0xFF16A34A).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -932,7 +1246,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -942,25 +1256,25 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Color(0xFF041B3C),
+                                color: AppConstants.txt(context),
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               'Upload file .xlsx hoặc .xls',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: Color(0xFF737685),
+                                color: AppConstants.txtMuted(context),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
                         size: 24,
-                        color: Color(0xFF737685),
+                        color: AppConstants.txtMuted(context),
                       ),
                     ],
                   ),
@@ -974,14 +1288,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+                    side: BorderSide(color: AppConstants.border(context), width: 1.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Hủy',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: AppConstants.txt(context)),
                   ),
                 ),
               ),
@@ -1113,6 +1427,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         showDialog(
           context: context,
           builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
@@ -1120,8 +1435,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               width: 600,
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppConstants.surf(context),
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppConstants.border(context)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1130,43 +1446,44 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: successCount > 0
-                          ? const Color(0xFFD0FFDD)
-                          : const Color(0xFFFFE4E6),
+                          ? const Color(0xFF16A34A).withValues(alpha: 0.15)
+                          : const Color(0xFFDC2626).withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       successCount > 0 ? Icons.check_circle : Icons.warning,
                       color: successCount > 0
                           ? const Color(0xFF16A34A)
-                          : const Color(0xFFE11D48),
+                          : const Color(0xFFDC2626),
                       size: 48,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Kết quả import',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF041B3C),
+                      color: AppConstants.txt(context),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
+                      color: AppConstants.surfLow(context),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppConstants.border(context)),
                     ),
                     child: Column(
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Thành công:',
-                              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: AppConstants.txtMuted(context)),
                             ),
                             Text(
                               '$successCount',
@@ -1183,15 +1500,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Lỗi:',
-                              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: AppConstants.txtMuted(context)),
                             ),
                             Text(
                               '$errorCount',
                               style: const TextStyle(
                                 fontFamily: 'Inter',
-                                color: Color(0xFFE11D48),
+                                color: Color(0xFFDC2626),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
                               ),
@@ -1209,9 +1526,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
+                            color: const Color(0xFFDC2626).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFECACA)),
+                            border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1221,7 +1538,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF991B1B),
+                                  color: Color(0xFFDC2626),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1235,7 +1552,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                         style: const TextStyle(
                                           fontFamily: 'Inter',
                                           fontSize: 13,
-                                          color: Color(0xFF991B1B),
+                                          color: Color(0xFFDC2626),
                                         ),
                                       ),
                                     ),
@@ -1247,7 +1564,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontStyle: FontStyle.italic,
-                                    color: Color(0xFFB91C1C),
+                                    color: Color(0xFFDC2626),
                                   ),
                                 ),
                             ],
@@ -1263,7 +1580,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFF2563EB),
+                        backgroundColor: AppConstants.brand(context),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -1310,13 +1627,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 500,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1326,7 +1645,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
+                      color: AppConstants.brand(context),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1336,14 +1655,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Thêm bài thi',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF041B3C),
+                        color: AppConstants.txt(context),
                       ),
                     ),
                   ),
@@ -1357,34 +1676,41 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          ClassCreateQuizPage(classId: widget.classId),
+                      builder: (context) => ClassCreateQuizPage(
+                        classId: widget.classId,
+                        className: widget.className,
+                      ),
                     ),
-                  );
+                  ).then((_) {
+                    if (mounted) {
+                      setState(() => _tabController.index = 1);
+                    }
+                  });
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5FE),
+                    color: AppConstants.surfLow(context),
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppConstants.border(context)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD0DFFF),
+                          color: AppConstants.brand(context).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add_circle,
-                          color: Color(0xFF2563EB),
+                          color: AppConstants.brand(context),
                           size: 28,
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1394,25 +1720,25 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Color(0xFF041B3C),
+                                color: AppConstants.txt(context),
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               'Tạo đề thi từ file PDF/TXT',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: Color(0xFF737685),
+                                color: AppConstants.txtMuted(context),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
                         size: 24,
-                        color: Color(0xFF737685),
+                        color: AppConstants.txtMuted(context),
                       ),
                     ],
                   ),
@@ -1428,15 +1754,16 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1FEF4),
+                    color: AppConstants.surfLow(context),
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppConstants.border(context)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD0FFDD),
+                          color: const Color(0xFF16A34A).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -1446,7 +1773,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1456,25 +1783,25 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Color(0xFF041B3C),
+                                color: AppConstants.txt(context),
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               'Chọn từ kho đề thi',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: Color(0xFF737685),
+                                color: AppConstants.txtMuted(context),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
                         size: 24,
-                        color: Color(0xFF737685),
+                        color: AppConstants.txtMuted(context),
                       ),
                     ],
                   ),
@@ -1487,14 +1814,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+                    side: BorderSide(color: AppConstants.border(context), width: 1.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Hủy',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: AppConstants.txt(context)),
                   ),
                 ),
               ),
@@ -1517,13 +1844,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return Dialog(
+              backgroundColor: Colors.transparent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               child: Container(
                 width: 800,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppConstants.surf(context),
                   borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppConstants.border(context)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1533,7 +1862,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3B82F6), // Blue background for icon
+                            color: AppConstants.brand(context),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -1543,14 +1872,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                           ),
                         ),
                         const SizedBox(width: 16),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Thêm học sinh',
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
+                              color: AppConstants.txt(context),
                             ),
                           ),
                         ),
@@ -1559,27 +1888,29 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     const SizedBox(height: 24),
                     TextField(
                       controller: emailCtrl,
+                      style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context)),
                       onChanged: (_) {
                         if (emailError != null) setStateDialog(() => emailError = null);
                       },
                       decoration: InputDecoration(
                         hintText: 'Email học sinh',
+                        hintStyle: TextStyle(color: AppConstants.txtMuted(context)),
                         helperText: emailError == null ? '9 chữ số đầu email sẽ là mã học sinh' : null,
-                        helperStyle: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+                        helperStyle: TextStyle(color: AppConstants.txtMuted(context), fontSize: 12),
                         errorText: emailError,
-                        prefixIcon: const Icon(Icons.mail, color: Color(0xFF6B7280)),
+                        prefixIcon: Icon(Icons.mail, color: AppConstants.txtMuted(context)),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                          borderSide: BorderSide(color: AppConstants.border(context)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                          borderSide: BorderSide(color: AppConstants.border(context)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: BorderSide(color: AppConstants.brand(context), width: 2),
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1590,31 +1921,33 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                           borderSide: const BorderSide(color: Colors.red, width: 2),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppConstants.surfLow(context),
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: nameCtrl,
+                      style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context)),
                       onChanged: (_) {
                         if (nameError != null) setStateDialog(() => nameError = null);
                       },
                       decoration: InputDecoration(
                         hintText: 'Tên học sinh',
+                        hintStyle: TextStyle(color: AppConstants.txtMuted(context)),
                         errorText: nameError,
-                        prefixIcon: const Icon(Icons.person, color: Color(0xFF6B7280)),
+                        prefixIcon: Icon(Icons.person, color: AppConstants.txtMuted(context)),
                         contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                          borderSide: BorderSide(color: AppConstants.border(context)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                          borderSide: BorderSide(color: AppConstants.border(context)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: BorderSide(color: AppConstants.brand(context), width: 2),
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1625,7 +1958,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                           borderSide: const BorderSide(color: Colors.red, width: 2),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppConstants.surfLow(context),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1636,18 +1969,18 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                              side: BorderSide(color: AppConstants.border(context), width: 1.5),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Hủy',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF2563EB),
+                                color: AppConstants.txt(context),
                               ),
                             ),
                           ),
@@ -1701,7 +2034,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                             },
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: const Color(0xFF2563EB),
+                              backgroundColor: AppConstants.brand(context),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -1733,8 +2066,6 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     });
   }
 
-  // Continue with remaining methods (_showEditStudentDialog, _showAssignQuizDialog, _addStudent, etc.)
-  // These remain the same as in your original code...
   void _showEditStudentDialog(String studentDocId, Map<String, dynamic> data) {
     _studentEmailController.text = data['email'] ?? '';
     _studentNameController.text = data['name'] ?? '';
@@ -1742,13 +2073,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 800,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1768,14 +2101,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Chỉnh sửa',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF111827),
+                        color: AppConstants.txt(context),
                       ),
                     ),
                   ),
@@ -1784,48 +2117,52 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               const SizedBox(height: 24),
               TextField(
                 controller: _studentEmailController,
+                style: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context)),
                 decoration: InputDecoration(
                   labelText: 'Email',
-                  prefixIcon: const Icon(Icons.mail, color: Color(0xFF6B7280)),
+                  labelStyle: TextStyle(color: AppConstants.txtMuted(context)),
+                  prefixIcon: Icon(Icons.mail, color: AppConstants.txtMuted(context)),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderSide: BorderSide(color: AppConstants.border(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderSide: BorderSide(color: AppConstants.border(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Color(0xFFF97316), width: 2),
                   ),
                   filled: true,
-                  fillColor: const Color(0xFFF3F4F6),
+                  fillColor: AppConstants.surfLow(context),
                 ),
                 enabled: false,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _studentNameController,
+                style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context)),
                 decoration: InputDecoration(
                   labelText: 'Tên học sinh',
-                  prefixIcon: const Icon(Icons.person, color: Color(0xFF6B7280)),
+                  labelStyle: TextStyle(color: AppConstants.txtMuted(context)),
+                  prefixIcon: Icon(Icons.person, color: AppConstants.txtMuted(context)),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderSide: BorderSide(color: AppConstants.border(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderSide: BorderSide(color: AppConstants.border(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFF97316), width: 2),
+                    borderSide: BorderSide(color: AppConstants.brand(context), width: 2),
                   ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppConstants.surfLow(context),
                 ),
               ),
               const SizedBox(height: 24),
@@ -1836,18 +2173,18 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                        side: BorderSide(color: AppConstants.border(context), width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Hủy',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF2563EB),
+                          color: AppConstants.txt(context),
                         ),
                       ),
                     ),
@@ -1863,7 +2200,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFFF97316),
+                        backgroundColor: AppConstants.brand(context),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -1893,31 +2230,34 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 800,
           height: 600,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppConstants.surf(context),
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppConstants.border(context)),
           ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(32),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: AppConstants.surf(context),
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
                   ),
+                  border: Border(bottom: BorderSide(color: AppConstants.border(context))),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6),
+                        color: AppConstants.brand(context),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1927,19 +2267,19 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       ),
                     ),
                     const SizedBox(width: 16),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Chọn bài thi',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF111827),
+                          color: AppConstants.txt(context),
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                      icon: Icon(Icons.close, color: AppConstants.txtMuted(context)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -1953,21 +2293,21 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppConstants.brand(context)),
                         ),
                       );
                     }
 
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           'Không có bài thi nào khả dụng',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 16,
-                            color: Color(0xFF6B7280),
+                            color: AppConstants.txtMuted(context),
                           ),
                         ),
                       );
@@ -1976,7 +2316,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     final quizzes = snapshot.data!.docs;
 
                     return ListView.builder(
-                      padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32),
+                      padding: const EdgeInsets.all(24),
                       itemCount: quizzes.length,
                       itemBuilder: (context, index) {
                         final quiz = quizzes[index];
@@ -1985,9 +2325,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppConstants.surfLow(context),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppConstants.border(context)),
                           ),
                           child: Material(
                             color: Colors.transparent,
@@ -1997,15 +2337,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF6FF),
+                                  color: AppConstants.brand(context).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
                                   child: Text(
                                     '${data['questionCount'] ?? 0}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'Inter',
-                                      color: Color(0xFF2563EB),
+                                      color: AppConstants.brand(context),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
@@ -2014,21 +2354,21 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                               ),
                               title: Text(
                                 data['title'] ?? 'Bài thi',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF111827),
+                                  color: AppConstants.txt(context),
                                 ),
                               ),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
                                   '${data['duration'] ?? 0} phút',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 14,
-                                    color: Color(0xFF6B7280),
+                                    color: AppConstants.txtMuted(context),
                                   ),
                                 ),
                               ),
@@ -2038,7 +2378,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                   Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2563EB),
+                                  backgroundColor: AppConstants.brand(context),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -2185,106 +2525,109 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          width: 800,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEE2E2),
-                  shape: BoxShape.circle,
+      builder: (context) {
+        final isDark = AppConstants.isDarkMode(context);
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: AppConstants.surf(context),
+          child: Container(
+            width: 440,
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: AppConstants.surf(context),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF4A1010) : const Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 32,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.warning_rounded,
-                  color: Color(0xFFDC2626),
-                  size: 48,
+                const SizedBox(height: 20),
+                Text(
+                  'Xác nhận xóa',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20, 
+                    fontWeight: FontWeight.bold,
+                    color: AppConstants.txt(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Xác nhận xóa',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 24, 
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
+                const SizedBox(height: 10),
+                Text(
+                  'Bạn có chắc muốn xóa học sinh "${data['name']}"?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: AppConstants.txtMuted(context),
+                    height: 1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Bạn có chắc muốn xóa học sinh "${data['name']}"?',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  color: Color(0xFF4B5563),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(
-                          color: Color(0xFFE5E7EB),
-                          width: 1.5,
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: AppConstants.border(context)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Hủy',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2563EB),
+                        child: Text(
+                          'Hủy',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.txt(context),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFFDC2626),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: const Text(
-                        'Xóa',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          'Xóa',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     if (confirm != true) return;
@@ -2388,7 +2731,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           .update({'quizCount': currentCount + 1});
 
       if (mounted) {
-        Navigator.pop(context);
+        setState(() {
+          _tabController.index = 1;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('✅ Gán bài thi thành công!'),
@@ -2422,106 +2767,109 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          width: 800,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEE2E2),
-                  shape: BoxShape.circle,
+      builder: (context) {
+        final isDark = AppConstants.isDarkMode(context);
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: AppConstants.surf(context),
+          child: Container(
+            width: 440,
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: AppConstants.surf(context),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF4A1010) : const Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 32,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.warning_rounded,
-                  color: Color(0xFFDC2626),
-                  size: 48,
+                const SizedBox(height: 20),
+                Text(
+                  'Xác nhận gỡ bỏ',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20, 
+                    fontWeight: FontWeight.bold,
+                    color: AppConstants.txt(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Xác nhận gỡ bỏ',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 24, 
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
+                const SizedBox(height: 10),
+                Text(
+                  'Bạn có chắc muốn gỡ bài thi "${data['title']}" khỏi lớp?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: AppConstants.txtMuted(context),
+                    height: 1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Bạn có chắc muốn gỡ bài thi "${data['title']}" khỏi lớp?',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  color: Color(0xFF4B5563),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(
-                          color: Color(0xFFE5E7EB),
-                          width: 1.5,
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: AppConstants.border(context)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Hủy',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2563EB),
+                        child: Text(
+                          'Hủy',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.txt(context),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFFDC2626),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: const Text(
-                        'Gỡ bỏ',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          'Gỡ bỏ',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     if (confirm != true) return;

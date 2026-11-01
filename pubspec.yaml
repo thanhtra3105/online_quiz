@@ -27,6 +27,9 @@ dependencies:
   printing: ^5.12.0
 
   excel: ^4.0.3  # excel
+  http: ^1.2.0
+  archive: ^3.6.1
+  xml: ^6.6.1
 
   # Document parsing
   syncfusion_flutter_pdf: ^31.2.15

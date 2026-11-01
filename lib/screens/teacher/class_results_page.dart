@@ -2,8 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
-// import 'package:file_picker/file_picker.dart'; // Có thể bỏ nếu không dùng
-import 'dart:typed_data';
+import '../../utils/constants.dart';
 
 class ClassResultsPage extends StatefulWidget {
   final String classId;
@@ -246,119 +245,156 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    final filterButton = PopupMenuButton<String>(
+      color: AppConstants.surf(context),
+      onSelected: (value) {
+        setState(() {
+          if (value == 'mssv_asc') {
+            _sortBy = 'studentId';
+            _sortAscending = true;
+          } else if (value == 'score_desc') {
+            _sortBy = 'score';
+            _sortAscending = false;
+          }
+        });
+      },
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'mssv_asc',
+          child: Row(
+            children: [
+              Icon(Icons.sort_by_alpha, size: 20, color: _sortBy == 'studentId' ? AppConstants.brand(context) : AppConstants.txtMuted(context)),
+              const SizedBox(width: 12),
+              Text(
+                'Mã số SV (Thấp → Cao)',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: _sortBy == 'studentId' ? AppConstants.brand(context) : AppConstants.txt(context),
+                  fontWeight: _sortBy == 'studentId' ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'score_desc',
+          child: Row(
+            children: [
+              Icon(Icons.sort, size: 20, color: _sortBy == 'score' ? AppConstants.brand(context) : AppConstants.txtMuted(context)),
+              const SizedBox(width: 12),
+              Text(
+                'Điểm số (Cao → Thấp)',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: _sortBy == 'score' ? AppConstants.brand(context) : AppConstants.txt(context),
+                  fontWeight: _sortBy == 'score' ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppConstants.surf(context),
+          border: Border.all(color: AppConstants.border(context)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list, color: AppConstants.txt(context), size: 18),
+            const SizedBox(width: 8),
+            Text('Lọc', style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context), fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+
+    final searchBox = Container(
+      width: isMobile ? double.infinity : 300,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.surfLow(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppConstants.border(context)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
+        onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+        decoration: InputDecoration(
+          icon: Icon(Icons.search, color: AppConstants.txtMuted(context), size: 20),
+          hintText: 'Tìm kiếm bài thi...',
+          hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context)),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.only(bottom: 12),
+        ),
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Analytics Row (Bento Stats)
-        Row(
-          children: [
-            Expanded(child: _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), const Color(0xFF003D9B))),
-            const SizedBox(width: 24),
-            Expanded(child: _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF006C47))),
-            const SizedBox(width: 24),
-            Expanded(child: _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', const Color(0xFF041B3C))),
-          ],
-        ),
-        const SizedBox(height: 32),
+        if (isMobile)
+          Column(
+            children: [
+              _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), AppConstants.brand(context)),
+              const SizedBox(height: 12),
+              _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF16A34A)),
+              const SizedBox(height: 12),
+              _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context)),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(child: _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), AppConstants.brand(context))),
+              const SizedBox(width: 24),
+              Expanded(child: _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF16A34A))),
+              const SizedBox(width: 24),
+              Expanded(child: _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context))),
+            ],
+          ),
+        SizedBox(height: isMobile ? 20 : 32),
 
         // Title and Filter Row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF041B3C))),
-            Row(
-              children: [
-                // Search Box
-                Container(
-                  width: 300,
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F3FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
-                    decoration: const InputDecoration(
-                      icon: Icon(Icons.search, color: Color(0xFF737685), size: 20),
-                      hintText: 'Tìm kiếm bài thi...',
-                      hintStyle: TextStyle(fontSize: 14),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.only(bottom: 12), // Center align text
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    setState(() {
-                      if (value == 'mssv_asc') {
-                        _sortBy = 'studentId';
-                        _sortAscending = true;
-                      } else if (value == 'score_desc') {
-                        _sortBy = 'score';
-                        _sortAscending = false;
-                      }
-                    });
-                  },
-                  offset: const Offset(0, 40),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'mssv_asc',
-                      child: Row(
-                        children: [
-                          Icon(Icons.sort_by_alpha, size: 20, color: _sortBy == 'studentId' ? const Color(0xFF0B57D0) : const Color(0xFF434654)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Mã số SV (Thấp → Cao)',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: _sortBy == 'studentId' ? const Color(0xFF0B57D0) : const Color(0xFF434654),
-                              fontWeight: _sortBy == 'studentId' ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'score_desc',
-                      child: Row(
-                        children: [
-                          Icon(Icons.sort, size: 20, color: _sortBy == 'score' ? const Color(0xFF0B57D0) : const Color(0xFF434654)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Điểm số (Cao → Thấp)',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: _sortBy == 'score' ? const Color(0xFF0B57D0) : const Color(0xFF434654),
-                              fontWeight: _sortBy == 'score' ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFC3C6D6)),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.filter_list, color: Color(0xFF434654), size: 18),
-                        SizedBox(width: 8),
-                        Text('Lọc', style: TextStyle(color: Color(0xFF434654))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+        if (isMobile)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: searchBox),
+                  const SizedBox(width: 10),
+                  filterButton,
+                ],
+              ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
+              Row(
+                children: [
+                  searchBox,
+                  const SizedBox(width: 12),
+                  filterButton,
+                ],
+              ),
+            ],
+          ),
         const SizedBox(height: 24),
 
         // Quiz Results List
@@ -406,30 +442,38 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   }
 
   Widget _buildBentoStatCard(String title, String value, Color valueColor, {String? trending}) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F9FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC3C6D6)),
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: AppConstants.isDarkMode(context) ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(), style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF434654))),
+          Text(title.toUpperCase(), style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.txtMuted(context))),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(value, style: TextStyle(fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w700, color: valueColor)),
+              Text(value, style: TextStyle(fontFamily: 'Inter', fontSize: isMobile ? 26 : 32, fontWeight: FontWeight.w700, color: valueColor == const Color(0xFF041B3C) ? AppConstants.txt(context) : valueColor)),
               if (trending != null) ...[
                 const SizedBox(width: 8),
                 Row(
                   children: [
-                    const Icon(Icons.trending_up, size: 16, color: Color(0xFF006C47)),
+                    const Icon(Icons.trending_up, size: 16, color: Color(0xFF16A34A)),
                     const SizedBox(width: 4),
-                    Text(trending, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF006C47))),
+                    Text(trending, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF16A34A))),
                   ],
                 ),
               ],
@@ -448,22 +492,30 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   ) {
     final bool isExporting = _exportingStates[quizId] ?? false;
     final bool allowViewDetail = quizData['allowViewDetail'] ?? false;
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC3C6D6)),
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: AppConstants.isDarkMode(context) ? 0.2 : 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          tilePadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 16),
           title: Text(
             quizTitle,
-            style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF041B3C)),
+            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: isMobile ? 16 : 18, color: AppConstants.txt(context)),
           ),
           subtitle: Text(
             allowViewDetail
@@ -472,7 +524,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
-              color: allowViewDetail ? const Color(0xFF00734C) : const Color(0xFF434654),
+              color: allowViewDetail ? const Color(0xFF16A34A) : AppConstants.txtMuted(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -486,7 +538,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                     : 'Bật cho SV xem chi tiết',
                 child: Switch(
                   value: allowViewDetail,
-                  activeColor: Colors.green,
+                  activeThumbColor: AppConstants.brand(context),
                   onChanged: (bool value) async {
                     // Cập nhật lên Firestore
                     try {
@@ -517,9 +569,9 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
-              // Nút Export Excel (Giữ nguyên)
+              // Nút Export Excel
               ElevatedButton.icon(
                 onPressed: isExporting
                     ? null
@@ -533,23 +585,23 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.file_download_outlined, size: 20),
+                    : const Icon(Icons.file_download_outlined, size: 18),
                 label: Text(
-                  isExporting ? '...' : 'Kết quả',
-                  style: const TextStyle(fontSize: 16),
+                  isExporting ? '...' : (isMobile ? 'Excel' : 'Xuất Excel'),
+                  style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade600, // Đổi màu xanh cho đẹp
+                  backgroundColor: AppConstants.brand(context),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minimumSize: const Size(0, 40),
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ],
           ),
           children: [
-            // ... (Giữ nguyên phần StreamBuilder danh sách sinh viên bên dưới)
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('submissions')
@@ -557,20 +609,13 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                   .where('quizId', isEqualTo: quizId)
                   .snapshots(),
               builder: (context, subSnapshot) {
-                // ... (Code cũ của phần danh sách sinh viên giữ nguyên) ...
-                // Để code ngắn gọn tôi không paste lại đoạn logic list view sinh viên
-                // Bạn hãy giữ nguyên code StreamBuilder bên trong children như cũ
-                if (!subSnapshot.hasData)
+                if (!subSnapshot.hasData) {
                   return const Padding(
                     padding: EdgeInsets.all(20),
                     child: CircularProgressIndicator(),
                   );
-                // ... logic hiển thị list ...
-                // (Copy lại nội dung bên trong children của câu trả lời trước)
+                }
                 var submissions = subSnapshot.data!.docs;
-
-                // ... (Paste lại logic filter/sort cũ vào đây) ...
-                // Removed submission filtering by _searchQuery here, as it conflicts with quiz title search
 
                 // Apply Sorting
                 submissions.sort((a, b) {
@@ -594,14 +639,14 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                     padding: const EdgeInsets.all(20),
                     child: Text(
                       "Chưa có bài nộp",
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: AppConstants.txtMuted(context)),
                     ),
                   );
                 }
 
                 return Column(
                   children: [
-                    Container(height: 1, color: Colors.grey.shade100),
+                    Container(height: 1, color: AppConstants.border(context)),
                     ...submissions
                         .map((doc) => _buildStudentResultItem(doc))
                         .toList(),
@@ -636,7 +681,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.grey.shade50)),
+          border: Border(bottom: BorderSide(color: AppConstants.border(context))),
         ),
         child: Row(
           children: [
@@ -645,9 +690,9 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
               width: 45,
               height: 45,
               decoration: BoxDecoration(
-                color: scoreColor.withOpacity(0.1),
+                color: scoreColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
-                border: Border.all(color: scoreColor.withOpacity(0.5)),
+                border: Border.all(color: scoreColor.withValues(alpha: 0.5)),
               ),
               child: Center(
                 child: Text(
@@ -670,18 +715,20 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                   studentName != null
                       ? Text(
                           studentName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
+                            color: AppConstants.txt(context),
                           ),
                         )
                       : FutureBuilder<String>(
                           future: _getStudentName(studentId),
                           builder: (c, s) => Text(
                             s.data ?? '...',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
+                              color: AppConstants.txt(context),
                             ),
                           ),
                         ),
@@ -690,12 +737,12 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                     children: [
                       Text(
                         'MSSV: $studentId',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 12, color: AppConstants.txtMuted(context)),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '•  $score/$total câu',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 12, color: AppConstants.txtMuted(context)),
                       ),
                     ],
                   ),
@@ -722,7 +769,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                 ),
               ),
 
-            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+            Icon(Icons.chevron_right, color: AppConstants.txtMuted(context), size: 20),
           ],
         ),
       ),
@@ -819,15 +866,23 @@ class _SubmissionDetailDialog extends StatelessWidget {
     final studentId = submission['studentId'] ?? 'Unknown';
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
       child: Container(
         width: 1000,
         height: MediaQuery.of(context).size.height * 0.9,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: const Color(0xFFF9F9FF),
+          borderRadius: BorderRadius.circular(20),
+          color: AppConstants.bg(context),
+          border: Border.all(color: AppConstants.border(context)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: AppConstants.isDarkMode(context) ? 0.4 : 0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           children: [
@@ -836,8 +891,15 @@ class _SubmissionDetailDialog extends StatelessWidget {
               margin: const EdgeInsets.all(24),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF0B57D0),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF003D9B),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF003D9B).withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -845,11 +907,11 @@ class _SubmissionDetailDialog extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
-                      Icons.person,
+                      Icons.person_rounded,
                       color: Colors.white,
                       size: 32,
                     ),
@@ -864,7 +926,7 @@ class _SubmissionDetailDialog extends StatelessWidget {
                           style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                           maxLines: 1,
@@ -872,11 +934,11 @@ class _SubmissionDetailDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'MSSV: $studentId • ${submission['quizTitle'] ?? 'BT'}',
+                          'MSSV: $studentId • ${submission['quizTitle'] ?? 'Bài kiểm tra'}',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
@@ -885,363 +947,458 @@ class _SubmissionDetailDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                      onPressed: () => Navigator.pop(context),
+                      splashRadius: 20,
+                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Stats
+            // Stats Row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
                   Expanded(
                     child: _buildStatItem(
+                      context,
                       Icons.check_circle_rounded,
                       '$score',
                       'Đúng',
-                      const Color(0xFF10B981),
+                      const Color(0xFF16A34A),
+                      bgColor: AppConstants.isDarkMode(context) ? const Color(0xFF1B3820) : const Color(0xFFDCFCE7),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _buildStatItem(
+                      context,
                       Icons.cancel_rounded,
                       '${total - score}',
                       'Sai',
-                      const Color(0xFFEF4444),
+                      const Color(0xFFDC2626),
+                      bgColor: AppConstants.isDarkMode(context) ? const Color(0xFF3B1818) : const Color(0xFFFEE2E2),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _buildStatItem(
+                      context,
                       Icons.timer_rounded,
                       _formatTime(timeSpent),
                       'Thời gian',
-                      const Color(0xFF3B82F6),
+                      const Color(0xFF003D9B),
+                      bgColor: AppConstants.isDarkMode(context) ? const Color(0xFF172554) : const Color(0xFFEFF6FF),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _buildStatItem(
+                      context,
                       Icons.star_rounded,
                       '${percentage.toStringAsFixed(1)}%',
                       'Điểm số',
                       const Color(0xFFD97706),
+                      bgColor: AppConstants.isDarkMode(context) ? const Color(0xFF3A2508) : const Color(0xFFFEF3C7),
                     ),
                   ),
                 ],
               ),
             ),
 
-                  if (suspiciousCount > 0) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: cheatingDetected
-                            ? Colors.red.shade50
-                            : Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: cheatingDetected
-                              ? Colors.red.shade300
-                              : Colors.orange.shade300,
-                        ),
+            if (suspiciousCount > 0) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: cheatingDetected ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cheatingDetected ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        cheatingDetected ? Icons.block_rounded : Icons.warning_amber_rounded,
+                        color: cheatingDetected ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                        size: 24,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            cheatingDetected
-                                ? Icons.block_rounded
-                                : Icons.warning_amber_rounded,
-                            color: cheatingDetected
-                                ? Colors.red.shade700
-                                : Colors.orange.shade700,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  autoSubmitted
-                                      ? 'Tự động nộp do vi phạm'
-                                      : 'Có hành vi khả nghi',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: cheatingDetected
-                                        ? Colors.red.shade900
-                                        : Colors.orange.shade900,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '$suspiciousCount vi phạm được ghi nhận',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: cheatingDetected
-                                        ? Colors.red.shade700
-                                        : Colors.orange.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cheatingDetected
-                                  ? Colors.red.shade100
-                                  : Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '$suspiciousCount',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              autoSubmitted ? 'Tự động nộp do vi phạm' : 'Có hành vi khả nghi',
                               style: TextStyle(
+                                fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: cheatingDetected
-                                    ? Colors.red.shade900
-                                    : Colors.orange.shade900,
+                                color: cheatingDetected ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                                fontSize: 14,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              '$suspiciousCount vi phạm được ghi nhận trong quá trình làm bài',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: cheatingDetected ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cheatingDetected ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$suspiciousCount',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: cheatingDetected ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
 
             // Questions List
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 itemCount: questions.length,
                 itemBuilder: (context, index) {
                   final questionDoc = questions[index];
                   final questionData =
                       questionDoc.data() as Map<String, dynamic>;
                   final questionId = questionDoc.id;
-                  final correctAnswer = questionData['correctAnswer'] ?? '';
-                  final studentAnswer = studentAnswers[questionId] ?? '';
-                  final isCorrect = studentAnswer == correctAnswer;
+                  final rawCorrect = questionData['correctAnswer'];
+                  final rawUser = studentAnswers[questionId];
+                  final options = List<String>.from(questionData['options'] ?? []);
+                  final List<String> correctList = _normalizeToList(rawCorrect);
+                  final List<String> userList = _normalizeToList(rawUser);
+                  final isMultiple = rawCorrect is List || (questionData['type'] == 'multiple');
+                  final earnedScore = _calculateQuestionScore(rawCorrect, rawUser);
+
+                  final bool isDark = AppConstants.isDarkMode(context);
+                  final Color statusColor = earnedScore >= 0.99
+                      ? const Color(0xFF2E7D32)
+                      : (earnedScore > 0
+                          ? const Color(0xFFB86200)
+                          : const Color(0xFFD32F2F));
+                  final Color statusBg = earnedScore >= 0.99
+                      ? (isDark ? const Color(0xFF1B3820) : const Color(0xFFEDF7ED))
+                      : (earnedScore > 0
+                          ? (isDark ? const Color(0xFF382710) : const Color(0xFFFFF3E0))
+                          : (isDark ? const Color(0xFF381515) : const Color(0xFFFFEDED)));
+                  final IconData statusIcon = earnedScore >= 0.99
+                      ? Icons.check_circle_outline
+                      : (earnedScore > 0
+                          ? Icons.warning_amber_outlined
+                          : Icons.cancel_outlined);
 
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 24),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      color: AppConstants.surf(context),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppConstants.border(context)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              topRight: Radius.circular(12),
-                            ),
-                            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFA7F3D0),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'Câu ${index + 1}',
-                                  style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Color(0xFF065F46),
-                                  ),
-                                ),
+                        // Header Row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    questionData['question'],
-                                    style: const TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                      color: Color(0xFF111827),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: () {
-                              final options = questionData['options'] as List;
-                              final questionType = questionData['type'] ?? 'single';
-
-                              return List.generate(options.length, (i) {
-                                final letter = String.fromCharCode(65 + i);
-
-                                bool isCorrectOption;
-                                bool isStudentChoice;
-
-                                if (questionType == 'multiple') {
-                                  final correctAnswers = correctAnswer is List
-                                      ? List<String>.from(correctAnswer)
-                                      : [correctAnswer.toString()];
-
-                                  final studentAnswers = studentAnswer is List
-                                      ? List<String>.from(studentAnswer)
-                                      : (studentAnswer != null &&
-                                            studentAnswer.toString().isNotEmpty)
-                                      ? [studentAnswer.toString()]
-                                      : <String>[];
-
-                                  isCorrectOption = correctAnswers.contains(letter);
-                                  isStudentChoice = studentAnswers.contains(letter);
-                                } else {
-                                  isCorrectOption = letter == correctAnswer;
-                                  isStudentChoice = letter == studentAnswer;
-                                }
-
-                                Color bgColor = Colors.white;
-                                Color borderColor = const Color(0xFFE5E7EB);
-                                Color textColor = const Color(0xFF111827);
-                                Color circleColor = Colors.transparent;
-                                Color circleBorderColor = const Color(0xFFD1D5DB);
-                                Color circleTextColor = const Color(0xFF4B5563);
-                                Widget? rightWidget;
-
-                                if (isCorrectOption && isStudentChoice) {
-                                  // Right and chosen -> solid green outline, solid green circle
-                                  borderColor = const Color(0xFF059669);
-                                  textColor = const Color(0xFF065F46);
-                                  circleColor = const Color(0xFF059669);
-                                  circleBorderColor = const Color(0xFF059669);
-                                  circleTextColor = Colors.white;
-                                  rightWidget = Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 18),
-                                      SizedBox(width: 6),
-                                      Text('ĐÁP ÁN ĐÚNG', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                    ],
-                                  );
-                                } else if (isCorrectOption) {
-                                  // Right but not chosen -> show as correct option with light green background
-                                  bgColor = const Color(0xFFECFDF5);
-                                  borderColor = const Color(0xFF059669);
-                                  circleColor = Colors.white;
-                                  circleBorderColor = const Color(0xFF059669);
-                                  circleTextColor = const Color(0xFF059669);
-                                  rightWidget = const Text('ĐÁP ÁN ĐÚNG', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669)));
-                                } else if (isStudentChoice) {
-                                  // Wrong and chosen -> red outline
-                                  borderColor = const Color(0xFFDC2626);
-                                  textColor = const Color(0xFF991B1B);
-                                  circleColor = const Color(0xFFDC2626);
-                                  circleBorderColor = const Color(0xFFDC2626);
-                                  circleTextColor = Colors.white;
-                                  rightWidget = const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 20);
-                                }
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: bgColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: borderColor, width: isStudentChoice || isCorrectOption ? 1.5 : 1.0),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: circleColor,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: circleBorderColor),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            letter,
-                                            style: TextStyle(
-                                              fontFamily: 'Inter',
-                                              color: circleTextColor,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Text(
-                                          options[i].toString(),
-                                          style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            color: textColor,
-                                            fontSize: 14,
-                                            fontWeight: isStudentChoice || isCorrectOption ? FontWeight.w600 : FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      if (rightWidget != null) rightWidget,
-                                    ],
-                                  ),
-                                );
-                              });
-                            }(),
-                          ),
-                        ),
-                        // Removed the previous evaluation footer or keep if needed? I'll keep it simple
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: const BoxDecoration(
-                            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(isCorrect ? Icons.check_circle_outline : Icons.highlight_off_outlined, size: 16, color: isCorrect ? const Color(0xFF059669) : const Color(0xFFDC2626)),
+                                  Icon(statusIcon, color: statusColor, size: 14),
                                   const SizedBox(width: 6),
                                   Text(
-                                    isCorrect ? 'Đã chấm điểm: +1.0' : 'Đã chấm điểm: +0.0',
-                                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: isCorrect ? const Color(0xFF059669) : const Color(0xFFDC2626), fontWeight: FontWeight.w500),
+                                    'Câu ${index + 1}',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: statusColor,
+                                    ),
                                   ),
                                 ],
                               ),
-                              const Text('Xem giải thích ⓘ', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFF3B82F6))),
-                            ],
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                '+${_formatScore(earnedScore)} điểm',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+                        Text(
+                          questionData['question'] ?? '',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.txt(context),
+                            height: 1.5,
                           ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // Options
+                        ...options.asMap().entries.map((optEntry) {
+                          final letter = String.fromCharCode(65 + optEntry.key);
+                          final text = optEntry.value;
+                          final bool isCorrectOption = correctList.contains(letter);
+                          final bool isUserSelected = userList.contains(letter);
+
+                          Color optBg = AppConstants.surfLow(context);
+                          Color optBorder = AppConstants.border(context);
+                          Color optText = AppConstants.txt(context);
+                          Color badgeColor = AppConstants.surfHigh(context);
+                          Color badgeTextColor = AppConstants.txtMuted(context);
+                          Widget? statusBadge;
+
+                          if (isUserSelected && isCorrectOption) {
+                            // 1. Sinh viên chọn ĐÚNG: Xanh lá
+                            optBg = isDark ? const Color(0xFF163319) : const Color(0xFFEDF7ED);
+                            optBorder = const Color(0xFF2E7D32);
+                            optText = isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20);
+                            badgeColor = const Color(0xFF2E7D32);
+                            badgeTextColor = Colors.white;
+                            statusBadge = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1B5E20) : const Color(0xFFC8E6C9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check, size: 13, color: isDark ? Colors.white : const Color(0xFF1B5E20)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Đã chọn (Đúng)',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white : const Color(0xFF1B5E20),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else if (isUserSelected && !isCorrectOption) {
+                            // 2. Sinh viên chọn SAI: Đỏ
+                            optBg = isDark ? const Color(0xFF3B1515) : const Color(0xFFFFEDED);
+                            optBorder = const Color(0xFFD32F2F);
+                            optText = isDark ? const Color(0xFFE57373) : const Color(0xFFC62828);
+                            badgeColor = const Color(0xFFD32F2F);
+                            badgeTextColor = Colors.white;
+                            statusBadge = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF5C1D1D) : const Color(0xFFFFCDD2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.close, size: 13, color: isDark ? Colors.white : const Color(0xFFC62828)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Đã chọn (Sai)',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white : const Color(0xFFC62828),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else if (!isUserSelected && isCorrectOption) {
+                            // 3. Đáp án ĐÚNG mà sinh viên CHƯA CHỌN / BỎ SÓT: Vàng/Cam
+                            optBg = isDark ? const Color(0xFF382A0F) : const Color(0xFFFFF8E1);
+                            optBorder = const Color(0xFFFFA000);
+                            optText = isDark ? const Color(0xFFFFD54F) : const Color(0xFFB78103);
+                            badgeColor = const Color(0xFFFFA000);
+                            badgeTextColor = Colors.white;
+                            statusBadge = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF543E10) : const Color(0xFFFFECB3),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.info_outline, size: 13, color: isDark ? Colors.white : const Color(0xFF8F6B00)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Đáp án đúng (Chưa chọn)',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white : const Color(0xFF8F6B00),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: optBg,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: optBorder,
+                                width: statusBadge != null ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  decoration: BoxDecoration(
+                                    color: badgeColor,
+                                    shape: isMultiple ? BoxShape.rectangle : BoxShape.circle,
+                                    borderRadius: isMultiple ? BorderRadius.circular(6) : null,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      letter,
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        color: badgeTextColor,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    text,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      color: optText,
+                                      fontWeight: statusBadge != null
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                                if (statusBadge != null) ...[
+                                  const SizedBox(width: 8),
+                                  statusBadge,
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+
+                        // Explanation Section (if exists)
+                        if (questionData['explanation'] != null &&
+                            questionData['explanation'].toString().trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppConstants.surfLow(context),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppConstants.border(context)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.lightbulb_outline_rounded,
+                                  size: 18,
+                                  color: Color(0xFF003D9B),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Giải thích: ${questionData['explanation']}',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      color: AppConstants.txt(context),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -1254,47 +1411,94 @@ class _SubmissionDetailDialog extends StatelessWidget {
     );
   }
 
+  // ===================== Logic =====================
+
+  double _calculateQuestionScore(dynamic rawCorrect, dynamic rawUser) {
+    if (rawUser == null) return 0.0;
+    List<String> correctList = _normalizeToList(rawCorrect);
+    List<String> userList = _normalizeToList(rawUser);
+    if (correctList.isEmpty) return 0.0;
+    if (correctList.length > 1 || rawCorrect is List) {
+      double unitScore = 1.0 / correctList.length;
+      double penaltyScore = 2.0 * unitScore;
+      double currentScore = 0.0;
+      for (var ans in userList) {
+        if (correctList.contains(ans)) {
+          currentScore += unitScore;
+        } else {
+          currentScore -= penaltyScore;
+        }
+      }
+      return currentScore.clamp(0.0, 1.0);
+    } else {
+      return (userList.isNotEmpty && correctList.contains(userList.first))
+          ? 1.0
+          : 0.0;
+    }
+  }
+
+  List<String> _normalizeToList(dynamic input) {
+    if (input == null) return [];
+    if (input is List) return input.map((e) => e.toString().trim()).toList();
+    return [input.toString().trim()];
+  }
+
+  String _formatScore(double score) =>
+      score.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+
   Widget _buildStatItem(
+    BuildContext context,
     IconData icon,
     String value,
     String label,
-    Color color,
-  ) {
+    Color color, {
+    Color? bgColor,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: AppConstants.isDarkMode(context) ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: bgColor ?? color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Center(
+              child: Icon(icon, color: color, size: 22),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
+              fontWeight: FontWeight.w800,
+              color: AppConstants.txt(context),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 14,
-              color: Color(0xFF6B7280),
+              fontSize: 13,
+              color: AppConstants.txtMuted(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1306,6 +1510,6 @@ class _SubmissionDetailDialog extends StatelessWidget {
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
-    return '${minutes}:${secs.toString().padLeft(2, '0')}';
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 }

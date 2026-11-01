@@ -45,18 +45,17 @@ class UserService {
   }
 
   /// 🆕 Xác định role từ email TRƯỚC KHI sync
+  /// ƯU TIÊN: Kiểm tra Giảng viên trước -> rồi mới đến Sinh viên
   static String determineRoleFromEmail(String? email) {
     if (email == null || email.isEmpty) return 'student';
 
-    final emailLower = email.toLowerCase();
+    final emailLower = email.toLowerCase().trim();
 
-    // Check domain trước (ưu tiên cao nhất)
-    if (emailLower.endsWith('@dut.udn.vn')) {
-      print('🎓 Email domain @dut.udn.vn detected -> likely teacher');
-      return 'teacher';
-    }
+    // ==========================================================
+    // BƯỚC 1: KIỂM TRA TÀI KHOẢN GIẢNG VIÊN TRƯỚC
+    // ==========================================================
 
-    // Check keywords trong email
+    // 1.1. Check các từ khóa giảng viên trong email (ưu tiên cao)
     final teacherKeywords = [
       'teacher',
       'admin',
@@ -64,26 +63,51 @@ class UserService {
       'giangvien',
       'giaovien',
       'instructor',
-      'nvhieu.dtvt', // tk thầy hiếu
-      'ddtuan', // tk thay tuan
+      'professor',
+      'nvhieu.dtvt', // Thầy Hiếu
+      'ddtuan',      // Thầy Tuấn
     ];
 
     for (var keyword in teacherKeywords) {
       if (emailLower.contains(keyword)) {
-        print('👨‍🏫 Detected teacher keyword: $keyword');
+        print('👨‍🏫 [1/Teacher] Phát hiện từ khóa giảng viên "$keyword" -> teacher');
         return 'teacher';
       }
     }
 
-    // Nếu không có 9 chữ số -> có thể là giáo viên
-    final studentId = extractStudentId(email);
-    if (studentId.isEmpty || studentId.length < 9) {
-      print('👨‍🏫 No student ID found -> assuming teacher');
-      return 'teacher';
+    final studentId = extractStudentId(emailLower);
+    final hasStudentId = studentId.isNotEmpty && studentId.length >= 9;
+
+    // 1.2. Check domain email giảng viên trường UDN (@dut.udn.vn, @ued.udn.vn, @udn.vn...)
+    // Email giảng viên có domain trực tiếp, không chứa sub-domain sinh viên @sv. hay @sv1.
+    final isTeacherDomain = (emailLower.endsWith('@dut.udn.vn') ||
+                             emailLower.endsWith('@ued.udn.vn')) &&
+                            !emailLower.contains('@sv.') &&
+                            !emailLower.contains('@sv1.');
+
+    if (isTeacherDomain) {
+      print('Phát hiện domain giảng viên');
+      if (!hasStudentId) {
+        print('🎓 [1/Teacher] Email domain giảng viên ($emailLower) -> teacher');
+        return 'teacher';
+      }
     }
 
-    print('👨‍🎓 Has student ID -> assuming student');
-    return 'student';
+    // ==========================================================
+    // BƯỚC 2: MỚI ĐẾN KIỂM TRA TÀI KHOẢN SINH VIÊN
+    // ==========================================================
+    // Sinh viên DUT/UED có 9 chữ số MSSV trong email hoặc có @sv. / @sv1.
+    if (hasStudentId || emailLower.contains('@sv.') || emailLower.contains('@sv1.')) {
+      print('👨‍🎓 [2/Student] Tài khoản sinh viên ($studentId) -> student');
+      return 'student';
+    }
+
+    // ==========================================================
+    // BƯỚC 3: MẶC ĐỊNH
+    // ==========================================================
+    // Nếu không có 9 chữ số MSSV -> Mặc định là giảng viên
+    print('👨‍🏫 [3/Fallback] Không có mã sinh viên 9 chữ số -> assuming teacher');
+    return 'teacher';
   }
 
   /// Đồng bộ user từ Authentication sang Firestore

@@ -1,34 +1,63 @@
 // lib/screens/teacher/quiz_bank_list_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'class_create_quiz_page.dart';
+import 'quiz_create_from_bank_page.dart';
 import 'edit_quiz_bank_page.dart';
+import '../../utils/constants.dart';
 
-class QuizBankListPage extends StatelessWidget {
-  const QuizBankListPage({Key? key}) : super(key: key);
+class QuizBankListPage extends StatefulWidget {
+  final Function(int)? onNavigate;
+  const QuizBankListPage({super.key, this.onNavigate});
+
+  @override
+  State<QuizBankListPage> createState() => _QuizBankListPageState();
+}
+
+class _QuizBankListPageState extends State<QuizBankListPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FF),
+      backgroundColor: AppConstants.bg(context),
       body: Column(
         children: [
           _buildTopAppBar(),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: 24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1280),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPageHeader(context),
-                    const SizedBox(height: 32),
-                    _buildQuickFilters(),
-                    const SizedBox(height: 24),
-                    _buildDashboardStats(),
-                    const SizedBox(height: 32),
-                    _buildBankGrid(),
-                  ],
+                constraints: const BoxConstraints(maxWidth: 1320),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('quiz_banks')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final banks = snapshot.data?.docs ?? [];
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPageHeader(context),
+                        const SizedBox(height: 24),
+                        _buildBentoStats(banks),
+                        const SizedBox(height: 28),
+                        _buildBankGrid(snapshot),
+                        const SizedBox(height: 48),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -39,199 +68,406 @@ class QuizBankListPage extends StatelessWidget {
   }
 
   Widget _buildTopAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    final isDark = AppConstants.isDarkMode(context);
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    final searchField = Container(
+      width: isMobile ? double.infinity : 300,
+      height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F9FF).withValues(alpha: 0.9),
-        border: const Border(bottom: BorderSide(color: Color(0xFFC3C6D6))),
+        color: AppConstants.surfLow(context),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppConstants.border(context)),
       ),
-      child: Row(
-        children: [
-          // Search Bar
-          Container(
-            width: 256,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F3FF),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search question banks...',
-                hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654)),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF434654), size: 20),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-            ),
-          ),
-          const SizedBox(width: 32),
-          // Nav links
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.only(bottom: 4),
-                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF003D9B), width: 2))),
-                child: const Text('Question Bank', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF003D9B))),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // Actions
-          Row(
-            children: [
-              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF434654))),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF434654))),
-            ],
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value.toLowerCase().trim()),
+        style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
+        decoration: InputDecoration(
+          hintText: 'Tìm kiếm ngân hàng câu hỏi...',
+          hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+          prefixIcon: Icon(Icons.search_rounded, color: AppConstants.txtMuted(context), size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+      child: isMobile
+          ? searchField
+          : Row(
+              children: [
+                searchField,
+                const SizedBox(width: 32),
+                // Nav links
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => widget.onNavigate?.call(0),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Text(
+                          'Quản lý lớp học',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppConstants.txtMuted(context),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    InkWell(
+                      onTap: () => widget.onNavigate?.call(1),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Text(
+                          'Bài thi',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppConstants.txtMuted(context),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    InkWell(
+                      onTap: () => widget.onNavigate?.call(2),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: AppConstants.brand(context), width: 2.5)),
+                        ),
+                        child: Text(
+                          'Ngân hàng câu hỏi',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppConstants.brand(context),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Actions
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Thông báo',
+                      onPressed: () {},
+                      icon: Icon(Icons.notifications_none_rounded, color: AppConstants.txtMuted(context)),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Tài khoản',
+                      onPressed: () {},
+                      icon: Icon(Icons.account_circle_outlined, color: AppConstants.txtMuted(context)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
   Widget _buildPageHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
+    final isDark = AppConstants.isDarkMode(context);
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    final headerInfo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Question Bank Central', style: TextStyle(fontFamily: 'Inter', fontSize: 28, fontWeight: FontWeight.w600, color: Color(0xFF041B3C), letterSpacing: -0.5)),
-            SizedBox(height: 8),
-            Text('Organize and curate your repository of quiz questions.', style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654))),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? AppConstants.surfHigh(context) : const Color(0xFF003D9B).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.storage_rounded, color: AppConstants.brand(context), size: 26),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Ngân hàng câu hỏi',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: isMobile ? 22 : 26,
+                  fontWeight: FontWeight.w700,
+                  color: AppConstants.txt(context),
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
           ],
         ),
-        FilledButton.icon(
-          onPressed: () => Navigator.pushNamed(context, '/question_bank_create'),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: const Text('Add New Bank', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold)),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF003D9B),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        const SizedBox(height: 6),
+        Text(
+          'Quản lý và tổ chức kho câu hỏi trắc nghiệm của bạn một cách hiệu quả.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppConstants.txtMuted(context),
           ),
         ),
       ],
     );
-  }
 
-  Widget _buildQuickFilters() {
+    final actionButton = FilledButton.icon(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ClassCreateQuizPage(isQuestionBank: true),
+          ),
+        );
+      },
+      icon: const Icon(Icons.add_rounded, size: 20),
+      label: const Text(
+        'Thêm ngân hàng mới',
+        style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppConstants.brand(context),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 1,
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          headerInfo,
+          const SizedBox(height: 16),
+          SizedBox(width: double.infinity, child: actionButton),
+        ],
+      );
+    }
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildFilterChip('All Topics', true),
-        const SizedBox(width: 12),
-        _buildFilterChip('Science', false),
-        const SizedBox(width: 12),
-        _buildFilterChip('Math', false),
-        const SizedBox(width: 12),
-        _buildFilterChip('History', false),
-        const SizedBox(width: 12),
-        _buildFilterChip('Literature', false),
+        Expanded(child: headerInfo),
+        const SizedBox(width: 16),
+        actionButton,
       ],
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFE0E8FF) : Colors.white,
-        border: Border.all(color: isSelected ? const Color(0xFF003D9B) : const Color(0xFFC3C6D6)),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? const Color(0xFF003D9B) : const Color(0xFF434654),
-        ),
-      ),
+  Widget _buildBentoStats(List<QueryDocumentSnapshot> banks) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    int totalQuestions = 0;
+    for (var b in banks) {
+      final data = b.data() as Map<String, dynamic>;
+      totalQuestions += (data['questionCount'] as num?)?.toInt() ?? 0;
+    }
+
+    final card1 = _buildBentoStatCard(
+      title: 'Tổng số ngân hàng',
+      value: '${banks.length}',
+      icon: Icons.storage_rounded,
+      iconColor: const Color(0xFF003D9B),
+      iconBg: const Color(0xFFEFF6FF),
+    );
+
+    final card2 = _buildBentoStatCard(
+      title: 'Tổng số câu hỏi',
+      value: '$totalQuestions',
+      icon: Icons.quiz_outlined,
+      iconColor: const Color(0xFF0284C7),
+      iconBg: const Color(0xFFF0F9FF),
+    );
+
+    final card3 = _buildBentoStatCard(
+      title: 'Trạng thái kho',
+      value: 'Khả dụng',
+      icon: Icons.check_circle_outline_rounded,
+      iconColor: const Color(0xFF16A34A),
+      iconBg: const Color(0xFFECFDF5),
+    );
+
+    if (isMobile) {
+      return Column(
+        children: [
+          card1,
+          const SizedBox(height: 12),
+          card2,
+          const SizedBox(height: 12),
+          card3,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: card1),
+        const SizedBox(width: 16),
+        Expanded(child: card2),
+        const SizedBox(width: 16),
+        Expanded(child: card3),
+      ],
     );
   }
 
-  Widget _buildDashboardStats() {
+  Widget _buildBentoStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+  }) {
+    final isDark = AppConstants.isDarkMode(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC3C6D6)),
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Total Banks', '14'),
-          Container(width: 1, height: 40, color: const Color(0xFFC3C6D6)),
-          _buildStatItem('Total Questions', '1,248'),
-          Container(width: 1, height: 40, color: const Color(0xFFC3C6D6)),
-          _buildStatItem('Recent Adds', '50 (This week)'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? AppConstants.surfHigh(context) : iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppConstants.txt(context),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppConstants.txtMuted(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF434654))),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF003D9B))),
-      ],
-    );
-  }
+  Widget _buildBankGrid(AsyncSnapshot<QuerySnapshot> snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppConstants.brand(context))),
+        ),
+      );
+    }
 
-  Widget _buildBankGrid() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('quiz_banks')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF003D9B))));
-        }
+    if (snapshot.hasError) {
+      return Center(child: Text('Lỗi tải dữ liệu: ${snapshot.error}', style: TextStyle(color: AppConstants.txt(context))));
+    }
 
-        if (snapshot.hasError) {
-          return const Center(child: Text('Lỗi tải dữ liệu'));
-        }
+    var banks = snapshot.data?.docs ?? [];
 
-        final banks = snapshot.data?.docs ?? [];
+    if (_searchQuery.isNotEmpty) {
+      banks = banks.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final title = (data['title'] ?? '').toString().toLowerCase();
+        return title.contains(_searchQuery);
+      }).toList();
+    }
 
-        if (banks.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text('Chưa có ngân hàng câu hỏi nào', style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: Color(0xFF434654))),
-            ),
-          );
-        }
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 768;
-            final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
-            final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
-
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 24,
-                mainAxisSpacing: 24,
-                childAspectRatio: isMobile ? 1.5 : 1.3,
+    if (banks.isEmpty) {
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.all(48),
+          decoration: BoxDecoration(
+            color: AppConstants.surf(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppConstants.border(context)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.storage_outlined, size: 48, color: AppConstants.txtMuted(context)),
+              const SizedBox(height: 16),
+              Text(
+                'Chưa có ngân hàng câu hỏi nào',
+                style: TextStyle(fontFamily: 'Inter', fontSize: 16, color: AppConstants.txtMuted(context), fontWeight: FontWeight.w500),
               ),
-              itemCount: banks.length,
-              itemBuilder: (context, index) {
-                final bank = banks[index];
-                final data = bank.data() as Map<String, dynamic>;
-                return _buildBankCard(context, bank.id, data);
-              },
-            );
+            ],
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+        final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1100;
+        final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 24,
+            mainAxisSpacing: 24,
+            mainAxisExtent: 220,
+          ),
+          itemCount: banks.length,
+          itemBuilder: (context, index) {
+            final bank = banks[index];
+            final data = bank.data() as Map<String, dynamic>;
+            return _buildBankCard(context, bank.id, data);
           },
         );
       },
@@ -239,104 +475,176 @@ class QuizBankListPage extends StatelessWidget {
   }
 
   Widget _buildBankCard(BuildContext context, String id, Map<String, dynamic> data) {
-    final title = data['title'] ?? 'Ngân hàng';
-    final questionCount = data['questionCount'] ?? 0;
+    final title = data['title'] ?? 'Ngân hàng câu hỏi';
+    final questionCount = (data['questionCount'] as num?)?.toInt() ?? 0;
     final createdAt = data['createdAt'] as Timestamp?;
+    final isDark = AppConstants.isDarkMode(context);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC3C6D6)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConstants.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8EDFF),
-                  borderRadius: BorderRadius.circular(8),
+                  color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.folder_rounded, color: Color(0xFF003D9B), size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF041B3C)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: Icon(Icons.folder_rounded, color: AppConstants.brand(context), size: 24),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Color(0xFF434654)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                icon: Icon(Icons.more_vert_rounded, color: AppConstants.txtMuted(context), size: 20),
+                color: AppConstants.surf(context),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: AppConstants.border(context)),
+                ),
                 onSelected: (value) {
                   if (value == 'edit') {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => EditQuizBankPage(bankId: id, bankTitle: title)));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => EditQuizBankPage(bankId: id, bankTitle: title)),
+                    );
                   } else if (value == 'delete') {
                     _deleteBank(context, id, title);
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
-                    child: Row(children: [Icon(Icons.edit_rounded, color: Color(0xFF003D9B), size: 20), SizedBox(width: 12), Text('Chỉnh sửa')]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, color: AppConstants.brand(context), size: 18),
+                        const SizedBox(width: 10),
+                        Text('Chỉnh sửa', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                      ],
+                    ),
                   ),
                   const PopupMenuItem(
                     value: 'delete',
-                    child: Row(children: [Icon(Icons.delete_rounded, color: Color(0xFFBA1A1A), size: 20), SizedBox(width: 12), Text('Xóa', style: TextStyle(color: Color(0xFFBA1A1A)))]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                        SizedBox(width: 10),
+                        Text('Xóa', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFDC2626))),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          const Spacer(),
-          Text('$questionCount Questions', style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF041B3C))),
-          const SizedBox(height: 4),
-          Text(
-            'Created: ${createdAt != null ? createdAt.toDate().toString().split(' ')[0] : 'N/A'}',
-            style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Color(0xFF434654)),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppConstants.txt(context),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.quiz_outlined, size: 16, color: AppConstants.txtMuted(context)),
+              const SizedBox(width: 6),
+              Text(
+                '$questionCount câu hỏi',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppConstants.txtMuted(context),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text('•', style: TextStyle(color: AppConstants.border(context))),
+              const SizedBox(width: 12),
+              Text(
+                'Tạo: ${createdAt != null ? createdAt.toDate().toString().split(' ')[0] : 'N/A'}',
+                style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppConstants.txtMuted(context)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Divider(height: 1, thickness: 1, color: AppConstants.border(context)),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              OutlinedButton(
+              OutlinedButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(
+                  Navigator.push(
                     context,
-                    '/quiz_create_from_bank',
-                    arguments: {
-                      'bankId': id,
-                      'bankTitle': title,
-                      'questionCount': questionCount,
-                    },
+                    MaterialPageRoute(
+                      builder: (context) => QuizCreateFromBankPage(
+                        bankId: id,
+                        bankTitle: title,
+                        questionCount: questionCount,
+                      ),
+                    ),
                   );
                 },
+                icon: Icon(Icons.add_task_rounded, size: 15, color: AppConstants.brand(context)),
+                label: Text(
+                  'Tạo đề thi',
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.brand(context)),
+                ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF003D9B)),
-                  foregroundColor: const Color(0xFF003D9B),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  side: BorderSide(color: isDark ? AppConstants.border(context) : const Color(0xFFBFDBFE)),
+                  backgroundColor: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Browse', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold)),
               ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => EditQuizBankPage(bankId: id, bankTitle: title)));
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => EditQuizBankPage(bankId: id, bankTitle: title)),
+                  );
                 },
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF003D9B),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Chỉnh sửa',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.txtMuted(context),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_rounded, size: 15, color: AppConstants.txtMuted(context)),
+                    ],
+                  ),
                 ),
-                child: const Text('Edit Bank', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -349,42 +657,62 @@ class QuizBankListPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, color: Color(0xFF041B3C))),
-        content: Text('Bạn có chắc muốn xóa ngân hàng "$title" và tất cả câu hỏi trong đó không?\nHành động này không thể hoàn tác.', style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF434654), height: 1.5)),
+        backgroundColor: AppConstants.surf(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppConstants.border(context)),
+        ),
+        title: Text('Xác nhận xóa', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
+        content: Text(
+          'Bạn có chắc muốn xóa ngân hàng "$title" và tất cả câu hỏi trong đó không?\nHành động này không thể hoàn tác.',
+          style: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context), height: 1.5),
+        ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF434654)),
-            child: const Text('Hủy', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppConstants.border(context)),
+              foregroundColor: AppConstants.txt(context),
+            ),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
-                // Delete questions
                 final qs = await FirebaseFirestore.instance.collection('quiz_banks').doc(bankId).collection('questions').get();
                 for (var doc in qs.docs) {
                   await doc.reference.delete();
                 }
-                // Delete bank
                 await FirebaseFirestore.instance.collection('quiz_banks').doc(bankId).delete();
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã xóa ngân hàng câu hỏi')));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Đã xóa ngân hàng câu hỏi thành công'),
+                      backgroundColor: const Color(0xFF16A34A),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                }
               } catch (e) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi khi xóa: $e')));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Lỗi khi xóa: $e'),
+                      backgroundColor: const Color(0xFFDC2626),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                }
               }
             },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A), foregroundColor: Colors.white),
-            child: const Text('Xóa', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            child: const Text('Xóa'),
           ),
         ],
       ),
     );
-  }
-
-  String _formatDate(Timestamp timestamp) {
-    final date = timestamp.toDate();
-    return '${date.day}/${date.month}/${date.year}';
   }
 }
