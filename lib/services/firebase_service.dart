@@ -380,6 +380,132 @@ class FirebaseService {
     }
   }
 
+  // ============ TEACHING ASSISTANT OPERATIONS ============
+
+  /// Add a teaching assistant to a class
+  static Future<void> addAssistantToClass({
+    required String classId,
+    required String studentId,
+    required String name,
+    required String email,
+  }) async {
+    try {
+      print('👨‍🏫 Adding teaching assistant to class: $name ($studentId)');
+
+      final existingAssistant = await _firestore
+          .collection('classes')
+          .doc(classId)
+          .collection('assistants')
+          .doc(studentId)
+          .get();
+
+      if (existingAssistant.exists) {
+        throw Exception('Sinh viên này đã là trợ giảng của lớp học');
+      }
+
+      final normalizedEmail = email.toLowerCase().trim();
+
+      await _firestore
+          .collection('classes')
+          .doc(classId)
+          .collection('assistants')
+          .doc(studentId)
+          .set({
+        'studentId': studentId,
+        'name': name,
+        'email': normalizedEmail,
+        'role': 'assistant',
+        'assignedAt': FieldValue.serverTimestamp(),
+      });
+
+      await _firestore.collection('classes').doc(classId).update({
+        'assistantIds': FieldValue.arrayUnion([studentId]),
+        if (normalizedEmail.isNotEmpty)
+          'assistantEmails': FieldValue.arrayUnion([normalizedEmail]),
+      });
+
+      print('✅ Teaching assistant added successfully');
+    } catch (e) {
+      _handleFirebaseError(e, 'addAssistantToClass');
+      rethrow;
+    }
+  }
+
+  /// Remove teaching assistant from class
+  static Future<void> removeAssistantFromClass({
+    required String classId,
+    required String studentId,
+    required String email,
+  }) async {
+    try {
+      print('🗑️ Removing teaching assistant from class: $studentId');
+
+      await _firestore
+          .collection('classes')
+          .doc(classId)
+          .collection('assistants')
+          .doc(studentId)
+          .delete();
+
+      final normalizedEmail = email.toLowerCase().trim();
+
+      await _firestore.collection('classes').doc(classId).update({
+        'assistantIds': FieldValue.arrayRemove([studentId]),
+        if (normalizedEmail.isNotEmpty)
+          'assistantEmails': FieldValue.arrayRemove([normalizedEmail]),
+      });
+
+      print('✅ Teaching assistant removed successfully');
+    } catch (e) {
+      _handleFirebaseError(e, 'removeAssistantFromClass');
+      rethrow;
+    }
+  }
+
+  /// Get teaching assistants of a class
+  static Stream<QuerySnapshot> getClassAssistants(String classId) {
+    try {
+      return _firestore
+          .collection('classes')
+          .doc(classId)
+          .collection('assistants')
+          .orderBy('assignedAt', descending: true)
+          .snapshots()
+          .handleError((error) {
+        _handleFirebaseError(error, 'getClassAssistants');
+      });
+    } catch (e) {
+      _handleFirebaseError(e, 'getClassAssistants');
+      rethrow;
+    }
+  }
+
+  /// Get classes where student is assigned as teaching assistant
+  static Stream<List<Map<String, dynamic>>> getAssistantClasses(String studentId, {String? email}) {
+    try {
+      print('🎓 Fetching assistant classes for student: $studentId');
+      return _firestore
+          .collection('classes')
+          .where('assistantIds', arrayContains: studentId)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'isAssistant': true,
+            ...data,
+          };
+        }).toList();
+      }).handleError((error) {
+        _handleFirebaseError(error, 'getAssistantClasses');
+      });
+    } catch (e) {
+      _handleFirebaseError(e, 'getAssistantClasses');
+      return Stream.value([]);
+    }
+  }
+
   // ============ QUIZ OPERATIONS ============
 
   /// Get available quizzes (all quizzes with available status)

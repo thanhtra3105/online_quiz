@@ -1,10 +1,12 @@
 // lib/screens/student/class_list_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/constants.dart';
 import 'student_panel.dart';
 import '../auth/login_page.dart';
+import '../teacher/class_detail_page.dart';
 import 'achievement_page.dart';
 import 'schedule_page.dart';
 import 'setting_page.dart';
@@ -23,9 +25,54 @@ class _ClassListPageState extends State<ClassListPage> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Map<String, dynamic>? _selectedAssistantClass;
+
+  List<Map<String, dynamic>> _studentClasses = [];
+  List<Map<String, dynamic>> _assistantClasses = [];
+  bool _isLoading = true;
+  StreamSubscription<List<Map<String, dynamic>>>? _studentSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _assistantSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeClasses();
+  }
+
+  void _subscribeClasses() {
+    _assistantSub?.cancel();
+    _studentSub?.cancel();
+
+    _assistantSub = FirebaseService.getAssistantClasses(
+      widget.studentId,
+      email: _auth.currentUser?.email,
+    ).listen((classes) {
+      if (mounted) {
+        setState(() {
+          _assistantClasses = classes;
+          _isLoading = false;
+        });
+      }
+    }, onError: (e) {
+      if (mounted) setState(() => _isLoading = false);
+    });
+
+    _studentSub = FirebaseService.getStudentClasses(widget.studentId).listen((classes) {
+      if (mounted) {
+        setState(() {
+          _studentClasses = classes;
+          _isLoading = false;
+        });
+      }
+    }, onError: (e) {
+      if (mounted) setState(() => _isLoading = false);
+    });
+  }
 
   @override
   void dispose() {
+    _assistantSub?.cancel();
+    _studentSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -125,7 +172,9 @@ class _ClassListPageState extends State<ClassListPage> {
           body: isDesktop
               ? _buildDesktopLayout(context)
               : _buildMobileLayout(context),
-          bottomNavigationBar: isDesktop ? null : _buildBottomNav(),
+          bottomNavigationBar: isDesktop
+              ? null
+              : (_selectedAssistantClass != null ? null : _buildBottomNav()),
         );
       },
     );
@@ -239,20 +288,29 @@ class _ClassListPageState extends State<ClassListPage> {
                   _buildNavItem(
                     icon: _selectedIndex == 0 ? Icons.school : Icons.school_outlined,
                     label: 'Lớp của tôi',
-                    isActive: _selectedIndex == 0,
-                    onTap: () => setState(() => _selectedIndex = 0),
+                    isActive: _selectedIndex == 0 && _selectedAssistantClass == null,
+                    onTap: () => setState(() {
+                      _selectedIndex = 0;
+                      _selectedAssistantClass = null;
+                    }),
                   ),
                   _buildNavItem(
                     icon: _selectedIndex == 1 ? Icons.emoji_events : Icons.emoji_events_outlined,
                     label: 'Thành tích',
                     isActive: _selectedIndex == 1,
-                    onTap: () => setState(() => _selectedIndex = 1),
+                    onTap: () => setState(() {
+                      _selectedIndex = 1;
+                      _selectedAssistantClass = null;
+                    }),
                   ),
                   _buildNavItem(
                     icon: _selectedIndex == 2 ? Icons.calendar_month : Icons.calendar_month_outlined,
                     label: 'Lịch trình',
                     isActive: _selectedIndex == 2,
-                    onTap: () => setState(() => _selectedIndex = 2),
+                    onTap: () => setState(() {
+                      _selectedIndex = 2;
+                      _selectedAssistantClass = null;
+                    }),
                   ),
                 ],
               ),
@@ -269,7 +327,10 @@ class _ClassListPageState extends State<ClassListPage> {
                   icon: _selectedIndex == 3 ? Icons.settings : Icons.settings_outlined,
                   label: 'Cài đặt',
                   isActive: _selectedIndex == 3,
-                  onTap: () => setState(() => _selectedIndex = 3),
+                  onTap: () => setState(() {
+                    _selectedIndex = 3;
+                    _selectedAssistantClass = null;
+                  }),
                 ),
                 _buildNavItem(
                   icon: Icons.logout_rounded,
@@ -333,6 +394,9 @@ class _ClassListPageState extends State<ClassListPage> {
 
   // ===================== MOBILE =====================
   Widget _buildMobileLayout(BuildContext context) {
+    if (_selectedAssistantClass != null) {
+      return _buildMainContent(context, isDesktop: false);
+    }
     final user = _auth.currentUser;
     return Column(
       children: [
@@ -461,7 +525,10 @@ class _ClassListPageState extends State<ClassListPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => setState(() => _selectedIndex = index),
+          onTap: () => setState(() {
+            _selectedIndex = index;
+            _selectedAssistantClass = null;
+          }),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -498,6 +565,14 @@ class _ClassListPageState extends State<ClassListPage> {
   Widget _buildMainContent(BuildContext context, {required bool isDesktop}) {
     switch (_selectedIndex) {
       case 0:
+        if (_selectedAssistantClass != null) {
+          return ClassDetailPage(
+            classId: _selectedAssistantClass!['id'] as String,
+            className: _selectedAssistantClass!['name'] as String,
+            isAssistant: true,
+            onBack: () => setState(() => _selectedAssistantClass = null),
+          );
+        }
         return _buildClassGrid(context, isDesktop: isDesktop);
       case 1:
         return AchievementPage(
@@ -515,164 +590,287 @@ class _ClassListPageState extends State<ClassListPage> {
           showTopBar: isDesktop,
         );
       default:
+        if (_selectedAssistantClass != null) {
+          return ClassDetailPage(
+            classId: _selectedAssistantClass!['id'] as String,
+            className: _selectedAssistantClass!['name'] as String,
+            isAssistant: true,
+            onBack: () => setState(() => _selectedAssistantClass = null),
+          );
+        }
         return _buildClassGrid(context, isDesktop: isDesktop);
     }
   }
 
   // ===================== CLASS GRID CONTENT =====================
   Widget _buildClassGrid(BuildContext context, {required bool isDesktop}) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: FirebaseService.getStudentClasses(widget.studentId),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _buildErrorWidget(snapshot.error);
-        }
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppConstants.primary),
+      );
+    }
 
-        if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppConstants.primary),
-          );
-        }
+    if (_assistantClasses.isEmpty && _studentClasses.isEmpty) {
+      return _buildEmptyState(context);
+    }
 
-        if (snapshot.data!.isEmpty) {
-          return _buildEmptyState(context);
-        }
+    final query = _searchQuery.toLowerCase().trim();
+    final filteredAssistantClasses = _assistantClasses.where((classData) {
+      if (query.isEmpty) return true;
+      final name = (classData['name'] ?? '').toString().toLowerCase();
+      final desc = (classData['description'] ?? '').toString().toLowerCase();
+      return name.contains(query) || desc.contains(query);
+    }).toList();
 
-        final classes = snapshot.data!;
-        final filteredClasses = classes.where((classData) {
-          if (_searchQuery.trim().isEmpty) return true;
-          final query = _searchQuery.toLowerCase().trim();
-          final name = (classData['name'] ?? '').toString().toLowerCase();
-          final desc = (classData['description'] ?? '').toString().toLowerCase();
-          return name.contains(query) || desc.contains(query);
-        }).toList();
+    final filteredStudentClasses = _studentClasses.where((classData) {
+      if (query.isEmpty) return true;
+      final name = (classData['name'] ?? '').toString().toLowerCase();
+      final desc = (classData['description'] ?? '').toString().toLowerCase();
+      return name.contains(query) || desc.contains(query);
+    }).toList();
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(isDesktop ? 24 : 16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Page Header
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Lớp học của tôi',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: isDesktop ? 36 : 24,
-                            fontWeight: FontWeight.w700,
-                            color: AppConstants.txt(context),
-                            letterSpacing: -0.5,
-                            height: 1.2,
-                          ),
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isDesktop ? 24 : 16),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Page Header & Search Bar
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lớp học của tôi',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: isDesktop ? 36 : 24,
+                        fontWeight: FontWeight.w700,
+                        color: AppConstants.txt(context),
+                        letterSpacing: -0.5,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Chọn một lớp học để bắt đầu ôn tập, làm bài kiểm tra hoặc quản lý trợ giảng.',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        color: AppConstants.txtMuted(context),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Thanh tìm kiếm lớp học
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppConstants.surf(context),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppConstants.border(context)),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          color: AppConstants.txt(context),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Chọn một lớp học để bắt đầu ôn tập và làm bài kiểm tra.',
-                          style: TextStyle(
+                        onChanged: (val) {
+                          setState(() {
+                            _searchQuery = val;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm lớp học theo tên hoặc mô tả...',
+                          hintStyle: TextStyle(
                             fontFamily: 'Inter',
-                            fontSize: 16,
+                            fontSize: 14,
                             color: AppConstants.txtMuted(context),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Thanh tìm kiếm lớp học
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppConstants.surf(context),
-                            borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: AppConstants.border(context)),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: AppConstants.txtMuted(context),
+                            size: 22,
                           ),
-                          child: TextField(
-                            controller: _searchController,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 14,
-                              color: AppConstants.txt(context),
-                            ),
-                            onChanged: (val) {
-                              setState(() {
-                                _searchQuery = val;
-                              });
-                            },
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Tìm kiếm lớp học theo tên hoặc mô tả...',
-                              hintStyle: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                color: AppConstants.txtMuted(context),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Nội dung danh sách lớp hoặc thông báo rỗng khi tìm kiếm
+              if (filteredAssistantClasses.isEmpty && filteredStudentClasses.isEmpty)
+                _buildSearchEmptyState(context)
+              else ...[
+                // SECTION 1: LỚP HỌC TRỢ GIẢNG (Nếu có)
+                if (filteredAssistantClasses.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.school, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Lớp học phụ trách Trợ giảng',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppConstants.txt(context),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF7C3AED),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${filteredAssistantClasses.length}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              prefixIcon: Icon(
-                                Icons.search_rounded,
-                                color: AppConstants.txtMuted(context),
-                                size: 22,
+                              const SizedBox(height: 2),
+                              Text(
+                                'Bạn có quyền hỗ trợ tạo/sửa đề thi, thêm & quản lý sinh viên, xem thống kê điểm.',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: AppConstants.txtMuted(context),
+                                ),
                               ),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded,
-                                          size: 18),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() {
-                                          _searchQuery = '';
-                                        });
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                            ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-
-                  // Bento Grid hoặc thông báo rỗng khi tìm kiếm
-                  if (filteredClasses.isEmpty)
-                    _buildSearchEmptyState(context)
-                  else
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final cols = constraints.maxWidth > 520 ? 2 : 1;
-                        return Wrap(
-                          spacing: 24,
-                          runSpacing: 24,
-                          children:
-                              filteredClasses.asMap().entries.map((entry) {
-                            final i = entry.key;
-                            final classData = entry.value;
-                            final classId = classData['id'] as String;
-                            return SizedBox(
-                              width: cols == 2
-                                  ? (constraints.maxWidth - 24) / 2
-                                  : constraints.maxWidth,
-                              child: _buildClassCard(
-                                  context, classId, classData, i),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cols = constraints.maxWidth > 520 ? 2 : 1;
+                      return Wrap(
+                        spacing: 24,
+                        runSpacing: 24,
+                        children: filteredAssistantClasses.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final classData = entry.value;
+                          final classId = classData['id'] as String;
+                          return SizedBox(
+                            width: cols == 2
+                                ? (constraints.maxWidth - 24) / 2
+                                : constraints.maxWidth,
+                            child: _buildClassCard(
+                              context,
+                              classId,
+                              classData,
+                              i,
+                              isAssistant: true,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 32),
                 ],
-              ),
-            ),
+
+                // SECTION 2: LỚP HỌC ĐANG THEO HỌC (Nếu có)
+                if (filteredStudentClasses.isNotEmpty) ...[
+                  if (filteredAssistantClasses.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'Lớp học đang theo học (${filteredStudentClasses.length})',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppConstants.txt(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cols = constraints.maxWidth > 520 ? 2 : 1;
+                      return Wrap(
+                        spacing: 24,
+                        runSpacing: 24,
+                        children: filteredStudentClasses.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final classData = entry.value;
+                          final classId = classData['id'] as String;
+                          return SizedBox(
+                            width: cols == 2
+                                ? (constraints.maxWidth - 24) / 2
+                                : constraints.maxWidth,
+                            child: _buildClassCard(
+                              context,
+                              classId,
+                              classData,
+                              i,
+                              isAssistant: false,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+              ],
+              const SizedBox(height: 32),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -680,10 +878,11 @@ class _ClassListPageState extends State<ClassListPage> {
     BuildContext context,
     String classId,
     Map<String, dynamic> data,
-    int index,
-  ) {
+    int index, {
+    bool isAssistant = false,
+  }) {
     final isDark = AppConstants.isDarkMode(context);
-    final icon = _subjectIcons[index % _subjectIcons.length];
+    final icon = isAssistant ? Icons.school_outlined : _subjectIcons[index % _subjectIcons.length];
     final className = data['name'] ?? 'Lớp học';
     final description = data['description'] ?? 'Không có mô tả';
 
@@ -694,22 +893,47 @@ class _ClassListPageState extends State<ClassListPage> {
         decoration: BoxDecoration(
           color: AppConstants.surf(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppConstants.border(context)),
+          border: Border.all(
+            color: isAssistant
+                ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+                : AppConstants.border(context),
+            width: isAssistant ? 1.5 : 1,
+          ),
+          boxShadow: isAssistant
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          hoverColor: AppConstants.surfLow(context),
+          hoverColor: isAssistant
+              ? const Color(0xFF7C3AED).withValues(alpha: 0.05)
+              : AppConstants.surfLow(context),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StudentPanel(
-                  studentId: widget.studentId,
-                  classId: classId,
-                  className: className,
+            if (isAssistant) {
+              setState(() {
+                _selectedAssistantClass = {
+                  'id': classId,
+                  'name': className,
+                };
+              });
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StudentPanel(
+                    studentId: widget.studentId,
+                    classId: classId,
+                    className: className,
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -726,33 +950,42 @@ class _ClassListPageState extends State<ClassListPage> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppConstants.surfHigh(context)
-                            : AppConstants.surfaceContainerHigh,
+                        color: isAssistant
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.12)
+                            : (isDark
+                                ? AppConstants.surfHigh(context)
+                                : AppConstants.surfaceContainerHigh),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(icon,
-                          color: AppConstants.brand(context), size: 24),
+                      child: Icon(
+                        icon,
+                        color: isAssistant ? const Color(0xFF7C3AED) : AppConstants.brand(context),
+                        size: 24,
+                      ),
                     ),
                     // Badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppConstants.surfHigh(context)
-                            : const Color(0xFFEBECF0),
+                        color: isAssistant
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
+                            : (isDark
+                                ? AppConstants.surfHigh(context)
+                                : const Color(0xFFEBECF0)),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        _getClassBadge(index),
+                        isAssistant ? 'Trợ giảng (TA)' : _getClassBadge(index),
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppConstants.txt(context)
-                              : const Color(0xFF42526E),
+                          fontWeight: FontWeight.w700,
+                          color: isAssistant
+                              ? const Color(0xFF7C3AED)
+                              : (isDark
+                                  ? AppConstants.txt(context)
+                                  : const Color(0xFF42526E)),
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -818,21 +1051,32 @@ class _ClassListPageState extends State<ClassListPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StudentPanel(
-                            studentId: widget.studentId,
-                            classId: classId,
-                            className: className,
+                      if (isAssistant) {
+                        setState(() {
+                          _selectedAssistantClass = {
+                            'id': classId,
+                            'name': className,
+                          };
+                        });
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StudentPanel(
+                              studentId: widget.studentId,
+                              classId: classId,
+                              className: className,
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark
-                          ? const Color(0xFF2563EB)
-                          : AppConstants.primary,
+                      backgroundColor: isAssistant
+                          ? const Color(0xFF7C3AED)
+                          : (isDark
+                              ? const Color(0xFF2563EB)
+                              : AppConstants.primary),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       elevation: 0,
@@ -844,7 +1088,16 @@ class _ClassListPageState extends State<ClassListPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: const Text('Truy cập lớp học'),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isAssistant) ...[
+                          const Icon(Icons.tune_rounded, size: 16),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(isAssistant ? 'Quản lý lớp học (Trợ giảng)' : 'Truy cập lớp học'),
+                      ],
+                    ),
                   ),
                 ),
               ],

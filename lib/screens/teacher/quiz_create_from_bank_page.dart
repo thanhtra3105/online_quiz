@@ -8,12 +8,16 @@ class QuizCreateFromBankPage extends StatefulWidget {
   final String bankId;
   final String bankTitle;
   final int questionCount;
+  final String? targetClassId;
+  final String? targetClassName;
 
   const QuizCreateFromBankPage({
     super.key,
     required this.bankId,
     required this.bankTitle,
     required this.questionCount,
+    this.targetClassId,
+    this.targetClassName,
   });
 
   @override
@@ -118,20 +122,20 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
 
                   // Breadcrumbs
                   Tooltip(
-                    message: 'Quay lại Ngân hàng câu hỏi',
+                    message: widget.targetClassName != null ? 'Quay lại lớp học' : 'Quay lại Ngân hàng câu hỏi',
                     child: InkWell(
                       onTap: () => Navigator.pop(context),
                       borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF64748B)),
-                            SizedBox(width: 6),
+                            const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
                             Text(
-                              'Ngân hàng câu hỏi',
-                              style: TextStyle(
+                              widget.targetClassName ?? 'Ngân hàng câu hỏi',
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -264,6 +268,33 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
                   color: Color(0xFF64748B),
                 ),
               ),
+              if (widget.targetClassName != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.school_rounded, size: 14, color: Color(0xFF7C3AED)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Thêm trực tiếp vào lớp: ${widget.targetClassName}',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -783,7 +814,7 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
 
     if (_selectedMode == 'manual') {
       // Navigate to question selector directly using MaterialPageRoute
-      Navigator.push(
+      final res = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => QuizBankQuestionSelectorPage(
@@ -792,9 +823,14 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
             quizTitle: _titleController.text.trim(),
             duration: int.parse(_durationController.text),
             maxViolations: int.parse(_maxViolationsController.text),
+            targetClassId: widget.targetClassId,
+            targetClassName: widget.targetClassName,
           ),
         ),
       );
+      if (res == true && mounted) {
+        Navigator.pop(context, true);
+      }
       return;
     }
 
@@ -837,6 +873,32 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
         await quizRef.collection('questions').add(questionDoc.data());
       }
 
+      // If targetClassId is provided, also attach to the class!
+      if (widget.targetClassId != null && widget.targetClassId!.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .collection('quizzes')
+            .doc(quizRef.id)
+            .set({
+              'title': _titleController.text.trim(),
+              'questionCount': questionCount,
+              'duration': int.parse(_durationController.text),
+              'assignedAt': FieldValue.serverTimestamp(),
+            });
+
+        final classDoc = await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .get();
+        final currentCount = (classDoc.data()?['quizCount'] ?? 0) as int;
+
+        await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .update({'quizCount': currentCount + 1});
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -844,14 +906,16 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
               children: [
                 const Icon(Icons.check_circle_rounded, color: Colors.white),
                 const SizedBox(width: 12),
-                Text('Đã tạo đề thi thành công với $questionCount câu hỏi!'),
+                Text(widget.targetClassId != null
+                    ? 'Đã tạo đề thi từ ngân hàng và thêm vào lớp thành công!'
+                    : 'Đã tạo đề thi thành công với $questionCount câu hỏi!'),
               ],
             ),
             backgroundColor: const Color(0xFF003D9B),
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {

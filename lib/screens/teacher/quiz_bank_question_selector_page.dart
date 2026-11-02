@@ -8,6 +8,8 @@ class QuizBankQuestionSelectorPage extends StatefulWidget {
   final String quizTitle;
   final int duration;
   final int maxViolations;
+  final String? targetClassId;
+  final String? targetClassName;
 
   const QuizBankQuestionSelectorPage({
     super.key,
@@ -16,6 +18,8 @@ class QuizBankQuestionSelectorPage extends StatefulWidget {
     required this.quizTitle,
     required this.duration,
     required this.maxViolations,
+    this.targetClassId,
+    this.targetClassName,
   });
 
   @override
@@ -611,6 +615,32 @@ class _QuizBankQuestionSelectorPageState
             .add(questionDoc.data() as Map<String, dynamic>);
       }
 
+      // If targetClassId is provided, also attach to the class!
+      if (widget.targetClassId != null && widget.targetClassId!.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .collection('quizzes')
+            .doc(quizRef.id)
+            .set({
+              'title': widget.quizTitle,
+              'questionCount': _selectedQuestionIds.length,
+              'duration': widget.duration,
+              'assignedAt': FieldValue.serverTimestamp(),
+            });
+
+        final classDoc = await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .get();
+        final currentCount = (classDoc.data()?['quizCount'] ?? 0) as int;
+
+        await FirebaseFirestore.instance
+            .collection('classes')
+            .doc(widget.targetClassId!)
+            .update({'quizCount': currentCount + 1});
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -618,7 +648,9 @@ class _QuizBankQuestionSelectorPageState
               children: [
                 const Icon(Icons.check_circle_rounded, color: Colors.white),
                 const SizedBox(width: 12),
-                Text('Đã tạo đề thi thành công với ${_selectedQuestionIds.length} câu hỏi!'),
+                Text(widget.targetClassId != null
+                    ? 'Đã tạo đề thi từ ngân hàng và thêm vào lớp thành công!'
+                    : 'Đã tạo đề thi thành công với ${_selectedQuestionIds.length} câu hỏi!'),
               ],
             ),
             backgroundColor: const Color(0xFF003D9B),
@@ -626,8 +658,12 @@ class _QuizBankQuestionSelectorPageState
           ),
         );
 
-        // Pop back to quiz bank list
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (widget.targetClassId != null && widget.targetClassId!.isNotEmpty) {
+          Navigator.of(context).pop(true);
+        } else {
+          // Pop back to quiz bank list
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
     } catch (e) {
       if (mounted) {
