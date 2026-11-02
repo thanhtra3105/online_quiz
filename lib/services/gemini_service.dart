@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class GeminiService {
   // 👉 Bạn có thể dán API Key trực tiếp vào đây:
-  static String defaultApiKey = 'AQ.Ab8RN6IgikktDRurauIyFB5zATBUVed1oqoDKrnTOMY_4CH9YA';
+  static String defaultApiKey = 'YOUR_KEY';
 
   static const String _prefKey = 'gemini_api_key';
 
