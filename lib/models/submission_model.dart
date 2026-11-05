@@ -52,5 +52,5 @@ class Submission {
     };
   }
 
-  double get percentage => (score / totalQuestions * 100);
+  double get percentage => totalQuestions > 0 ? (score / totalQuestions * 100) : 0.0;
 }

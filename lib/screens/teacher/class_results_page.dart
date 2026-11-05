@@ -58,17 +58,25 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
       final totalSubmissions = submissionsSnap.docs.length;
 
       double totalScore = 0.0;
+      int validSubmissions = 0;
       for (var doc in submissionsSnap.docs) {
         final data = doc.data();
         final rawScore = (data['score'] ?? 0).toDouble();
-        final totalQ = (data['totalQuestions'] ?? 1).toDouble();
+        double totalQ = (data['totalQuestions'] ?? 0).toDouble();
+        if (totalQ <= 0 && data['questionOrder'] is List && (data['questionOrder'] as List).isNotEmpty) {
+          totalQ = (data['questionOrder'] as List).length.toDouble();
+        }
         if (totalQ > 0) {
           final score10 = (rawScore / totalQ) * 10;
-          totalScore += score10;
+          if (!score10.isNaN) {
+            totalScore += score10;
+            validSubmissions++;
+          }
         }
       }
 
-      double avgScore = totalSubmissions > 0 ? totalScore / totalSubmissions : 0.0;
+      double avgScore = validSubmissions > 0 ? totalScore / validSubmissions : 0.0;
+      if (avgScore.isNaN) avgScore = 0.0;
       double compRate = 0.0;
       if (totalStudents > 0 && totalQuizzes > 0) {
         compRate = (totalSubmissions / (totalStudents * totalQuizzes)) * 100;
@@ -180,9 +188,12 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
         final studentId = data['studentId'] ?? 'Unknown';
         final studentName =
             data['studentName'] ?? await _getStudentName(studentId);
-        final totalQ = data['totalQuestions'] ?? 1;
-        final rawScore = (data['score'] ?? 0) / totalQ * 10;
-        final score = double.parse(rawScore.toStringAsFixed(1));
+        double totalQ = (data['totalQuestions'] ?? 0).toDouble();
+        if (totalQ <= 0 && data['questionOrder'] is List && (data['questionOrder'] as List).isNotEmpty) {
+          totalQ = (data['questionOrder'] as List).length.toDouble();
+        }
+        final rawScore = totalQ > 0 ? ((data['score'] ?? 0).toDouble() / totalQ * 10) : 0.0;
+        final score = rawScore.isNaN ? 0.0 : double.parse(rawScore.toStringAsFixed(1));
 
         int rowIndex = i + 1;
 
@@ -648,7 +659,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                   children: [
                     Container(height: 1, color: AppConstants.border(context)),
                     ...submissions
-                        .map((doc) => _buildStudentResultItem(doc))
+                        .map((doc) => _buildStudentResultItem(doc, quizData))
                         .toList(),
                     const SizedBox(height: 10),
                   ],
@@ -661,12 +672,20 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     );
   }
 
-  Widget _buildStudentResultItem(QueryDocumentSnapshot doc) {
+  Widget _buildStudentResultItem(QueryDocumentSnapshot doc, Map<String, dynamic> quizData) {
     final data = doc.data() as Map<String, dynamic>;
-    final score = data['score'] ?? 0;
-    final total = data['totalQuestions'] ?? 1;
-    final percentage = (score / total * 100);
-    final scoreColor = _getScoreColor(percentage);
+    final score = (data['score'] ?? 0).toDouble();
+    int total = (data['totalQuestions'] ?? 0) as int;
+    if (total <= 0) {
+      if (data['questionOrder'] is List && (data['questionOrder'] as List).isNotEmpty) {
+        total = (data['questionOrder'] as List).length;
+      } else if (quizData['questionCount'] != null && (quizData['questionCount'] as num) > 0) {
+        total = (quizData['questionCount'] as num).toInt();
+      }
+    }
+    final percentage = total > 0 ? (score / total * 100) : 0.0;
+    final finalPercentage = percentage.isNaN ? 0.0 : percentage;
+    final scoreColor = _getScoreColor(finalPercentage);
     final studentId = data['studentId'] ?? 'Unknown';
     final studentName = data['studentName'] as String?;
     final suspiciousCount = data['suspiciousActionCount'] ?? 0;
@@ -696,7 +715,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
               ),
               child: Center(
                 child: Text(
-                  '${percentage.toStringAsFixed(0)}%',
+                  '${finalPercentage.toStringAsFixed(0)}%',
                   style: TextStyle(
                     color: scoreColor,
                     fontWeight: FontWeight.bold,
@@ -741,7 +760,9 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '•  $score/$total câu',
+                        total > 0
+                            ? '•  ${score.toStringAsFixed(score % 1 == 0 ? 0 : 1)}/$total câu'
+                            : '•  0 câu',
                         style: TextStyle(fontSize: 12, color: AppConstants.txtMuted(context)),
                       ),
                     ],
@@ -856,9 +877,13 @@ class _SubmissionDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final score = submission['score'] ?? 0;
-    final total = submission['totalQuestions'] ?? 1;
-    final percentage = (score / total * 100);
+    final score = (submission['score'] ?? 0).toDouble();
+    int total = (submission['totalQuestions'] ?? 0) as int;
+    if (total <= 0 && questions.isNotEmpty) {
+      total = questions.length;
+    }
+    final percentage = total > 0 ? (score / total * 100) : 0.0;
+    final finalPercentage = percentage.isNaN ? 0.0 : percentage;
     final timeSpent = submission['timeSpent'] ?? 0;
     final suspiciousCount = submission['suspiciousActionCount'] ?? 0;
     final cheatingDetected = submission['cheatingDetected'] ?? false;
@@ -1006,7 +1031,7 @@ class _SubmissionDetailDialog extends StatelessWidget {
                     child: _buildStatItem(
                       context,
                       Icons.star_rounded,
-                      '${percentage.toStringAsFixed(1)}%',
+                      '${finalPercentage.toStringAsFixed(1)}%',
                       'Điểm số',
                       const Color(0xFFD97706),
                       bgColor: AppConstants.isDarkMode(context) ? const Color(0xFF3A2508) : const Color(0xFFFEF3C7),

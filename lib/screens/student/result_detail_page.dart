@@ -65,7 +65,20 @@ class ResultDetailPage extends StatelessWidget {
                       final String quizTitle =
                           quizData?['title'] ?? 'Exam Results';
 
-                      final questions = questionSnapshot.docs;
+                      final rawQuestions = questionSnapshot.docs;
+                      List<QueryDocumentSnapshot> questions = List.from(rawQuestions);
+                      final List<dynamic>? questionOrder = data['questionOrder'];
+                      if (questionOrder != null && questionOrder.isNotEmpty) {
+                        final orderMap = {
+                          for (var i = 0; i < questionOrder.length; i++)
+                            questionOrder[i].toString(): i,
+                        };
+                        questions.sort((a, b) {
+                          final indexA = orderMap[a.id] ?? 9999;
+                          final indexB = orderMap[b.id] ?? 9999;
+                          return indexA.compareTo(indexB);
+                        });
+                      }
 
                       double calculatedTotalScore = 0.0;
                       int correctQuestionsCount = 0;

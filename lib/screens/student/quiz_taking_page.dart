@@ -1,6 +1,8 @@
 // lib/screens/student/quiz_taking_page.dart
 import 'dart:async';
+import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -35,13 +37,29 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   int _currentIndex = 0;
   int _secondsRemaining = 0;
   Timer? _timer;
+  DateTime? _quizEndTime;
   bool _isSubmitting = false;
   bool _isLoading = true;
   bool _canExit = false;
+  bool _isPageReload = false;
+  bool _isUnloading = false;
+
+  // Web event listeners
+  StreamSubscription? _visibilitySubscription;
+  StreamSubscription? _blurSubscription;
+  StreamSubscription? _focusSubscription;
+  StreamSubscription? _beforeUnloadSubscription;
+  StreamSubscription? _keydownSubscription;
 
   // Data
   List<QueryDocumentSnapshot> _questions = [];
   final Map<String, dynamic> _answers = {};
+
+  // Storage keys for persistence across reloads
+  String get _storageEndKey => 'quiz_end_${widget.quizId}_${widget.studentId}';
+  String get _storageViolationsKey => 'quiz_violations_${widget.quizId}_${widget.studentId}';
+  String get _storageAnswersKey => 'quiz_answers_${widget.quizId}_${widget.studentId}';
+  String get _storageLastViolationTimeKey => 'quiz_last_violation_time_${widget.quizId}_${widget.studentId}';
 
   // ============================================
   // CHEATING DETECTION VARIABLES
@@ -61,23 +79,90 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   bool _isReenterDialogShowing = false;
   html.EventListener? _fullscreenChangeListener;
 
+  /// Kiểm tra có phải thiết bị iPhone/iPod không (Safari trên iPhone không hỗ trợ Fullscreen API)
+  bool get _isIOSDevice {
+    try {
+      final ua = html.window.navigator.userAgent.toLowerCase();
+      return ua.contains('iphone') || ua.contains('ipod');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Kiểm tra thiết bị và trình duyệt có hỗ trợ Fullscreen API hay không
+  bool get _canUseFullscreen {
+    try {
+      if (_isIOSDevice) return false;
+      return html.document.fullscreenEnabled ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _canExit = false;
     _secondsRemaining = widget.duration * 60;
     _loadQuestions();
-    _startTimer();
+    _initTimer();
+
+    // Lắng nghe sự kiện trước khi rời / reload trang để đánh dấu _isUnloading,
+    // ngăn không cho các sự kiện phụ (exit fullscreen, blur) lúc F5 bị phạt thêm lỗi thứ 2
+    _beforeUnloadSubscription = html.window.onBeforeUnload.listen((_) {
+      _isUnloading = true;
+    });
+
+    _keydownSubscription = html.window.onKeyDown.listen((e) {
+      if (e.keyCode == 116 || ((e.ctrlKey == true || e.metaKey == true) && e.keyCode == 82)) {
+        _isUnloading = true;
+      }
+    });
+
+    // Lắng nghe sự kiện chuyển tab / ẩn trình duyệt trên Web ở tầng DOM cấp thấp (Native Web Event)
+    _visibilitySubscription = html.document.onVisibilityChange.listen((_) {
+      if (_isSubmitting || _isLoading || _isEnteringFullscreen || _isUnloading) return;
+      if (html.document.visibilityState == 'hidden') {
+        if (!_isCurrentlyAway) {
+          _isCurrentlyAway = true;
+          _handleSuspiciousAction('Chuyển tab hoặc rời cửa sổ bài thi');
+        }
+      } else if (html.document.visibilityState == 'visible') {
+        _isCurrentlyAway = false;
+        _updateTimer(); // Đồng bộ ngay thời gian thực còn lại
+        if (_canUseFullscreen) {
+          final isCurrentlyFullscreen = html.document.fullscreenElement != null;
+          if (!isCurrentlyFullscreen && !_isSubmitting && mounted && _suspiciousActionCount < _maxSuspiciousActions) {
+            _showReenterFullscreenDialog();
+          }
+        }
+      }
+    });
+
+    _blurSubscription = html.window.onBlur.listen((_) {
+      if (_isSubmitting || _isLoading || _isEnteringFullscreen || _isUnloading) return;
+      if (!_isCurrentlyAway) {
+        _isCurrentlyAway = true;
+        _handleSuspiciousAction('Rời khỏi màn hình bài thi');
+      }
+    });
+
+    _focusSubscription = html.window.onFocus.listen((_) {
+      _isCurrentlyAway = false;
+      _updateTimer();
+    });
 
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enforceFullscreen();
-      // Nếu sau 800ms mà trình duyệt không cho tự động fullscreen, hiện hộp thoại yêu cầu người dùng bấm vào
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted && !_isFullscreen && html.document.fullscreenElement == null) {
-          _showReenterFullscreenDialog();
-        }
-      });
+      // Nếu thiết bị hỗ trợ fullscreen nhưng sau 800ms chưa vào được, hiện hộp thoại yêu cầu bấm vào
+      if (_canUseFullscreen) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && !_isFullscreen && html.document.fullscreenElement == null && !_isSubmitting && !_isUnloading) {
+            _showReenterFullscreenDialog();
+          }
+        });
+      }
     });
   }
 
@@ -86,7 +171,12 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     _timer?.cancel();
     _pageController.dispose();
     _cleanupFullscreenListeners();
-    if (_isFullscreen) {
+    _visibilitySubscription?.cancel();
+    _blurSubscription?.cancel();
+    _focusSubscription?.cancel();
+    _beforeUnloadSubscription?.cancel();
+    _keydownSubscription?.cancel();
+    if (_isFullscreen && _canUseFullscreen) {
       try {
         html.document.exitFullscreen();
       } catch (_) {}
@@ -99,6 +189,14 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // FULLSCREEN LOGIC
   // ============================================
   void _enforceFullscreen() {
+    if (!_canUseFullscreen) {
+      // iPhone / Safari iOS không hỗ trợ Fullscreen API
+      _isFullscreen = true;
+      _hasEnteredFullscreenOnce = true;
+      _isEnteringFullscreen = false;
+      return;
+    }
+
     try {
       _isEnteringFullscreen = true;
       html.document.documentElement?.requestFullscreen();
@@ -123,9 +221,17 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     } catch (e) {
       _isEnteringFullscreen = false;
     }
+
+    // Luôn có timeout để reset cờ, tránh bị kẹt _isEnteringFullscreen = true
+    Timer(const Duration(milliseconds: 1000), () {
+      if (mounted && _isEnteringFullscreen) {
+        setState(() => _isEnteringFullscreen = false);
+      }
+    });
   }
 
   void _showReenterFullscreenDialog() {
+    if (!_canUseFullscreen) return; // Không hiện trên iPhone/thiết bị không hỗ trợ API fullscreen
     if (_isReenterDialogShowing || !mounted || _isSubmitting) return;
     _isReenterDialogShowing = true;
     showDialog(
@@ -159,6 +265,11 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                 } catch (_) {
                   _isEnteringFullscreen = false;
                 }
+                Timer(const Duration(milliseconds: 1000), () {
+                  if (mounted && _isEnteringFullscreen) {
+                    setState(() => _isEnteringFullscreen = false);
+                  }
+                });
               },
               icon: const Icon(Icons.fullscreen),
               label: const Text('Vào toàn màn hình'),
@@ -177,12 +288,13 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   void _onFullscreenChange() {
+    if (!_canUseFullscreen || _isUnloading) return;
     final isCurrentlyFullscreen = html.document.fullscreenElement != null;
     if (isCurrentlyFullscreen) {
       if (mounted) setState(() => _isFullscreen = true);
       _isEnteringFullscreen = false;
       _hasEnteredFullscreenOnce = true;
-    } else if (!isCurrentlyFullscreen && !_isSubmitting && !_isLoading) {
+    } else if (!isCurrentlyFullscreen && !_isSubmitting && !_isLoading && !_isUnloading) {
       if (_isEnteringFullscreen) return;
       if (mounted) setState(() => _isFullscreen = false);
 
@@ -191,7 +303,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         _handleSuspiciousAction('Thoát chế độ toàn màn hình');
       }
 
-      if (mounted && _suspiciousActionCount < _maxSuspiciousActions) {
+      if (mounted && _suspiciousActionCount < _maxSuspiciousActions && !_isUnloading) {
         _showReenterFullscreenDialog();
       }
     }
@@ -223,7 +335,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // ============================================
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isSubmitting || _isLoading || _isEnteringFullscreen) {
+    if (_isSubmitting || _isLoading || _isEnteringFullscreen || _isUnloading) {
       return;
     }
     // Chỉ bắt khi rời khỏi tab hoặc ẩn trình duyệt (không bắt inactive vì tooltip fullscreen của trình duyệt gây ra)
@@ -234,9 +346,12 @@ class _QuizTakingPageState extends State<QuizTakingPage>
       }
     } else if (state == AppLifecycleState.resumed) {
       _isCurrentlyAway = false;
-      final isCurrentlyFullscreen = html.document.fullscreenElement != null;
-      if (!isCurrentlyFullscreen && !_isSubmitting && mounted && _suspiciousActionCount < _maxSuspiciousActions) {
-        _showReenterFullscreenDialog();
+      _updateTimer(); // Đồng bộ thời gian thực ngay khi quay lại
+      if (_canUseFullscreen) {
+        final isCurrentlyFullscreen = html.document.fullscreenElement != null;
+        if (!isCurrentlyFullscreen && !_isSubmitting && mounted && _suspiciousActionCount < _maxSuspiciousActions && !_isUnloading) {
+          _showReenterFullscreenDialog();
+        }
       }
     }
   }
@@ -245,7 +360,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // VIOLATION HANDLING
   // ============================================
   void _handleSuspiciousAction(String reason) {
-    if (_isSubmitting || _isLoading || _isEnteringFullscreen) {
+    if (_isSubmitting || _isLoading || _isEnteringFullscreen || _isUnloading) {
       return;
     }
 
@@ -257,6 +372,12 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     _lastFocusLossTime = now;
 
     setState(() => _suspiciousActionCount++);
+
+    // Lưu số lần vi phạm mới và mốc thời gian vi phạm vào localStorage ngay lập tức
+    try {
+      html.window.localStorage[_storageViolationsKey] = _suspiciousActionCount.toString();
+      html.window.localStorage[_storageLastViolationTimeKey] = now.millisecondsSinceEpoch.toString();
+    } catch (_) {}
 
     if (_suspiciousActionCount >= _maxSuspiciousActions) {
       _autoSubmitForCheating();
@@ -314,12 +435,25 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   // ============================================
-  // SUBMISSION LOGIC
+  // SUBMISSION LOGIC & DATA CLEANUP
   // ============================================
+  void _clearLocalStorageQuizData() {
+    try {
+      html.window.localStorage.remove(_storageEndKey);
+      html.window.localStorage.remove(_storageViolationsKey);
+      html.window.localStorage.remove(_storageAnswersKey);
+      html.window.localStorage.remove(_storageLastViolationTimeKey);
+    } catch (_) {}
+  }
+
   void _exitQuizPage() {
     _timer?.cancel();
     _cleanupFullscreenListeners();
-    if (_isFullscreen) {
+    _visibilitySubscription?.cancel();
+    _blurSubscription?.cancel();
+    _focusSubscription?.cancel();
+    _clearLocalStorageQuizData();
+    if (_isFullscreen && _canUseFullscreen) {
       try {
         html.document.exitFullscreen();
       } catch (_) {}
@@ -360,10 +494,10 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     if (mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🚨 Bài thi tự động nộp do vi phạm quá 5 lần!'),
+        SnackBar(
+          content: Text('🚨 Bài thi tự động nộp do vi phạm quá $_maxSuspiciousActions lần!'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 4),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -378,7 +512,9 @@ class _QuizTakingPageState extends State<QuizTakingPage>
       _canExit = true;
     });
 
-    if (_isFullscreen) {
+    _clearLocalStorageQuizData();
+
+    if (_isFullscreen && _canUseFullscreen) {
       try {
         html.document.exitFullscreen();
       } catch (_) {}
@@ -398,6 +534,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         'classId': widget.classId,
         'quizTitle': widget.quizTitle,
         'answers': _answers,
+        'questionOrder': _questions.map((q) => q.id).toList(),
         'score': score,
         'totalQuestions': _questions.length,
         'timestamp': FieldValue.serverTimestamp(),
@@ -457,9 +594,9 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Bạn đã vi phạm quy chế thi 5 lần. Hệ thống tự động nộp bài và sẽ tự động thoát sau 5 giây.',
-                    style: TextStyle(
+                  Text(
+                    'Bạn đã vi phạm quy chế thi $_suspiciousActionCount lần (tối đa $_maxSuspiciousActions lần). Hệ thống tự động nộp bài và sẽ tự động thoát sau 5 giây.',
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       color: Colors.redAccent,
@@ -564,6 +701,8 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     setState(() => _isSubmitting = true);
     _timer?.cancel();
 
+    _clearLocalStorageQuizData();
+
     try {
       double score = _calculateTotalScore();
       final double score10 =
@@ -578,6 +717,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         'classId': widget.classId,
         'quizTitle': widget.quizTitle,
         'answers': _answers,
+        'questionOrder': _questions.map((q) => q.id).toList(),
         'score': score,
         'totalQuestions': _questions.length,
         'timestamp': FieldValue.serverTimestamp(),
@@ -768,17 +908,108 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   // ============================================
-  // OTHER HELPERS
+  // OTHER HELPERS & TIMER LOGIC (WALL-CLOCK)
   // ============================================
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 0) {
-        setState(() => _secondsRemaining--);
-      } else {
-        _timer?.cancel();
-        _forceSubmit();
+  void _initTimer() {
+    final now = DateTime.now();
+
+    try {
+      final savedEndStr = html.window.localStorage[_storageEndKey];
+      if (savedEndStr != null) {
+        final parsed = DateTime.tryParse(savedEndStr);
+        // Kiểm tra nếu mốc thời gian lưu còn hợp lệ (trong vòng thời lượng thi + 10 phút)
+        if (parsed != null && parsed.isAfter(now.subtract(Duration(minutes: widget.duration + 10)))) {
+          _quizEndTime = parsed;
+          _isPageReload = true;
+        }
       }
+    } catch (_) {}
+
+    if (_quizEndTime == null) {
+      _quizEndTime = now.add(Duration(minutes: widget.duration));
+      try {
+        html.window.localStorage[_storageEndKey] = _quizEndTime!.toIso8601String();
+        html.window.localStorage[_storageViolationsKey] = '0';
+        html.window.localStorage[_storageAnswersKey] = '{}';
+        html.window.localStorage.remove(_storageLastViolationTimeKey);
+      } catch (_) {}
+    } else {
+      // ĐÃ TỪNG VÀO THI VÀ ĐANG TẢI LẠI TRANG (RELOAD / F5)
+      try {
+        // 1. Phục hồi các câu trả lời đã làm trước đó
+        final savedAnswersStr = html.window.localStorage[_storageAnswersKey];
+        if (savedAnswersStr != null && savedAnswersStr.isNotEmpty) {
+          final decoded = jsonDecode(savedAnswersStr);
+          if (decoded is Map) {
+            _answers.clear();
+            decoded.forEach((k, v) {
+              if (v is List) {
+                _answers[k.toString()] = List<String>.from(v.map((e) => e.toString()));
+              } else if (v != null) {
+                _answers[k.toString()] = v.toString();
+              }
+            });
+          }
+        }
+
+        // 2. Lấy số lần vi phạm cũ
+        final savedViolations = int.tryParse(html.window.localStorage[_storageViolationsKey] ?? '0') ?? 0;
+        final lastViolationTimeStr = html.window.localStorage[_storageLastViolationTimeKey];
+        final lastViolationTime = lastViolationTimeStr != null ? int.tryParse(lastViolationTimeStr) : null;
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+        // Nếu ngay trước khi reload trang (trong vòng 4 giây) trang cũ đã bắt và tính 1 vi phạm do sự kiện blur / thoát fullscreen lúc F5,
+        // thì KHÔNG cộng dồn thêm lần thứ 2 để đảm bảo 1 lần F5 chỉ bị tính ĐÚNG 1 lỗi vi phạm.
+        if (lastViolationTime != null && (nowMs - lastViolationTime) < 4000) {
+          _suspiciousActionCount = savedViolations;
+        } else {
+          _suspiciousActionCount = savedViolations + 1;
+        }
+
+        html.window.localStorage[_storageViolationsKey] = _suspiciousActionCount.toString();
+        html.window.localStorage[_storageLastViolationTimeKey] = nowMs.toString();
+      } catch (_) {}
+    }
+
+    _updateTimer();
+    _startTimer();
+  }
+
+  void _updateTimer() {
+    if (_quizEndTime == null || _isSubmitting) return;
+    final now = DateTime.now();
+    final remaining = _quizEndTime!.difference(now).inSeconds;
+
+    if (remaining <= 0) {
+      if (mounted) setState(() => _secondsRemaining = 0);
+      _timer?.cancel();
+      _forceSubmit();
+    } else {
+      if (mounted) {
+        setState(() => _secondsRemaining = remaining);
+      }
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateTimer();
     });
+  }
+
+  void _checkReloadViolations() {
+    if (!_isPageReload || !mounted || _isSubmitting) return;
+
+    if (_suspiciousActionCount >= _maxSuspiciousActions) {
+      _autoSubmitForCheating();
+    } else if (_suspiciousActionCount == _maxSuspiciousActions - 1 &&
+        !_hasShownWarning) {
+      _showFinalWarning();
+      _showViolationNotification('Tải lại trang bài thi');
+    } else {
+      _showViolationNotification('Tải lại trang bài thi');
+    }
   }
 
   Future<void> _loadQuestions() async {
@@ -797,12 +1028,26 @@ class _QuizTakingPageState extends State<QuizTakingPage>
           .doc(widget.quizId)
           .collection('questions')
           .get();
+
+      final rawDocs = List<QueryDocumentSnapshot>.from(snapshot.docs);
+
+      // Xáo trộn câu hỏi ngẫu nhiên theo từng sinh viên (để chống nhìn bài/chép bài):
+      // Dùng seed cố định theo (studentId + quizId) để:
+      // 1. Mỗi sinh viên có thứ tự câu hỏi hoàn toàn khác nhau.
+      // 2. Nếu sinh viên lỡ F5 reload trang thì thứ tự câu hỏi vẫn giữ nguyên, không bị xáo tiếp.
+      final seed = '${widget.studentId}_${widget.quizId}'.hashCode;
+      final random = Random(seed);
+      rawDocs.shuffle(random);
+
       setState(() {
-        _questions = snapshot.docs;
+        _questions = rawDocs;
         _isLoading = false;
       });
+
+      _checkReloadViolations();
     } catch (e) {
       setState(() => _isLoading = false);
+      _checkReloadViolations();
     }
   }
 
@@ -851,6 +1096,11 @@ class _QuizTakingPageState extends State<QuizTakingPage>
         }
       }
     });
+
+    // Lưu các câu trả lời vào localStorage để tránh bị mất khi tải lại trang
+    try {
+      html.window.localStorage[_storageAnswersKey] = jsonEncode(_answers);
+    } catch (_) {}
   }
 
   void _jumpToQuestion(int index) {

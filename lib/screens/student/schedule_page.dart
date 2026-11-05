@@ -233,10 +233,14 @@ class _SchedulePageState extends State<SchedulePage> {
         }
       }
 
-      // Sắp xếp các sự kiện: Sự kiện chưa làm trước, theo ngày gần nhất
+      // Sắp xếp các sự kiện: Sự kiện chưa làm trước (tăng dần theo ngày thi),
+      // sự kiện đã làm xếp sau (giảm dần theo thời gian nộp bài, mới nhất trước)
       events.sort((a, b) {
         if (a.isCompleted != b.isCompleted) {
           return a.isCompleted ? 1 : -1;
+        }
+        if (a.isCompleted && b.isCompleted) {
+          return b.dateTime.compareTo(a.dateTime);
         }
         return a.dateTime.compareTo(b.dateTime);
       });
@@ -441,9 +445,12 @@ class _SchedulePageState extends State<SchedulePage> {
           !_isSameDay(e.dateTime, _today);
     }).toList();
 
-    // 3. Đã hoàn thành gần đây
-    final completedEvents =
-        _allEvents.where((e) => e.isCompleted).take(5).toList();
+    // 3. Đã hoàn thành gần đây (sắp xếp theo thứ tự mới nhất trước)
+    final completedEvents = _allEvents
+        .where((e) => e.isCompleted)
+        .toList()
+      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final recentCompletedEvents = completedEvents.take(5).toList();
 
     return Column(
       children: [
@@ -486,14 +493,14 @@ class _SchedulePageState extends State<SchedulePage> {
         const SizedBox(height: 20),
 
         // Completed recently
-        if (completedEvents.isNotEmpty)
+        if (recentCompletedEvents.isNotEmpty)
           _buildSection(
             icon: Icons.check_circle_outline_rounded,
             iconColor: AppConstants.secondary,
             title: 'Đã hoàn thành gần đây',
-            badge: '${completedEvents.length} bài',
+            badge: '${recentCompletedEvents.length} bài',
             child: Column(
-              children: completedEvents
+              children: recentCompletedEvents
                   .map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _buildEventCard(e),

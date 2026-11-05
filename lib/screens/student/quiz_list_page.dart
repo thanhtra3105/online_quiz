@@ -57,118 +57,73 @@ class _QuizListPageState extends State<QuizListPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final completedQuizIds = submissionSnapshot.data!.docs
-                .map((doc) {
-                  final data = doc.data() as Map<String, dynamic>?;
-                  return data?['quizId']?.toString();
-                })
-                .where((id) => id != null && id.isNotEmpty)
-                .cast<String>()
-                .toSet();
+            return StreamBuilder<List<QuizSchedule>>(
+              stream: QuizScheduleService.getClassSchedules(widget.classId),
+              builder: (context, scheduleSnapshot) {
+                final schedules = scheduleSnapshot.data ?? [];
+                final scheduleMap = {for (var s in schedules) s.quizId: s};
 
-            // Lọc quiz: chưa hoàn thành
-            final availableQuizzes = quizSnapshot.data!.docs
-                .where((quiz) => !completedQuizIds.contains(quiz.id))
-                .toList();
+                final completedQuizIds = submissionSnapshot.data!.docs
+                    .map((doc) {
+                      final data = doc.data() as Map<String, dynamic>?;
+                      return data?['quizId']?.toString();
+                    })
+                    .where((id) => id != null && id.isNotEmpty)
+                    .cast<String>()
+                    .toSet();
 
-            // Thu thập các môn học / chủ đề có trong bài thi của lớp
-            final detectedSubjects = <String>{};
-            for (var quiz in availableQuizzes) {
-              final data = quiz.data() as Map<String, dynamic>;
-              final rawSub = data['subject'] ?? data['category'] ?? data['topic'];
-              if (rawSub != null) {
-                final sub = rawSub.toString().trim();
-                if (sub.isNotEmpty) {
-                  detectedSubjects.add(sub);
+                // Lọc quiz: chưa hoàn thành
+                final availableQuizzes = quizSnapshot.data!.docs
+                    .where((quiz) => !completedQuizIds.contains(quiz.id))
+                    .toList();
+
+                // Danh sách bộ lọc trạng thái bài thi: Tất cả, Đang mở, Sắp diễn ra
+                const List<String> filterList = [
+                  'Tất cả',
+                  'Đang mở',
+                  'Sắp diễn ra',
+                ];
+
+                // Nếu bộ lọc hiện tại không còn trong danh sách, đặt lại về 'Tất cả'
+                if (!filterList.contains(_selectedFilter)) {
+                  _selectedFilter = 'Tất cả';
                 }
-              }
-            }
 
-            // Danh sách bộ lọc phù hợp với học sinh / sinh viên
-            final List<String> filterList = [
-              'Tất cả',
-              'Đang mở',
-              if (detectedSubjects.isNotEmpty)
-                ...detectedSubjects
-              else ...[
-                'Toán học',
-                'Tin học',
-                'Tiếng Anh',
-                'Khoa học',
-              ],
-            ];
+                // Áp dụng bộ lọc và từ khóa tìm kiếm cho danh sách bài thi
+                final filteredQuizzes = availableQuizzes.where((quiz) {
+                  final data = quiz.data() as Map<String, dynamic>;
+                  final title = (data['title'] ?? '').toString().toLowerCase();
 
-            // Nếu bộ lọc hiện tại không còn trong danh sách, đặt lại về 'Tất cả'
-            if (!filterList.contains(_selectedFilter)) {
-              _selectedFilter = 'Tất cả';
-            }
+                  // Lọc theo từ khóa tìm kiếm
+                  if (_searchQuery.trim().isNotEmpty) {
+                    final query = _searchQuery.toLowerCase().trim();
+                    if (!title.contains(query)) {
+                      return false;
+                    }
+                  }
 
-            // Áp dụng bộ lọc và từ khóa tìm kiếm cho danh sách bài thi
-            final filteredQuizzes = availableQuizzes.where((quiz) {
-              final data = quiz.data() as Map<String, dynamic>;
-              final title = (data['title'] ?? '').toString().toLowerCase();
+                  final schedule = scheduleMap[quiz.id];
 
-              // Lọc theo từ khóa tìm kiếm
-              if (_searchQuery.trim().isNotEmpty) {
-                final query = _searchQuery.toLowerCase().trim();
-                if (!title.contains(query)) {
-                  return false;
-                }
-              }
+                  // Không hiển thị nếu bài thi đã kết thúc / đóng
+                  if (schedule != null && schedule.isClosed) {
+                    return false;
+                  }
 
-              if (_selectedFilter == 'Tất cả') return true;
+                  if (_selectedFilter == 'Tất cả') return true;
 
-              final rawSub = data['subject'] ?? data['category'] ?? data['topic'];
-              final sub = rawSub != null ? rawSub.toString().toLowerCase().trim() : '';
+                  final bool isCurrentlyOpen = schedule == null || schedule.isOpen;
+                  final bool isUpcoming = schedule != null && !schedule.isOpen && !schedule.isClosed;
 
-              if (_selectedFilter == 'Đang mở') {
-                return data['status'] == null ||
-                    data['status'] == 'available' ||
-                    data['status'] == 'open';
-              }
+                  if (_selectedFilter == 'Đang mở') {
+                    return isCurrentlyOpen;
+                  }
 
-              if (_selectedFilter == 'Toán học') {
-                return sub.contains('toán') ||
-                    title.contains('toán') ||
-                    title.contains('math');
-              }
+                  if (_selectedFilter == 'Sắp diễn ra') {
+                    return isUpcoming;
+                  }
 
-              if (_selectedFilter == 'Tin học') {
-                return sub.contains('tin') ||
-                    sub.contains('lập trình') ||
-                    title.contains('tin') ||
-                    title.contains('lập trình') ||
-                    title.contains('code') ||
-                    title.contains('cntt') ||
-                    title.contains('web') ||
-                    title.contains('python') ||
-                    title.contains('java');
-              }
-
-              if (_selectedFilter == 'Tiếng Anh') {
-                return sub.contains('anh') ||
-                    sub.contains('english') ||
-                    title.contains('anh') ||
-                    title.contains('english');
-              }
-
-              if (_selectedFilter == 'Khoa học') {
-                return sub.contains('khoa học') ||
-                    sub.contains('lý') ||
-                    sub.contains('hóa') ||
-                    sub.contains('sinh') ||
-                    title.contains('khoa học') ||
-                    title.contains('vật lý') ||
-                    title.contains('hóa học') ||
-                    title.contains('sinh học') ||
-                    title.contains('lý') ||
-                    title.contains('hóa') ||
-                    title.contains('sinh');
-              }
-
-              return sub == _selectedFilter.toLowerCase() ||
-                  title.contains(_selectedFilter.toLowerCase());
-            }).toList();
+                  return true;
+                }).toList();
 
             return Container(
               color: AppConstants.bg(context),
@@ -292,40 +247,20 @@ class _QuizListPageState extends State<QuizListPage> {
                             children: filteredQuizzes.map((quiz) {
                               final quizId = quiz.id;
                               final data = quiz.data() as Map<String, dynamic>;
+                              final schedule = scheduleMap[quizId];
+                              final canTake = _checkCanTakeQuiz(schedule);
+                              final statusInfo = _getStatusInfo(schedule);
 
-                              return FutureBuilder<QuizSchedule?>(
-                                future: QuizScheduleService.getSchedule(
-                                    widget.classId, quizId),
-                                builder: (context, scheduleSnapshot) {
-                                  if (scheduleSnapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return SizedBox(
-                                      width: cardWidth,
-                                      child: _buildLoadingCard(context),
-                                    );
-                                  }
-
-                                  final schedule = scheduleSnapshot.data;
-                                  final canTake = _checkCanTakeQuiz(schedule);
-                                  final statusInfo = _getStatusInfo(schedule);
-
-                                  // Không hiển thị nếu bài thi đã đóng
-                                  if (schedule != null && schedule.isClosed) {
-                                    return const SizedBox.shrink();
-                                  }
-
-                                  return SizedBox(
-                                    width: cardWidth,
-                                    child: _buildQuizCard(
-                                      context,
-                                      quizId,
-                                      data,
-                                      canTake,
-                                      statusInfo,
-                                      schedule,
-                                    ),
-                                  );
-                                },
+                              return SizedBox(
+                                width: cardWidth,
+                                child: _buildQuizCard(
+                                  context,
+                                  quizId,
+                                  data,
+                                  canTake,
+                                  statusInfo,
+                                  schedule,
+                                ),
                               );
                             }).toList(),
                           );
@@ -339,6 +274,8 @@ class _QuizListPageState extends State<QuizListPage> {
         );
       },
     );
+  },
+);
   }
 
   Widget _buildClassBanner(BuildContext context) {
@@ -724,9 +661,9 @@ class _QuizListPageState extends State<QuizListPage> {
   Map<String, dynamic> _getStatusInfo(QuizSchedule? schedule) {
     if (schedule == null) {
       return {
-        'text': 'Sẵn sàng',
+        'text': 'Đang mở',
         'color': Colors.green,
-        'icon': Icons.check_circle_outline,
+        'icon': Icons.lock_open,
       };
     }
 
@@ -777,7 +714,7 @@ class _QuizListPageState extends State<QuizListPage> {
     }
 
     return {
-      'text': 'Đã lên lịch',
+      'text': 'Sắp diễn ra',
       'color': Colors.orange,
       'icon': Icons.schedule,
     };

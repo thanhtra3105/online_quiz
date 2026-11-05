@@ -83,18 +83,35 @@ class _ClassDetailPageState extends State<ClassDetailPage>
             .where('quizId', isEqualTo: quizDoc.id)
             .get();
 
+        final quizData = quizDoc.data();
+        final int fallbackTotal = (quizData['questionCount'] ?? 0) as int;
+
         for (var subDoc in submissionsSnapshot.docs) {
           final data = subDoc.data();
-          final score = data['score'] ?? 0;
-          final total = data['totalQuestions'] ?? 1;
-          totalPercentage += (score / total) * 10;
-          submissionCount++;
+          final double score = (data['score'] ?? 0).toDouble();
+          int total = (data['totalQuestions'] ?? 0) as int;
+          if (total <= 0) {
+            if (data['questionOrder'] is List && (data['questionOrder'] as List).isNotEmpty) {
+              total = (data['questionOrder'] as List).length;
+            } else if (fallbackTotal > 0) {
+              total = fallbackTotal;
+            }
+          }
+
+          if (total > 0) {
+            final double score10 = (score / total) * 10;
+            if (!score10.isNaN) {
+              totalPercentage += score10;
+              submissionCount++;
+            }
+          }
         }
       }
 
       if (mounted) {
         setState(() {
-          _classAverageScore = submissionCount > 0 ? totalPercentage / submissionCount : 0.0;
+          double avg = submissionCount > 0 ? totalPercentage / submissionCount : 0.0;
+          _classAverageScore = avg.isNaN ? 0.0 : avg;
           _isLoadingStats = false;
         });
       }
@@ -1134,9 +1151,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
         final isDark = AppConstants.isDarkMode(context);
         
         // Define status color and text
-        Color statusBgColor = AppConstants.surfLow(context);
-        Color statusTextColor = AppConstants.txtMuted(context);
-        String statusText = 'Bản nháp';
+        // Mặc định bài thi đã gán vào lớp sẽ ở trạng thái đang mở/đang diễn ra cho sinh viên làm
+        Color statusBgColor = isDark ? const Color(0xFF064E3B).withValues(alpha: 0.4) : const Color(0xFF82F9BE).withValues(alpha: 0.5);
+        Color statusTextColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF00734C);
+        String statusText = 'Đang diễn ra';
         
         if (schedule != null) {
           if (schedule.isClosed) {
