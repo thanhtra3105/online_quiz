@@ -1,4 +1,5 @@
 // lib/screens/teacher/class_results_page.dart
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
@@ -6,8 +7,9 @@ import '../../utils/constants.dart';
 
 class ClassResultsPage extends StatefulWidget {
   final String classId;
+  final String? className;
 
-  const ClassResultsPage({Key? key, required this.classId}) : super(key: key);
+  const ClassResultsPage({Key? key, required this.classId, this.className}) : super(key: key);
 
   @override
   State<ClassResultsPage> createState() => _ClassResultsPageState();
@@ -18,6 +20,13 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   String _searchQuery = '';
   String _sortBy = 'studentId';
   bool _sortAscending = false;
+  String _quizSortOrder = 'newest'; // 'newest', 'oldest', 'title'
+
+  // Stream of quizzes
+  Stream<List<Map<String, dynamic>>>? _quizzesStream;
+
+  // Cache of root quiz created dates
+  final Map<String, DateTime> _rootQuizCreatedMap = {};
 
   // Real stats variables
   double _averageScore = 0.0;
@@ -31,10 +40,83 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
   @override
   void initState() {
     super.initState();
+    _initQuizzesStream();
     _loadStats();
   }
 
+  @override
+  void didUpdateWidget(covariant ClassResultsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.classId != widget.classId) {
+      _initQuizzesStream();
+      _loadStats();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _initQuizzesStream() {
+    _quizzesStream = FirebaseFirestore.instance
+        .collection('classes')
+        .doc(widget.classId)
+        .collection('quizzes')
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = Map<String, dynamic>.from(doc.data());
+              data['_quizId'] = doc.id;
+              return data;
+            }).toList());
+  }
+
+  DateTime _getQuizTimestamp(Map<String, dynamic> data) {
+    final val = data['assignedAt'] ??
+        data['createdAt'] ??
+        data['timestamp'] ??
+        data['updatedAt'];
+    if (val is Timestamp) return val.toDate();
+    if (val is DateTime) return val;
+    if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+    if (val is String) {
+      final parsed = DateTime.tryParse(val);
+      if (parsed != null) return parsed;
+    }
+
+    final quizId = data['_quizId'] ?? data['id'];
+    if (quizId is String && _rootQuizCreatedMap.containsKey(quizId)) {
+      return _rootQuizCreatedMap[quizId]!;
+    }
+
+    // Trigger async fetch from root 'quiz' collection if not already cached
+    if (quizId is String && !_rootQuizCreatedMap.containsKey(quizId)) {
+      _fetchRootQuizDate(quizId);
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  void _fetchRootQuizDate(String quizId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('quiz')
+          .doc(quizId)
+          .get();
+      if (doc.exists) {
+        final dData = doc.data();
+        final cVal = dData?['createdAt'] ?? dData?['timestamp'];
+        if (cVal is Timestamp) {
+          _rootQuizCreatedMap[quizId] = cVal.toDate();
+          if (mounted) setState(() {});
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadStats() async {
+    setState(() => _isLoadingStats = true);
     try {
       final studentsSnap = await FirebaseFirestore.instance
           .collection('classes')
@@ -54,16 +136,18 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           .collection('submissions')
           .where('classId', isEqualTo: widget.classId)
           .get();
-
       final totalSubmissions = submissionsSnap.docs.length;
 
       double totalScore = 0.0;
       int validSubmissions = 0;
+
       for (var doc in submissionsSnap.docs) {
         final data = doc.data();
         final rawScore = (data['score'] ?? 0).toDouble();
         double totalQ = (data['totalQuestions'] ?? 0).toDouble();
-        if (totalQ <= 0 && data['questionOrder'] is List && (data['questionOrder'] as List).isNotEmpty) {
+        if (totalQ <= 0 &&
+            data['questionOrder'] is List &&
+            (data['questionOrder'] as List).isNotEmpty) {
           totalQ = (data['questionOrder'] as List).length.toDouble();
         }
         if (totalQ > 0) {
@@ -75,7 +159,8 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
         }
       }
 
-      double avgScore = validSubmissions > 0 ? totalScore / validSubmissions : 0.0;
+      double avgScore =
+          validSubmissions > 0 ? totalScore / validSubmissions : 0.0;
       if (avgScore.isNaN) avgScore = 0.0;
       double compRate = 0.0;
       if (totalStudents > 0 && totalQuizzes > 0) {
@@ -98,13 +183,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  // Hàm lấy tên học sinh (giữ nguyên)
+  // Hàm lấy tên học sinh
   Future<String> _getStudentName(String studentId) async {
     try {
       final studentDoc = await FirebaseFirestore.instance
@@ -128,7 +207,6 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     setState(() => _exportingStates[quizId] = true);
 
     try {
-      // 1. Lấy dữ liệu submissions CHỈ của quizId này
       final submissionsSnapshot = await FirebaseFirestore.instance
           .collection('submissions')
           .where('classId', isEqualTo: widget.classId)
@@ -150,8 +228,10 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
 
       // Sắp xếp mặc định theo MSSV để file excel dễ nhìn
       submissions.sort((a, b) {
-        final idA = (a.data()['studentId'] ?? '').toString();
-        final idB = (b.data()['studentId'] ?? '').toString();
+        final dataA = a.data() as Map<String, dynamic>;
+        final dataB = b.data() as Map<String, dynamic>;
+        final idA = (dataA['studentId'] ?? '').toString();
+        final idB = (dataB['studentId'] ?? '').toString();
         return idA.compareTo(idB);
       });
 
@@ -184,7 +264,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
 
       // 3. Ghi dữ liệu
       for (int i = 0; i < submissions.length; i++) {
-        final data = submissions[i].data();
+        final data = submissions[i].data() as Map<String, dynamic>;
         final studentId = data['studentId'] ?? 'Unknown';
         final studentName =
             data['studentName'] ?? await _getStudentName(studentId);
@@ -215,11 +295,11 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
       }
 
       // Auto-fit (tương đối)
-      for (int i = 0; i < headers.length; i++)
+      for (int i = 0; i < headers.length; i++) {
         sheetObject.setColumnWidth(i, 20);
+      }
 
       // 4. Lưu file
-      // Làm sạch tên file để tránh lỗi ký tự đặc biệt
       final cleanQuizTitle = quizTitle
           .replaceAll(RegExp(r'[^\w\s\u00C0-\u1EF9]+'), '')
           .trim();
@@ -268,24 +348,148 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           } else if (value == 'score_desc') {
             _sortBy = 'score';
             _sortAscending = false;
+          } else if (value == 'quiz_newest') {
+            _quizSortOrder = 'newest';
+          } else if (value == 'quiz_oldest') {
+            _quizSortOrder = 'oldest';
+          } else if (value == 'quiz_title') {
+            _quizSortOrder = 'title';
           }
         });
       },
       offset: const Offset(0, 44),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder: (context) => [
+        // Sắp xếp bài thi
+        PopupMenuItem(
+          enabled: false,
+          child: Text(
+            'SẮP XẾP BÀI THI',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppConstants.txtMuted(context),
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'quiz_newest',
+          child: Row(
+            children: [
+              Icon(
+                Icons.access_time_rounded,
+                size: 20,
+                color: _quizSortOrder == 'newest'
+                    ? AppConstants.brand(context)
+                    : AppConstants.txtMuted(context),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Mới nhất trước (Mặc định)',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: _quizSortOrder == 'newest'
+                      ? AppConstants.brand(context)
+                      : AppConstants.txt(context),
+                  fontWeight: _quizSortOrder == 'newest'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'quiz_oldest',
+          child: Row(
+            children: [
+              Icon(
+                Icons.history_rounded,
+                size: 20,
+                color: _quizSortOrder == 'oldest'
+                    ? AppConstants.brand(context)
+                    : AppConstants.txtMuted(context),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Cũ nhất trước',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: _quizSortOrder == 'oldest'
+                      ? AppConstants.brand(context)
+                      : AppConstants.txt(context),
+                  fontWeight: _quizSortOrder == 'oldest'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'quiz_title',
+          child: Row(
+            children: [
+              Icon(
+                Icons.sort_by_alpha,
+                size: 20,
+                color: _quizSortOrder == 'title'
+                    ? AppConstants.brand(context)
+                    : AppConstants.txtMuted(context),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tên bài thi (A → Z)',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: _quizSortOrder == 'title'
+                      ? AppConstants.brand(context)
+                      : AppConstants.txt(context),
+                  fontWeight: _quizSortOrder == 'title'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        // Sắp xếp sinh viên
+        PopupMenuItem(
+          enabled: false,
+          child: Text(
+            'SẮP XẾP SINH VIÊN',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppConstants.txtMuted(context),
+            ),
+          ),
+        ),
         PopupMenuItem(
           value: 'mssv_asc',
           child: Row(
             children: [
-              Icon(Icons.sort_by_alpha, size: 20, color: _sortBy == 'studentId' ? AppConstants.brand(context) : AppConstants.txtMuted(context)),
+              Icon(
+                Icons.badge_outlined,
+                size: 20,
+                color: _sortBy == 'studentId'
+                    ? AppConstants.brand(context)
+                    : AppConstants.txtMuted(context),
+              ),
               const SizedBox(width: 12),
               Text(
                 'Mã số SV (Thấp → Cao)',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  color: _sortBy == 'studentId' ? AppConstants.brand(context) : AppConstants.txt(context),
-                  fontWeight: _sortBy == 'studentId' ? FontWeight.bold : FontWeight.normal,
+                  color: _sortBy == 'studentId'
+                      ? AppConstants.brand(context)
+                      : AppConstants.txt(context),
+                  fontWeight: _sortBy == 'studentId'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             ],
@@ -295,14 +499,24 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           value: 'score_desc',
           child: Row(
             children: [
-              Icon(Icons.sort, size: 20, color: _sortBy == 'score' ? AppConstants.brand(context) : AppConstants.txtMuted(context)),
+              Icon(
+                Icons.trending_down_rounded,
+                size: 20,
+                color: _sortBy == 'score'
+                    ? AppConstants.brand(context)
+                    : AppConstants.txtMuted(context),
+              ),
               const SizedBox(width: 12),
               Text(
                 'Điểm số (Cao → Thấp)',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  color: _sortBy == 'score' ? AppConstants.brand(context) : AppConstants.txt(context),
-                  fontWeight: _sortBy == 'score' ? FontWeight.bold : FontWeight.normal,
+                  color: _sortBy == 'score'
+                      ? AppConstants.brand(context)
+                      : AppConstants.txt(context),
+                  fontWeight: _sortBy == 'score'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             ],
@@ -321,7 +535,11 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           children: [
             Icon(Icons.filter_list, color: AppConstants.txt(context), size: 18),
             const SizedBox(width: 8),
-            Text('Lọc', style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context), fontWeight: FontWeight.w500)),
+            Text('Lọc',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppConstants.txt(context),
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -338,12 +556,17 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
       ),
       child: TextField(
         controller: _searchController,
-        style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
+        style: TextStyle(
+            fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
         onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
         decoration: InputDecoration(
-          icon: Icon(Icons.search, color: AppConstants.txtMuted(context), size: 20),
+          icon: Icon(Icons.search,
+              color: AppConstants.txtMuted(context), size: 20),
           hintText: 'Tìm kiếm bài thi...',
-          hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txtMuted(context)),
+          hintStyle: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppConstants.txtMuted(context)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.only(bottom: 12),
         ),
@@ -357,21 +580,42 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
         if (isMobile)
           Column(
             children: [
-              _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), AppConstants.brand(context)),
+              _buildBentoStatCard(
+                  'Điểm trung bình',
+                  _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1),
+                  AppConstants.brand(context)),
               const SizedBox(height: 12),
-              _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF16A34A)),
+              _buildBentoStatCard(
+                  'Tỷ lệ hoàn thành',
+                  _isLoadingStats
+                      ? '--'
+                      : '${_completionRate.toStringAsFixed(1)}%',
+                  const Color(0xFF16A34A)),
               const SizedBox(height: 12),
-              _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context)),
+              _buildBentoStatCard('Đã nộp',
+                  _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context)),
             ],
           )
         else
           Row(
             children: [
-              Expanded(child: _buildBentoStatCard('Điểm trung bình', _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1), AppConstants.brand(context))),
+              Expanded(
+                  child: _buildBentoStatCard(
+                      'Điểm trung bình',
+                      _isLoadingStats ? '--' : _averageScore.toStringAsFixed(1),
+                      AppConstants.brand(context))),
               const SizedBox(width: 24),
-              Expanded(child: _buildBentoStatCard('Tỷ lệ hoàn thành', _isLoadingStats ? '--' : '${_completionRate.toStringAsFixed(1)}%', const Color(0xFF16A34A))),
+              Expanded(
+                  child: _buildBentoStatCard(
+                      'Tỷ lệ hoàn thành',
+                      _isLoadingStats
+                          ? '--'
+                          : '${_completionRate.toStringAsFixed(1)}%',
+                      const Color(0xFF16A34A))),
               const SizedBox(width: 24),
-              Expanded(child: _buildBentoStatCard('Đã nộp', _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context))),
+              Expanded(
+                  child: _buildBentoStatCard('Đã nộp',
+                      _isLoadingStats ? '--' : '$_submittedCount', AppConstants.txt(context))),
             ],
           ),
         SizedBox(height: isMobile ? 20 : 32),
@@ -381,7 +625,14 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
+              Text(
+                'Danh sách điểm thi',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppConstants.txt(context)),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -396,7 +647,14 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Danh sách điểm thi', style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: AppConstants.txt(context))),
+              Text(
+                'Danh sách điểm thi',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppConstants.txt(context)),
+              ),
               Row(
                 children: [
                   searchBox,
@@ -408,41 +666,66 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           ),
         const SizedBox(height: 24),
 
-        // Quiz Results List
+        // Quiz Results List (Hiển thị bài thi mới nhất lên đầu tiên)
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('classes')
-                .doc(widget.classId)
-                .collection('quizzes')
-                .snapshots(),
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _quizzesStream,
             builder: (context, quizSnapshot) {
               if (quizSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (!quizSnapshot.hasData || quizSnapshot.data!.docs.isEmpty) {
+              if (!quizSnapshot.hasData || quizSnapshot.data!.isEmpty) {
                 return _buildEmptyState('Lớp học chưa có bài thi nào');
               }
 
-              var quizzes = quizSnapshot.data!.docs;
-              
+              var quizzes = List<Map<String, dynamic>>.from(quizSnapshot.data!);
+
               if (_searchQuery.isNotEmpty) {
-                 quizzes = quizzes.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final title = (data['title'] ?? '').toString().toLowerCase();
-                    return title.contains(_searchQuery);
-                 }).toList();
+                quizzes = quizzes.where((data) {
+                  final title =
+                      (data['title'] ?? '').toString().toLowerCase();
+                  return title.contains(_searchQuery);
+                }).toList();
+              }
+
+              // Sắp xếp bài thi: Mặc định bài thi mới nhất hiển thị từ trên đầu trước
+              quizzes.sort((a, b) {
+                if (_quizSortOrder == 'title') {
+                  final tA = (a['title'] ?? '').toString();
+                  final tB = (b['title'] ?? '').toString();
+                  return tA.compareTo(tB);
+                }
+
+                final dateA = _getQuizTimestamp(a);
+                final dateB = _getQuizTimestamp(b);
+                final comp = _quizSortOrder == 'oldest'
+                    ? dateA.compareTo(dateB)
+                    : dateB.compareTo(dateA); // 'newest' -> dateB.compareTo(dateA)
+
+                if (comp != 0) return comp;
+                return (a['title'] ?? '')
+                    .toString()
+                    .compareTo((b['title'] ?? '').toString());
+              });
+
+              if (quizzes.isEmpty) {
+                return _buildEmptyState('Không tìm thấy bài thi phù hợp');
               }
 
               return ListView.builder(
                 itemCount: quizzes.length,
                 itemBuilder: (context, index) {
-                  final quizDoc = quizzes[index];
-                  final quizData = quizDoc.data() as Map<String, dynamic>;
-                  final quizTitle = quizData['title'] ?? 'Bài thi không tên';
-                  final quizId = quizDoc.id;
+                  final quizData = quizzes[index];
+                  final quizTitle =
+                      quizData['title'] ?? 'Bài thi không tên';
+                  final quizId =
+                      quizData['_quizId'] ?? quizData['id'] ?? '';
 
-                  return _buildQuizGroup(quizId, quizTitle, quizData);
+                  return _buildQuizGroup(
+                    quizId,
+                    quizTitle,
+                    quizData,
+                  );
                 },
               );
             },
@@ -506,6 +789,7 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Container(
+      key: PageStorageKey('$quizId-${widget.classId}'),
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
         color: AppConstants.surf(context),
@@ -526,7 +810,12 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
           tilePadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 16),
           title: Text(
             quizTitle,
-            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: isMobile ? 16 : 18, color: AppConstants.txt(context)),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: isMobile ? 16 : 18,
+              color: AppConstants.txt(context),
+            ),
           ),
           subtitle: Text(
             allowViewDetail
@@ -672,7 +961,10 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
     );
   }
 
-  Widget _buildStudentResultItem(QueryDocumentSnapshot doc, Map<String, dynamic> quizData) {
+  Widget _buildStudentResultItem(
+    QueryDocumentSnapshot doc,
+    Map<String, dynamic> quizData,
+  ) {
     final data = doc.data() as Map<String, dynamic>;
     final score = (data['score'] ?? 0).toDouble();
     int total = (data['totalQuestions'] ?? 0) as int;

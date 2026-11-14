@@ -593,7 +593,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                           if (_tabController.index == 1) _buildQuizzesTab(),
                           if (_tabController.index == 2) SizedBox(
                             height: 800, // Fixed height for now, Results page is complex
-                            child: ClassResultsPage(classId: widget.classId),
+                            child: ClassResultsPage(
+                              classId: widget.classId,
+                              className: widget.className,
+                            ),
                           ),
                         ],
                       ),
