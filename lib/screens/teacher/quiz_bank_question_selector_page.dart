@@ -1,6 +1,7 @@
 // lib/screens/teacher/quiz_bank_question_selector_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/question_image_view.dart';
 
 class QuizBankQuestionSelectorPage extends StatefulWidget {
   final String bankId;
@@ -451,6 +452,26 @@ class _QuizBankQuestionSelectorPageState
                                                       ),
                                                     ],
                                                   ),
+                                                  () {
+                                                    List<String> imgs = [];
+                                                    if (data['imageUrls'] is List) {
+                                                      imgs = (data['imageUrls'] as List)
+                                                          .map((e) => e.toString().trim())
+                                                          .where((e) => e.isNotEmpty)
+                                                          .toList();
+                                                    } else if (data['imageUrl'] != null &&
+                                                        data['imageUrl'].toString().trim().isNotEmpty) {
+                                                      imgs = [data['imageUrl'].toString().trim()];
+                                                    }
+                                                    if (imgs.isNotEmpty) {
+                                                      return QuestionImageView(
+                                                        imageUrls: imgs,
+                                                        maxHeight: 180,
+                                                        margin: const EdgeInsets.only(top: 8, bottom: 4),
+                                                      );
+                                                    }
+                                                    return const SizedBox.shrink();
+                                                  }(),
                                                   const SizedBox(height: 12),
 
                                                   // Options Preview

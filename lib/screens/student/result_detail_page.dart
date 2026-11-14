@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class ResultDetailPage extends StatelessWidget {
   final String submissionId;
@@ -652,6 +653,24 @@ class ResultDetailPage extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          () {
+            List<String> imgs = [];
+            if (data['imageUrls'] is List) {
+              imgs = (data['imageUrls'] as List)
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+            } else if (data['imageUrl'] != null && data['imageUrl'].toString().trim().isNotEmpty) {
+              imgs = [data['imageUrl'].toString().trim()];
+            }
+            if (imgs.isNotEmpty) {
+              return QuestionImageView(
+                imageUrls: imgs,
+                maxHeight: 280,
+              );
+            }
+            return const SizedBox.shrink();
+          }(),
           const SizedBox(height: 16),
           ...options.asMap().entries.map((optEntry) {
             final letter = String.fromCharCode(65 + optEntry.key);

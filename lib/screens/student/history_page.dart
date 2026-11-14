@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class HistoryPage extends StatefulWidget {
   final String studentId;
@@ -936,6 +937,28 @@ class _DetailDialog extends StatelessWidget {
                   ],
                 ),
               ),
+              () {
+                List<String> imgs = [];
+                if (questionData['imageUrls'] is List) {
+                  imgs = (questionData['imageUrls'] as List)
+                      .map((e) => e.toString().trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList();
+                } else if (questionData['imageUrl'] != null &&
+                    questionData['imageUrl'].toString().trim().isNotEmpty) {
+                  imgs = [questionData['imageUrl'].toString().trim()];
+                }
+                if (imgs.isNotEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: QuestionImageView(
+                      imageUrls: imgs,
+                      maxHeight: 240,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }(),
               // Options
               Padding(
                 padding: const EdgeInsets.all(12),

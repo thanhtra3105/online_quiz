@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class QuizTakingPage extends StatefulWidget {
   final String quizId;
@@ -36,6 +37,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // State variables
   int _currentIndex = 0;
   int _secondsRemaining = 0;
+  late final ValueNotifier<int> _secondsRemainingNotifier = ValueNotifier<int>(0);
   Timer? _timer;
   DateTime? _quizEndTime;
   bool _isSubmitting = false;
@@ -104,6 +106,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     super.initState();
     _canExit = false;
     _secondsRemaining = widget.duration * 60;
+    _secondsRemainingNotifier.value = _secondsRemaining;
     _loadQuestions();
     _initTimer();
 
@@ -169,6 +172,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   @override
   void dispose() {
     _timer?.cancel();
+    _secondsRemainingNotifier.dispose();
     _pageController.dispose();
     _cleanupFullscreenListeners();
     _visibilitySubscription?.cancel();
@@ -976,17 +980,21 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   }
 
   void _updateTimer() {
-    if (_quizEndTime == null || _isSubmitting) return;
+    if (!mounted || _quizEndTime == null || _isSubmitting) return;
     final now = DateTime.now();
     final remaining = _quizEndTime!.difference(now).inSeconds;
 
     if (remaining <= 0) {
-      if (mounted) setState(() => _secondsRemaining = 0);
+      _secondsRemaining = 0;
+      if (mounted) {
+        _secondsRemainingNotifier.value = 0;
+      }
       _timer?.cancel();
       _forceSubmit();
     } else {
+      _secondsRemaining = remaining;
       if (mounted) {
-        setState(() => _secondsRemaining = remaining);
+        _secondsRemainingNotifier.value = remaining;
       }
     }
   }
@@ -1160,8 +1168,6 @@ class _QuizTakingPageState extends State<QuizTakingPage>
   // ============================================
   @override
   Widget build(BuildContext context) {
-    final isTimeRunningOut = _secondsRemaining < 300;
-
     return PopScope(
       canPop: _canExit == true,
       onPopInvokedWithResult: (didPop, result) {
@@ -1182,7 +1188,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
           child: Column(
             children: [
               _buildProgressBar(),
-              _buildTopBar(isTimeRunningOut),
+              _buildTopBar(),
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -1235,7 +1241,7 @@ class _QuizTakingPageState extends State<QuizTakingPage>
     );
   }
 
-  Widget _buildTopBar(bool isTimeRunningOut) {
+  Widget _buildTopBar() {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1303,33 +1309,47 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                     ],
                   ),
                 ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isTimeRunningOut ? Theme.of(context).colorScheme.errorContainer : Theme.of(context).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isTimeRunningOut ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 20,
-                      color: isTimeRunningOut ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+              ValueListenableBuilder<int>(
+                valueListenable: _secondsRemainingNotifier,
+                builder: (context, secondsRemaining, _) {
+                  final isTimeRunningOut = secondsRemaining < 300;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isTimeRunningOut
+                          ? Theme.of(context).colorScheme.errorContainer
+                          : Theme.of(context).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isTimeRunningOut
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _formatTime(_secondsRemaining),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isTimeRunningOut ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.bold,
-                          ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 20,
+                          color: isTimeRunningOut
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatTime(secondsRemaining),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: isTimeRunningOut
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.primary,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
               const SizedBox(width: 16),
               if (MediaQuery.of(context).size.width > 800)
@@ -1507,6 +1527,24 @@ class _QuizTakingPageState extends State<QuizTakingPage>
                         height: 1.5,
                       ),
                 ),
+                () {
+                  List<String> imgs = [];
+                  if (data['imageUrls'] is List) {
+                    imgs = (data['imageUrls'] as List)
+                        .map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList();
+                  } else if (data['imageUrl'] != null && data['imageUrl'].toString().trim().isNotEmpty) {
+                    imgs = [data['imageUrl'].toString().trim()];
+                  }
+                  if (imgs.isNotEmpty) {
+                    return QuestionImageView(
+                      imageUrls: imgs,
+                      maxHeight: 360,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }(),
                 const SizedBox(height: 32),
                 ...List.generate(options.length, (i) {
                   final letter = String.fromCharCode(65 + i);

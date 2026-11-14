@@ -7,6 +7,7 @@ import 'quiz_schedule_dialog.dart';
 import '../../services/quiz_schedule_service.dart';
 import '../../models/quiz_schedule_model.dart';
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class ClassQuizDetailPage extends StatefulWidget {
   final String? classId;
@@ -882,7 +883,23 @@ class _ClassQuizDetailPageState extends State<ClassQuizDetailPage> {
           );
         }
 
-        final questions = snapshot.data?.docs ?? [];
+        final questions = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
+        questions.sort((a, b) {
+          try {
+            final aData = a.data() as Map<String, dynamic>?;
+            final bData = b.data() as Map<String, dynamic>?;
+            final aRaw = aData?['order'];
+            final bRaw = bData?['order'];
+            final num? aOrder = aRaw is num ? aRaw : (aRaw != null ? num.tryParse(aRaw.toString()) : null);
+            final num? bOrder = bRaw is num ? bRaw : (bRaw != null ? num.tryParse(bRaw.toString()) : null);
+            if (aOrder != null && bOrder != null) {
+              return aOrder.compareTo(bOrder);
+            }
+            if (aOrder != null) return -1;
+            if (bOrder != null) return 1;
+          } catch (_) {}
+          return a.id.compareTo(b.id);
+        });
 
         if (questions.isEmpty) {
           return Center(
@@ -945,7 +962,7 @@ class _ClassQuizDetailPageState extends State<ClassQuizDetailPage> {
               separatorBuilder: (context, index) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 final questionDoc = questions[index];
-                final questionData = questionDoc.data() as Map<String, dynamic>;
+                final questionData = (questionDoc.data() as Map<String, dynamic>?) ?? {};
                 final options = List<String>.from(questionData['options'] ?? []);
                 final rawCorrect = questionData['correctAnswer'];
 
@@ -1002,6 +1019,25 @@ class _ClassQuizDetailPageState extends State<ClassQuizDetailPage> {
                           height: 1.5,
                         ),
                       ),
+                      () {
+                        List<String> imgs = [];
+                        if (questionData['imageUrls'] is List) {
+                          imgs = (questionData['imageUrls'] as List)
+                              .map((e) => e.toString().trim())
+                              .where((e) => e.isNotEmpty)
+                              .toList();
+                        } else if (questionData['imageUrl'] != null &&
+                            questionData['imageUrl'].toString().trim().isNotEmpty) {
+                          imgs = [questionData['imageUrl'].toString().trim()];
+                        }
+                        if (imgs.isNotEmpty) {
+                          return QuestionImageView(
+                            imageUrls: imgs,
+                            maxHeight: 280,
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }(),
                       const SizedBox(height: 16),
 
                       // Options

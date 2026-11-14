@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class EditQuizPage extends StatefulWidget {
   final String quizId;
@@ -67,13 +68,42 @@ class _EditQuizPageState extends State<EditQuizPage> {
           .get();
 
       setState(() {
-        _questions = questionsSnapshot.docs.map((doc) {
-          final data = doc.data();
+        final docs = List<QueryDocumentSnapshot>.from(questionsSnapshot.docs);
+        docs.sort((a, b) {
+          try {
+            final aData = a.data() as Map<String, dynamic>?;
+            final bData = b.data() as Map<String, dynamic>?;
+            final aRaw = aData?['order'];
+            final bRaw = bData?['order'];
+            final num? aOrder = aRaw is num ? aRaw : (aRaw != null ? num.tryParse(aRaw.toString()) : null);
+            final num? bOrder = bRaw is num ? bRaw : (bRaw != null ? num.tryParse(bRaw.toString()) : null);
+            if (aOrder != null && bOrder != null) {
+              return aOrder.compareTo(bOrder);
+            }
+            if (aOrder != null) return -1;
+            if (bOrder != null) return 1;
+          } catch (_) {}
+          return a.id.compareTo(b.id);
+        });
+
+        _questions = docs.map((doc) {
+          final data = (doc.data() as Map<String, dynamic>?) ?? {};
+          List<String> imgs = [];
+          if (data['imageUrls'] is List) {
+            imgs = (data['imageUrls'] as List)
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+          } else if (data['imageUrl'] != null && data['imageUrl'].toString().trim().isNotEmpty) {
+            imgs = [data['imageUrl'].toString().trim()];
+          }
           return {
             'id': doc.id,
             'question': data['question'] ?? '',
             'options': List<String>.from(data['options'] ?? []),
             'correctAnswer': data['correctAnswer'] ?? 'A',
+            'imageUrls': imgs,
+            'imageUrl': imgs.isNotEmpty ? imgs.first : null,
           };
         }).toList();
         _isLoading = false;
@@ -711,6 +741,8 @@ class _EditQuizPageState extends State<EditQuizPage> {
         'question': '',
         'options': ['', '', '', ''],
         'correctAnswer': 'A',
+        'imageUrl': null,
+        'imageUrls': <String>[],
       });
     });
 
@@ -877,8 +909,8 @@ class _EditQuizPageState extends State<EditQuizPage> {
       } else {
         await targetRef.update({
           'title': _titleController.text.trim(),
-          'duration': int.parse(_durationController.text),
-          'maxSuspiciousActions': int.parse(_maxViolationsController.text),
+          'duration': int.tryParse(_durationController.text.trim()) ?? 30,
+          'maxSuspiciousActions': int.tryParse(_maxViolationsController.text.trim()) ?? 5,
           'questionCount': _questions.length,
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -892,15 +924,33 @@ class _EditQuizPageState extends State<EditQuizPage> {
         batch.delete(doc.reference);
       }
 
-      for (var question in _questions) {
-        final newDoc = targetRef.collection('questions').doc();
-        batch.set(newDoc, {
+      for (int i = 0; i < _questions.length; i++) {
+        final question = _questions[i];
+        final docId = 'q_${i.toString().padLeft(4, '0')}';
+        final newDoc = targetRef.collection('questions').doc(docId);
+        final qData = <String, dynamic>{
+          'order': i,
           'question': question['question'].toString().trim(),
           'options': (question['options'] as List<dynamic>)
               .map((opt) => opt.toString().trim())
               .toList(),
           'correctAnswer': question['correctAnswer'],
-        });
+        };
+
+        final List<String> imgs = [];
+        if (question['imageUrls'] is List) {
+          imgs.addAll((question['imageUrls'] as List)
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty));
+        } else if (question['imageUrl'] != null && question['imageUrl'].toString().trim().isNotEmpty) {
+          imgs.add(question['imageUrl'].toString().trim());
+        }
+
+        if (imgs.isNotEmpty) {
+          qData['imageUrls'] = imgs;
+          qData['imageUrl'] = imgs.first;
+        }
+        batch.set(newDoc, qData);
       }
 
       await batch.commit();
@@ -1130,6 +1180,85 @@ class _QuestionCardItemState extends State<_QuestionCardItem> with AutomaticKeep
                   onChanged: (val) => question['question'] = val,
                   validator: (val) => val!.isEmpty ? 'Vui lòng nhập câu hỏi' : null,
                 ),
+
+                // Question Images (Single or Multiple)
+                () {
+                  List<String> currentImgs = [];
+                  if (question['imageUrls'] is List) {
+                    currentImgs = (question['imageUrls'] as List)
+                        .map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList();
+                  } else if (question['imageUrl'] != null &&
+                      question['imageUrl'].toString().trim().isNotEmpty) {
+                    currentImgs = [question['imageUrl'].toString().trim()];
+                  }
+
+                  if (currentImgs.isNotEmpty) {
+                    return QuestionImageView(
+                      imageUrls: currentImgs,
+                      isEditable: true,
+                      onAddMore: () async {
+                        final newUrl = await QuestionImageHelper.pickOrEnterImageUrl(context);
+                        if (newUrl != null && newUrl.isNotEmpty) {
+                          setState(() {
+                            currentImgs.add(newUrl);
+                            question['imageUrls'] = currentImgs;
+                            question['imageUrl'] = currentImgs.first;
+                          });
+                        }
+                      },
+                      onChangeIndex: (imgIdx) async {
+                        final newUrl = await QuestionImageHelper.pickOrEnterImageUrl(context);
+                        if (newUrl != null && newUrl.isNotEmpty) {
+                          setState(() {
+                            currentImgs[imgIdx] = newUrl;
+                            question['imageUrls'] = currentImgs;
+                            question['imageUrl'] = currentImgs.first;
+                          });
+                        }
+                      },
+                      onDeleteIndex: (imgIdx) {
+                        setState(() {
+                          currentImgs.removeAt(imgIdx);
+                          question['imageUrls'] = currentImgs;
+                          question['imageUrl'] = currentImgs.isNotEmpty ? currentImgs.first : null;
+                        });
+                      },
+                    );
+                  } else {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 10, bottom: 4),
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final url = await QuestionImageHelper.pickOrEnterImageUrl(context);
+                          if (url != null && url.isNotEmpty) {
+                            setState(() {
+                              question['imageUrls'] = [url];
+                              question['imageUrl'] = url;
+                            });
+                          }
+                        },
+                        icon: Icon(Icons.add_photo_alternate_outlined, size: 18, color: AppConstants.brand(context)),
+                        label: Text(
+                          'Thêm hình ảnh minh họa',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.brand(context),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: isDark ? AppConstants.border(context) : const Color(0xFFBFDBFE)),
+                          backgroundColor: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    );
+                  }
+                }(),
 
                 const SizedBox(height: 18),
                 Text(

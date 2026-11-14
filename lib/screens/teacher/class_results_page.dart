@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
 import '../../utils/constants.dart';
+import '../../widgets/question_image_view.dart';
 
 class ClassResultsPage extends StatefulWidget {
   final String classId;
@@ -1139,13 +1140,31 @@ class _ClassResultsPageState extends State<ClassResultsPage> {
 
     if (!context.mounted) return;
 
+    final questions = List<QueryDocumentSnapshot>.from(questionsSnapshot.docs);
+    questions.sort((a, b) {
+      try {
+        final aData = a.data() as Map<String, dynamic>?;
+        final bData = b.data() as Map<String, dynamic>?;
+        final aRaw = aData?['order'];
+        final bRaw = bData?['order'];
+        final num? aOrder = aRaw is num ? aRaw : (aRaw != null ? num.tryParse(aRaw.toString()) : null);
+        final num? bOrder = bRaw is num ? bRaw : (bRaw != null ? num.tryParse(bRaw.toString()) : null);
+        if (aOrder != null && bOrder != null) {
+          return aOrder.compareTo(bOrder);
+        }
+        if (aOrder != null) return -1;
+        if (bOrder != null) return 1;
+      } catch (_) {}
+      return a.id.compareTo(b.id);
+    });
+
     final studentAnswers = submission['answers'] as Map<String, dynamic>? ?? {};
 
     showDialog(
       context: context,
       builder: (context) => _SubmissionDetailDialog(
         submission: submission,
-        questions: questionsSnapshot.docs,
+        questions: questions,
         studentAnswers: studentAnswers,
         studentName: studentName,
       ),
@@ -1414,7 +1433,7 @@ class _SubmissionDetailDialog extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final questionDoc = questions[index];
                   final questionData =
-                      questionDoc.data() as Map<String, dynamic>;
+                      (questionDoc.data() as Map<String, dynamic>?) ?? {};
                   final questionId = questionDoc.id;
                   final rawCorrect = questionData['correctAnswer'];
                   final rawUser = studentAnswers[questionId];
@@ -1517,6 +1536,25 @@ class _SubmissionDetailDialog extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
+                        () {
+                          List<String> imgs = [];
+                          if (questionData['imageUrls'] is List) {
+                            imgs = (questionData['imageUrls'] as List)
+                                .map((e) => e.toString().trim())
+                                .where((e) => e.isNotEmpty)
+                                .toList();
+                          } else if (questionData['imageUrl'] != null &&
+                              questionData['imageUrl'].toString().trim().isNotEmpty) {
+                            imgs = [questionData['imageUrl'].toString().trim()];
+                          }
+                          if (imgs.isNotEmpty) {
+                            return QuestionImageView(
+                              imageUrls: imgs,
+                              maxHeight: 280,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        }(),
                         const SizedBox(height: 16),
 
                         // Options
