@@ -6,6 +6,7 @@ import 'dashboard_page.dart';
 import 'quiz_list_page.dart';
 import 'history_page.dart';
 import 'class_list_page.dart';
+import 'student_attendance_dialog.dart';
 import '../auth/login_page.dart';
 
 class StudentPanel extends StatefulWidget {
@@ -110,6 +111,20 @@ class StudentPanelState extends State<StudentPanel> {
         }
       }
     }
+  }
+
+  void _openStudentAttendanceDialog() {
+    final user = _auth.currentUser;
+    showDialog(
+      context: context,
+      builder: (ctx) => StudentAttendanceDialog(
+        classId: widget.classId,
+        className: widget.className,
+        studentId: widget.studentId,
+        studentName: user?.displayName ?? 'Sinh viên',
+        studentEmail: user?.email ?? '',
+      ),
+    );
   }
 
   void _navigateToClassList() {
@@ -270,6 +285,13 @@ class StudentPanelState extends State<StudentPanel> {
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             child: Column(
               children: [
+                _buildSideNavItem(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: 'Điểm danh QR',
+                  isSelected: false,
+                  color: AppConstants.txt(context),
+                  onTap: _openStudentAttendanceDialog,
+                ),
                 Divider(color: AppConstants.border(context)),
                 _buildSideNavItem(
                   icon: Icons.arrow_back_outlined,
@@ -395,6 +417,20 @@ class StudentPanelState extends State<StudentPanel> {
                   ),
                   Row(
                     children: [
+                      InkWell(
+                        onTap: _openStudentAttendanceDialog,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF334155) : const Color(0xFF0F172A)),
+                          ),
+                          child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       // Nút đăng xuất đồng bộ với màn hình ngoài
                       GestureDetector(
                         onTap: _handleLogout,
@@ -466,6 +502,13 @@ class StudentPanelState extends State<StudentPanel> {
                 iconFill: Icons.history_edu,
                 label: 'Lịch sử',
                 index: 2,
+              ),
+              _buildBottomNavItem(
+                icon: Icons.qr_code_scanner_outlined,
+                iconFill: Icons.qr_code_scanner,
+                label: 'Điểm danh',
+                index: -1,
+                onTap: _openStudentAttendanceDialog,
               ),
             ],
           ),

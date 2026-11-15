@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'student_attendance_dialog.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
@@ -231,6 +232,49 @@ class DashboardPage extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              final user = FirebaseAuth.instance.currentUser;
+              showDialog(
+                context: context,
+                builder: (ctx) => StudentAttendanceDialog(
+                  classId: classId,
+                  className: name,
+                  studentId: studentId,
+                  studentName: user?.displayName ?? 'Sinh viên',
+                  studentEmail: user?.email ?? '',
+                ),
+              );
+            },
+            icon: Icon(
+              Icons.qr_code_scanner_rounded,
+              size: 16,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
+            ),
+            label: Text(
+              'Điểm danh QR',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              side: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF475569) : const Color(0xFF0F172A),
+                width: 1.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: Theme.of(context).brightness == Brightness.dark ? 0 : 1,
+              shadowColor: Colors.black.withValues(alpha: 0.05),
             ),
           ),
         ],

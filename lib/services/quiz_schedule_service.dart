@@ -166,19 +166,47 @@ class QuizScheduleService {
           .collection('quiz_schedules')
           .add(scheduleData);
 
-      // Cập nhật schedule ID vào class/quizzes
-      await _firestore
+      // Cập nhật schedule ID vào class/quizzes (Tự động gán bài thi vào lớp nếu chưa gán)
+      final classQuizRef = _firestore
           .collection('classes')
           .doc(classId)
           .collection('quizzes')
-          .doc(quizId)
-          .update({
-            'scheduleId': docRef.id,
-            'scheduleStatus': status,
-            'hasSchedule': true,
-          });
+          .doc(quizId);
 
-      print('✅ Schedule created: ${docRef.id}');
+      final classQuizDoc = await classQuizRef.get();
+      if (!classQuizDoc.exists) {
+        // Lấy thông tin bài thi gốc từ kho đề thi
+        final rootQuizDoc = await _firestore.collection('quiz').doc(quizId).get();
+        final rootData = rootQuizDoc.data() ?? {};
+
+        await classQuizRef.set({
+          'title': rootData['title'] ?? 'Bài thi',
+          'questionCount': rootData['questionCount'] ?? 0,
+          'duration': rootData['duration'] ?? 30,
+          'maxSuspiciousActions': rootData['maxSuspiciousActions'] ?? 5,
+          'status': 'available',
+          'assignedAt': FieldValue.serverTimestamp(),
+          'scheduleId': docRef.id,
+          'scheduleStatus': status,
+          'hasSchedule': true,
+        }, SetOptions(merge: true));
+
+        // Tăng số lượng đề thi trong lớp học
+        try {
+          final classRef = _firestore.collection('classes').doc(classId);
+          final classSnap = await classRef.get();
+          final currentCount = (classSnap.data()?['quizCount'] ?? 0) as int;
+          await classRef.update({'quizCount': currentCount + 1});
+        } catch (_) {}
+      } else {
+        await classQuizRef.set({
+          'scheduleId': docRef.id,
+          'scheduleStatus': status,
+          'hasSchedule': true,
+        }, SetOptions(merge: true));
+      }
+
+      print('✅ Schedule created & quiz assigned to class: ${docRef.id}');
       return docRef.id;
     } catch (e) {
       print('❌ Error creating schedule: $e');
@@ -241,11 +269,11 @@ class QuizScheduleService {
             .doc(classId)
             .collection('quizzes')
             .doc(quizId)
-            .update({
+            .set({
               'scheduleId': FieldValue.delete(),
               'scheduleStatus': FieldValue.delete(),
               'hasSchedule': false,
-            });
+            }, SetOptions(merge: true));
       }
 
       print('✅ Schedule deleted: $scheduleId');

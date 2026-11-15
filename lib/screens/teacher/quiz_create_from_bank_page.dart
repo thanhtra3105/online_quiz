@@ -856,8 +856,15 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
       allQuestions.shuffle(Random());
       final selectedQuestions = allQuestions.take(questionCount).toList();
 
+      // Lấy thông tin học phần từ ngân hàng nếu có
+      final bankSnap = await FirebaseFirestore.instance.collection('quiz_banks').doc(widget.bankId).get();
+      final bankData = bankSnap.data() ?? {};
+      final subjectId = bankData['courseSubjectId'];
+      final subjectName = bankData['courseSubjectName'];
+      final subjectCode = bankData['courseSubjectCode'];
+
       // Create quiz
-      final quizRef = await FirebaseFirestore.instance.collection('quiz').add({
+      final Map<String, dynamic> quizPayload = {
         'title': _titleController.text.trim(),
         'bankId': widget.bankId,
         'selectionMode': 'random',
@@ -866,7 +873,14 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
         'maxSuspiciousActions': int.parse(_maxViolationsController.text),
         'status': 'available',
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (subjectId != null) {
+        quizPayload['courseSubjectId'] = subjectId;
+        quizPayload['courseSubjectName'] = subjectName;
+        quizPayload['courseSubjectCode'] = subjectCode;
+      }
+
+      final quizRef = await FirebaseFirestore.instance.collection('quiz').add(quizPayload);
 
       // Add selected questions to quiz
       for (var questionDoc in selectedQuestions) {

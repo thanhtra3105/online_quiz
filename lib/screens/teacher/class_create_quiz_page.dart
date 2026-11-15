@@ -12,12 +12,18 @@ class ClassCreateQuizPage extends StatefulWidget {
   final String? classId;
   final String? className;
   final bool isQuestionBank;
+  final String? courseSubjectId;
+  final String? courseSubjectName;
+  final String? courseSubjectCode;
 
   const ClassCreateQuizPage({
     super.key,
     this.classId,
     this.className,
     this.isQuestionBank = false,
+    this.courseSubjectId,
+    this.courseSubjectName,
+    this.courseSubjectCode,
   });
 
   @override
@@ -947,14 +953,21 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
 
     try {
       if (widget.isQuestionBank) {
-        final bankRef = await FirebaseFirestore.instance.collection('quiz_banks').add({
+        final Map<String, dynamic> bankData = {
           'title': _titleController.text.trim().isNotEmpty
               ? _titleController.text.trim()
               : 'Ngân hàng câu hỏi mới',
           'description': 'Ngân hàng câu hỏi',
           'questionCount': questions.length,
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        };
+        if (widget.courseSubjectId != null) {
+          bankData['courseSubjectId'] = widget.courseSubjectId;
+          bankData['courseSubjectName'] = widget.courseSubjectName;
+          bankData['courseSubjectCode'] = widget.courseSubjectCode;
+        }
+
+        final bankRef = await FirebaseFirestore.instance.collection('quiz_banks').add(bankData);
 
         for (var question in questions) {
           await bankRef.collection('questions').add(question);
@@ -966,14 +979,21 @@ class _ClassCreateQuizPageState extends State<ClassCreateQuizPage> {
             ? _titleController.text.trim()
             : 'Đề thi mới';
 
-        final quizRef = await FirebaseFirestore.instance.collection('quiz').add({
+        final Map<String, dynamic> quizData = {
           'title': title,
           'questionCount': questions.length,
           'duration': duration,
           'maxSuspiciousActions': maxViolations,
           'status': 'available',
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        };
+        if (widget.courseSubjectId != null) {
+          quizData['courseSubjectId'] = widget.courseSubjectId;
+          quizData['courseSubjectName'] = widget.courseSubjectName;
+          quizData['courseSubjectCode'] = widget.courseSubjectCode;
+        }
+
+        final quizRef = await FirebaseFirestore.instance.collection('quiz').add(quizData);
 
         for (var question in questions) {
           await quizRef.collection('questions').add(question);

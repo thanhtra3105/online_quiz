@@ -1353,7 +1353,30 @@ class _ClassQuizDetailPageState extends State<ClassQuizDetailPage> {
     );
 
     if (result == true) {
-      await _loadSchedule();
+      if (widget.classId == null || widget.classId!.isEmpty) {
+        final newSchedule = await QuizScheduleService.getSchedule(targetClassId, widget.quizId);
+        if (mounted) {
+          setState(() {
+            _currentSchedule = newSchedule;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white),
+                  SizedBox(width: 10),
+                  Text('Đã gán đề thi và thiết lập lịch cho lớp học thành công!'),
+                ],
+              ),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } else {
+        await _loadSchedule();
+      }
     }
   }
 
