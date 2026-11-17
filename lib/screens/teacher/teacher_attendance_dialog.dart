@@ -35,41 +35,33 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
   String _studentSearchQuery = '';
   String _filterStatus = 'all'; // all, full, partial, absent
 
-  Timer? _countdownTimer;
+  late final Stream<QuerySnapshot> _activeSessionStream;
+  late final Stream<QuerySnapshot> _allSessionsStream;
+  Stream<QuerySnapshot>? _recordsStream;
+  String? _cachedRecordsSessionId;
+
+  Stream<QuerySnapshot> _getRecordsStream(String sessionId) {
+    if (_recordsStream == null || _cachedRecordsSessionId != sessionId) {
+      _cachedRecordsSessionId = sessionId;
+      _recordsStream = AttendanceService.getSessionRecordsStream(widget.classId, sessionId);
+    }
+    return _recordsStream!;
+  }
 
   @override
   void initState() {
     super.initState();
+    _activeSessionStream = AttendanceService.getActiveSessionStream(widget.classId);
+    _allSessionsStream = AttendanceService.getAllSessionsStream(widget.classId);
     _customTitleController.text =
         'Điểm danh ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}';
-    _startTicker();
   }
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
     _customTitleController.dispose();
     _searchStudentController.dispose();
     super.dispose();
-  }
-
-  void _startTicker() {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  Duration _calculateRemaining(Timestamp? expiresAt) {
-    if (expiresAt == null) return Duration.zero;
-    final diff = expiresAt.toDate().difference(DateTime.now());
-    return diff.isNegative ? Duration.zero : diff;
-  }
-
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   // Xuất Excel điểm danh
@@ -228,7 +220,7 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
     final isDark = AppConstants.isDarkMode(context);
 
     return StreamBuilder<QuerySnapshot>(
-      stream: AttendanceService.getActiveSessionStream(widget.classId),
+      stream: _activeSessionStream,
       builder: (context, snapshot) {
         final activeDocs = snapshot.data?.docs ?? [];
         final hasActiveSession = activeDocs.isNotEmpty;
@@ -574,11 +566,9 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
 
     final code = (sessionData['code1'] ?? sessionData['code'] ?? '').toString();
     final expiresAt = (sessionData['expiresAt1'] ?? sessionData['expiresAt']) as Timestamp?;
-    final remaining = _calculateRemaining(expiresAt);
-    final isExpired = remaining == Duration.zero;
 
     return StreamBuilder<QuerySnapshot>(
-      stream: AttendanceService.getSessionRecordsStream(widget.classId, sessionId),
+      stream: _getRecordsStream(sessionId),
       builder: (context, recordsSnap) {
         final records = recordsSnap.data?.docs ?? [];
         final totalCount = records.length;
@@ -607,14 +597,14 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
                     _buildLocationInfoBar(sessionData, sessionId, isDark),
                     const SizedBox(height: 18),
 
-                    // Khung QR to ở giữa
-                    _buildQrProjectionCard(
-                      context: context,
+                    // Khung QR to ở giữa (tự quản lý đếm ngược cục bộ, không trigger dialog rebuild)
+                    _AttendanceQrCard(
+                      classId: widget.classId,
                       phase: 1,
                       code: code,
-                      remaining: remaining,
-                      isExpired: isExpired,
+                      expiresAt: expiresAt,
                       sessionId: sessionId,
+                      isFullscreen: _isFullscreen,
                       isDark: isDark,
                     ),
                     const SizedBox(height: 20),
@@ -856,214 +846,6 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
               minimumSize: Size.zero,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================
-  // KHUNG CHIẾU QR TO Ở GIỮA
-  // ============================================
-  Widget _buildQrProjectionCard({
-    required BuildContext context,
-    required int phase,
-    required String code,
-    required Duration remaining,
-    required bool isExpired,
-    required String sessionId,
-    required bool isDark,
-  }) {
-    final formattedCode = AttendanceService.format8DigitCode(code);
-    final qrPayload = 'ATTENDANCE:${widget.classId}:$sessionId:$phase:$code';
-    final activeGreen = isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
-    final activeGreenBg = isDark
-        ? const Color(0xFF064E3B).withValues(alpha: 0.35)
-        : const Color(0xFFECFDF5);
-    final activeGreenBorder = isDark ? const Color(0xFF047857) : const Color(0xFFA7F3D0);
-
-    final expiredRed = isDark ? const Color(0xFFFB7185) : const Color(0xFFBE123C);
-    final expiredRedBg = isDark
-        ? const Color(0xFF4C0519).withValues(alpha: 0.35)
-        : const Color(0xFFFFF1F2);
-    final expiredRedBorder = isDark ? const Color(0xFF9F1239) : const Color(0xFFFECDD3);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      decoration: BoxDecoration(
-        color: AppConstants.surf(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isExpired
-              ? (isDark ? const Color(0xFF9F1239) : const Color(0xFFFDA4AF))
-              : AppConstants.brand(context).withValues(alpha: 0.4),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Badge giai đoạn
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: isExpired ? expiredRedBg : activeGreenBg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isExpired ? expiredRedBorder : activeGreenBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isExpired ? Icons.timer_off_outlined : Icons.timer_outlined,
-                  size: 16,
-                  color: isExpired ? expiredRed : activeGreen,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  isExpired
-                      ? 'MÃ ĐÃ HẾT HẠN (Hãy gia hạn thêm nếu cần)'
-                      : 'MÃ ĐANG HOẠT ĐỘNG • CÒN LẠI: ${_formatDuration(remaining)}',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isExpired ? expiredRed : activeGreen,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // QR Code Image
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-            ),
-            child: QrImageView(
-              data: qrPayload,
-              version: QrVersions.auto,
-              size: _isFullscreen ? 280 : 220,
-              backgroundColor: Colors.white,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: Color(0xFF041B3C),
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: Color(0xFF041B3C),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Số ngẫu nhiên 8 chữ số to rõ
-          Text(
-            'HOẶC NHẬP MÃ 8 CHỮ SỐ:',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppConstants.txtMuted(context),
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          InkWell(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: code));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã sao chép mã 8 chữ số vào bộ nhớ tạm'),
-                  duration: Duration(milliseconds: 1200),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? AppConstants.border(context) : const Color(0xFFDBEAFE),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    formattedCode,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: _isFullscreen ? 40 : 34,
-                      fontWeight: FontWeight.w800,
-                      color: AppConstants.brand(context),
-                      letterSpacing: 4,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Icon(Icons.copy_rounded, size: 20, color: AppConstants.brand(context)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Nút gia hạn thời gian
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Gia hạn thêm:',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12.5,
-                  color: AppConstants.txtMuted(context),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ActionChip(
-                label: const Text('+1 phút'),
-                onPressed: () => AttendanceService.extendTime(
-                  classId: widget.classId,
-                  sessionId: sessionId,
-                  phase: phase,
-                  additionalMinutes: 1,
-                ),
-              ),
-              const SizedBox(width: 6),
-              ActionChip(
-                label: const Text('+2 phút'),
-                onPressed: () => AttendanceService.extendTime(
-                  classId: widget.classId,
-                  sessionId: sessionId,
-                  phase: phase,
-                  additionalMinutes: 2,
-                ),
-              ),
-              const SizedBox(width: 6),
-              ActionChip(
-                label: const Text('+5 phút'),
-                onPressed: () => AttendanceService.extendTime(
-                  classId: widget.classId,
-                  sessionId: sessionId,
-                  phase: phase,
-                  additionalMinutes: 5,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1630,7 +1412,7 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
   // ============================================
   Widget _buildHistorySection(bool isDark) {
     return StreamBuilder<QuerySnapshot>(
-      stream: AttendanceService.getAllSessionsStream(widget.classId),
+      stream: _allSessionsStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -1747,6 +1529,260 @@ class _TeacherAttendanceDialogState extends State<TeacherAttendanceDialog> {
           },
         );
       },
+    );
+  }
+}
+
+class _AttendanceQrCard extends StatefulWidget {
+  final String classId;
+  final int phase;
+  final String code;
+  final Timestamp? expiresAt;
+  final String sessionId;
+  final bool isFullscreen;
+  final bool isDark;
+
+  const _AttendanceQrCard({
+    Key? key,
+    required this.classId,
+    required this.phase,
+    required this.code,
+    required this.expiresAt,
+    required this.sessionId,
+    required this.isFullscreen,
+    required this.isDark,
+  }) : super(key: key);
+
+  @override
+  State<_AttendanceQrCard> createState() => _AttendanceQrCardState();
+}
+
+class _AttendanceQrCardState extends State<_AttendanceQrCard> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Duration _calculateRemaining(Timestamp? expiresAt) {
+    if (expiresAt == null) return Duration.zero;
+    final diff = expiresAt.toDate().difference(DateTime.now());
+    return diff.isNegative ? Duration.zero : diff;
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _calculateRemaining(widget.expiresAt);
+    final isExpired = remaining == Duration.zero;
+    final formattedCode = AttendanceService.format8DigitCode(widget.code);
+    final qrPayload = 'ATTENDANCE:${widget.classId}:${widget.sessionId}:${widget.phase}:${widget.code}';
+    final activeGreen = widget.isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+    final activeGreenBg = widget.isDark
+        ? const Color(0xFF064E3B).withValues(alpha: 0.35)
+        : const Color(0xFFECFDF5);
+    final activeGreenBorder = widget.isDark ? const Color(0xFF047857) : const Color(0xFFA7F3D0);
+
+    final expiredRed = widget.isDark ? const Color(0xFFFB7185) : const Color(0xFFBE123C);
+    final expiredRedBg = widget.isDark
+        ? const Color(0xFF4C0519).withValues(alpha: 0.35)
+        : const Color(0xFFFFF1F2);
+    final expiredRedBorder = widget.isDark ? const Color(0xFF9F1239) : const Color(0xFFFECDD3);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        color: AppConstants.surf(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isExpired
+              ? (widget.isDark ? const Color(0xFF9F1239) : const Color(0xFFFDA4AF))
+              : AppConstants.brand(context).withValues(alpha: 0.4),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Badge giai đoạn
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: isExpired ? expiredRedBg : activeGreenBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: isExpired ? expiredRedBorder : activeGreenBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isExpired ? Icons.timer_off_outlined : Icons.timer_outlined,
+                  size: 16,
+                  color: isExpired ? expiredRed : activeGreen,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isExpired
+                      ? 'MÃ ĐÃ HẾT HẠN (Hãy gia hạn thêm nếu cần)'
+                      : 'MÃ ĐANG HOẠT ĐỘNG • CÒN LẠI: ${_formatDuration(remaining)}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isExpired ? expiredRed : activeGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // QR Code Image
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
+            ),
+            child: QrImageView(
+              data: qrPayload,
+              version: QrVersions.auto,
+              size: widget.isFullscreen ? 280 : 220,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Color(0xFF041B3C),
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Color(0xFF041B3C),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Số ngẫu nhiên 8 chữ số to rõ
+          Text(
+            'HOẶC NHẬP MÃ 8 CHỮ SỐ:',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppConstants.txtMuted(context),
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          InkWell(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: widget.code));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã sao chép mã 8 chữ số vào bộ nhớ tạm'),
+                  duration: Duration(milliseconds: 1200),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: widget.isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: widget.isDark ? AppConstants.border(context) : const Color(0xFFDBEAFE),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    formattedCode,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: widget.isFullscreen ? 40 : 34,
+                      fontWeight: FontWeight.w800,
+                      color: AppConstants.brand(context),
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(Icons.copy_rounded, size: 20, color: AppConstants.brand(context)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Nút gia hạn thời gian
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Gia hạn thêm:',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12.5,
+                  color: AppConstants.txtMuted(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ActionChip(
+                label: const Text('+1 phút'),
+                onPressed: () => AttendanceService.extendTime(
+                  classId: widget.classId,
+                  sessionId: widget.sessionId,
+                  phase: widget.phase,
+                  additionalMinutes: 1,
+                ),
+              ),
+              const SizedBox(width: 6),
+              ActionChip(
+                label: const Text('+2 phút'),
+                onPressed: () => AttendanceService.extendTime(
+                  classId: widget.classId,
+                  sessionId: widget.sessionId,
+                  phase: widget.phase,
+                  additionalMinutes: 2,
+                ),
+              ),
+              const SizedBox(width: 6),
+              ActionChip(
+                label: const Text('+5 phút'),
+                onPressed: () => AttendanceService.extendTime(
+                  classId: widget.classId,
+                  sessionId: widget.sessionId,
+                  phase: widget.phase,
+                  additionalMinutes: 5,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

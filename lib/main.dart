@@ -27,7 +27,7 @@ void main() async {
   // 🔄 KHỞI ĐỘNG SERVICE ĐỒNG BỘ TỰ ĐỘNG
   // Từ giờ, mọi thay đổi trong Authentication sẽ tự động sync sang Firestore
   AuthSyncService.initialize();
-  QuizScheduleService.startScheduler();
+  // QuizScheduleService.startScheduler(); // ❌ Tắt cron scheduler chạy định kỳ mỗi phút trên client để tránh spam query Firestore khi nhiều sinh viên online
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

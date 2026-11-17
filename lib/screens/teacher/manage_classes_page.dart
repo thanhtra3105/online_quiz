@@ -30,6 +30,29 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  Stream<QuerySnapshot>? _classesStream;
+  Stream<QuerySnapshot>? _subjectsStream;
+  String? _cachedTeacherId;
+
+  Stream<QuerySnapshot> _getClassesStream(String teacherId) {
+    if (_classesStream == null || _cachedTeacherId != teacherId) {
+      _cachedTeacherId = teacherId;
+      _classesStream = FirebaseFirestore.instance
+          .collection('classes')
+          .where('teacherId', isEqualTo: teacherId)
+          .snapshots();
+    }
+    return _classesStream!;
+  }
+
+  Stream<QuerySnapshot> _getSubjectsStream(String teacherId) {
+    if (_subjectsStream == null || _cachedTeacherId != teacherId) {
+      _cachedTeacherId = teacherId;
+      _subjectsStream = CourseSubjectService.getSubjectsStream(teacherId);
+    }
+    return _subjectsStream!;
+  }
+
   static const List<IconData> _subjectIcons = [
     Icons.school_rounded,
     Icons.computer_outlined,
@@ -305,10 +328,7 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .snapshots(),
+      stream: _getClassesStream(teacherId),
       builder: (context, classSnap) {
         final classes = classSnap.data?.docs ?? [];
         int totalStudents = 0;
@@ -318,7 +338,7 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
         }
 
         return StreamBuilder<QuerySnapshot>(
-          stream: CourseSubjectService.getSubjectsStream(teacherId),
+          stream: _getSubjectsStream(teacherId),
           builder: (context, subjSnap) {
             final subjectsCount = subjSnap.data?.docs.length ?? 0;
 
@@ -378,7 +398,7 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
 
   Widget _buildSubjectsGrid(String teacherId) {
     return StreamBuilder<QuerySnapshot>(
-      stream: CourseSubjectService.getSubjectsStream(teacherId),
+      stream: _getSubjectsStream(teacherId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -400,35 +420,53 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
           }).toList();
         }
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 768;
-            final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1100;
-            final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+        return StreamBuilder<QuerySnapshot>(
+          stream: _getClassesStream(teacherId),
+          builder: (context, classSnap) {
+            final allClasses = classSnap.data?.docs ?? [];
+            int uncategorizedCount = 0;
+            final Map<String, int> subjectCounts = {};
+            for (var c in allClasses) {
+              final data = c.data() as Map<String, dynamic>;
+              final subId = data['courseSubjectId']?.toString();
+              if (subId == null || subId.isEmpty) {
+                uncategorizedCount++;
+              } else {
+                subjectCounts[subId] = (subjectCounts[subId] ?? 0) + 1;
+              }
+            }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 20,
-                    mainAxisSpacing: 20,
-                    mainAxisExtent: 220,
-                  ),
-                  itemCount: subjects.length + 1, // +1 cho thẻ Chưa phân loại / Lớp học chung
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _buildUncategorizedSubjectCard(teacherId);
-                    }
-                    final doc = subjects[index - 1];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildSubjectCard(doc.id, data, teacherId);
-                  },
-                ),
-              ],
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1100;
+                final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                        mainAxisExtent: 220,
+                      ),
+                      itemCount: subjects.length + 1, // +1 cho thẻ Chưa phân loại / Lớp học chung
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _buildUncategorizedSubjectCard(teacherId, uncategorizedCount);
+                        }
+                        final doc = subjects[index - 1];
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _buildSubjectCard(doc.id, data, teacherId, subjectCounts[doc.id] ?? 0);
+                      },
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -436,7 +474,7 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
     );
   }
 
-  Widget _buildUncategorizedSubjectCard(String teacherId) {
+  Widget _buildUncategorizedSubjectCard(String teacherId, int uncategorizedCount) {
     final isDark = AppConstants.isDarkMode(context);
 
     return InkWell(
@@ -520,29 +558,14 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('classes')
-                      .where('teacherId', isEqualTo: teacherId)
-                      .snapshots(),
-                  builder: (context, snap) {
-                    final allDocs = snap.data?.docs ?? [];
-                    final uncategorizedCount = allDocs.where((d) {
-                      final data = d.data() as Map<String, dynamic>;
-                      final subId = data['courseSubjectId'];
-                      return subId == null || subId.toString().isEmpty;
-                    }).length;
-
-                    return Text(
-                      '$uncategorizedCount lớp học',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppConstants.txtMuted(context),
-                      ),
-                    );
-                  },
+                Text(
+                  '$uncategorizedCount lớp học',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppConstants.txtMuted(context),
+                  ),
                 ),
                 Row(
                   children: [
@@ -567,7 +590,7 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
     );
   }
 
-  Widget _buildSubjectCard(String subjectId, Map<String, dynamic> data, String teacherId) {
+  Widget _buildSubjectCard(String subjectId, Map<String, dynamic> data, String teacherId, int classCount) {
     final name = data['name'] ?? 'Lớp học phần';
     final code = data['code'] ?? '';
     final description = (data['description'] ?? '').toString();
@@ -697,24 +720,14 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('classes')
-                      .where('teacherId', isEqualTo: teacherId)
-                      .where('courseSubjectId', isEqualTo: subjectId)
-                      .snapshots(),
-                  builder: (context, snap) {
-                    final count = snap.data?.docs.length ?? 0;
-                    return Text(
-                      '$count lớp học',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppConstants.txtMuted(context),
-                      ),
-                    );
-                  },
+                Text(
+                  '$classCount lớp học',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppConstants.txtMuted(context),
+                  ),
                 ),
                 Row(
                   children: [
@@ -878,27 +891,8 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
   Widget _buildSubjectClassStats(String teacherId) {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
-    Stream<QuerySnapshot> stream;
-    if (_selectedSubjectId == '_all') {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .snapshots();
-    } else if (_selectedSubjectId == '_uncategorized') {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .snapshots();
-    } else {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .where('courseSubjectId', isEqualTo: _selectedSubjectId)
-          .snapshots();
-    }
-
     return StreamBuilder<QuerySnapshot>(
-      stream: stream,
+      stream: _getClassesStream(teacherId),
       builder: (context, snapshot) {
         var classes = snapshot.data?.docs ?? [];
         if (_selectedSubjectId == '_uncategorized') {
@@ -906,6 +900,11 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
             final data = d.data() as Map<String, dynamic>;
             final subId = data['courseSubjectId'];
             return subId == null || subId.toString().isEmpty;
+          }).toList();
+        } else if (_selectedSubjectId != '_all') {
+          classes = classes.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return data['courseSubjectId'] == _selectedSubjectId;
           }).toList();
         }
 
@@ -1044,30 +1043,8 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
   }
 
   Widget _buildClassGrid(String teacherId) {
-    Stream<QuerySnapshot> stream;
-
-    if (_selectedSubjectId == '_all') {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-    } else if (_selectedSubjectId == '_uncategorized') {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-    } else {
-      stream = FirebaseFirestore.instance
-          .collection('classes')
-          .where('teacherId', isEqualTo: teacherId)
-          .where('courseSubjectId', isEqualTo: _selectedSubjectId)
-          .snapshots();
-    }
-
     return StreamBuilder<QuerySnapshot>(
-      stream: stream,
+      stream: _getClassesStream(teacherId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -1095,7 +1072,21 @@ class _ManageClassesPageState extends State<ManageClassesPage> {
             final subId = data['courseSubjectId'];
             return subId == null || subId.toString().isEmpty;
           }).toList();
+        } else if (_selectedSubjectId != '_all') {
+          classes = classes.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return data['courseSubjectId'] == _selectedSubjectId;
+          }).toList();
         }
+
+        classes = List<QueryDocumentSnapshot>.from(classes)..sort((a, b) {
+          final tA = (a.data() as Map)['createdAt'] as Timestamp?;
+          final tB = (b.data() as Map)['createdAt'] as Timestamp?;
+          if (tA == null && tB == null) return 0;
+          if (tA == null) return 1;
+          if (tB == null) return -1;
+          return tB.compareTo(tA);
+        });
 
         if (_searchQuery.isNotEmpty) {
           classes = classes.where((doc) {

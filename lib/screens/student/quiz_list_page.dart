@@ -28,6 +28,21 @@ class _QuizListPageState extends State<QuizListPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  late final Stream<QuerySnapshot> _quizzesStream;
+  late final Stream<QuerySnapshot> _submissionsStream;
+  late final Stream<List<QuizSchedule>> _schedulesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _quizzesStream = FirebaseService.getClassQuizzes(widget.classId);
+    _submissionsStream = FirebaseService.getStudentClassSubmissions(
+      widget.studentId,
+      widget.classId,
+    );
+    _schedulesStream = QuizScheduleService.getClassSchedules(widget.classId);
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -37,7 +52,7 @@ class _QuizListPageState extends State<QuizListPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseService.getClassQuizzes(widget.classId),
+      stream: _quizzesStream,
       builder: (context, quizSnapshot) {
         if (quizSnapshot.hasError) {
           return _buildErrorWidget(quizSnapshot.error);
@@ -48,17 +63,14 @@ class _QuizListPageState extends State<QuizListPage> {
         }
 
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseService.getStudentClassSubmissions(
-            widget.studentId,
-            widget.classId,
-          ),
+          stream: _submissionsStream,
           builder: (context, submissionSnapshot) {
             if (!submissionSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
 
             return StreamBuilder<List<QuizSchedule>>(
-              stream: QuizScheduleService.getClassSchedules(widget.classId),
+              stream: _schedulesStream,
               builder: (context, scheduleSnapshot) {
                 final schedules = scheduleSnapshot.data ?? [];
                 final scheduleMap = {for (var s in schedules) s.quizId: s};

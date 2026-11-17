@@ -19,6 +19,7 @@ class QuizBankListPage extends StatefulWidget {
 class _QuizBankListPageState extends State<QuizBankListPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String _statusFilter = 'all';
 
   // Điều hướng 2 cấp:
   // null = Danh sách Lớp học phần
@@ -67,7 +68,9 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                       _buildBanksHeader(),
                       const SizedBox(height: 24),
                       _buildSubjectBankStats(),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
+                      _buildFilterRow(),
+                      const SizedBox(height: 24),
                       _buildBankGrid(),
                     ],
                     const SizedBox(height: 48),
@@ -1040,6 +1043,48 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
     );
   }
 
+  Widget _buildFilterRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildStatusChip('Tất cả', _statusFilter == 'all', 'all'),
+          const SizedBox(width: 8),
+          _buildStatusChip('Đang mở', _statusFilter == 'available', 'available'),
+          const SizedBox(width: 8),
+          _buildStatusChip('Đã lưu trữ', _statusFilter == 'archived', 'archived'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String label, bool isSelected, String value) {
+    final isDark = AppConstants.isDarkMode(context);
+    return InkWell(
+      onTap: () => setState(() => _statusFilter = value),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF))
+              : AppConstants.surf(context),
+          border: Border.all(color: isSelected ? AppConstants.brand(context) : AppConstants.border(context)),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppConstants.brand(context) : AppConstants.txtMuted(context),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBankGrid() {
     Stream<QuerySnapshot> stream;
 
@@ -1091,6 +1136,14 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
             final data = doc.data() as Map<String, dynamic>;
             final title = (data['title'] ?? '').toString().toLowerCase();
             return title.contains(_searchQuery);
+          }).toList();
+        }
+
+        if (_statusFilter != 'all') {
+          banks = banks.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final status = data['status'] ?? 'available';
+            return status == _statusFilter;
           }).toList();
         }
 
@@ -1152,6 +1205,16 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
     final createdAt = data['createdAt'] as Timestamp?;
     final subjectCode = data['courseSubjectCode'] as String?;
     final isDark = AppConstants.isDarkMode(context);
+    final status = data['status'] ?? 'available';
+    final isAvailable = status == 'available';
+
+    final Color statusBgColor = isAvailable
+        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+        : AppConstants.surfLow(context);
+    final Color statusTextColor = isAvailable
+        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF15803D))
+        : AppConstants.txtMuted(context);
+    final String statusText = isAvailable ? 'Đang mở' : 'Đã lưu trữ';
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -1175,19 +1238,28 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
+                      color: statusBgColor,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(Icons.folder_rounded, color: AppConstants.brand(context), size: 22),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: statusTextColor,
+                      ),
+                    ),
                   ),
                   if (subjectCode != null && subjectCode.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
                         color: AppConstants.brand(context).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
@@ -1218,6 +1290,8 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                       context,
                       MaterialPageRoute(builder: (context) => EditQuizBankPage(bankId: id, bankTitle: title)),
                     );
+                  } else if (value == 'toggle_status') {
+                    _toggleBankStatus(context, id, data);
                   } else if (value == 'change_subject') {
                     _showChangeSubjectDialog(context, id, data['courseSubjectId']);
                   } else if (value == 'delete') {
@@ -1232,6 +1306,27 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                         Icon(Icons.edit_outlined, color: AppConstants.brand(context), size: 18),
                         const SizedBox(width: 10),
                         Text('Chỉnh sửa', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggle_status',
+                    child: Row(
+                      children: [
+                        Icon(
+                          isAvailable ? Icons.archive_outlined : Icons.unarchive_outlined,
+                          color: isAvailable ? const Color(0xFF8B5CF6) : const Color(0xFF10B981),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isAvailable ? 'Đóng ngân hàng (Lưu trữ)' : 'Mở lại ngân hàng',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            color: isAvailable ? const Color(0xFF8B5CF6) : const Color(0xFF10B981),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1780,5 +1875,55 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _toggleBankStatus(
+    BuildContext context,
+    String bankId,
+    Map<String, dynamic> bankData,
+  ) async {
+    final currentStatus = bankData['status'] ?? 'available';
+    final newStatus = currentStatus == 'available' ? 'archived' : 'available';
+
+    try {
+      await FirebaseFirestore.instance.collection('quiz_banks').doc(bankId).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  newStatus == 'available' ? Icons.check_circle : Icons.archive,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  newStatus == 'available'
+                      ? 'Đã mở lại ngân hàng câu hỏi'
+                      : 'Đã đóng ngân hàng câu hỏi và chuyển vào lưu trữ',
+                ),
+              ],
+            ),
+            backgroundColor: newStatus == 'available' ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi cập nhật trạng thái: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }

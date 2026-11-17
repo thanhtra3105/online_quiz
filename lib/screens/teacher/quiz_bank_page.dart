@@ -1663,6 +1663,23 @@ class _QuizBankPageState extends State<QuizBankPage> {
                       ),
                     ),
                     PopupMenuItem(
+                      value: 'toggle_status',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isAvailable ? Icons.archive_outlined : Icons.unarchive_outlined,
+                            color: isAvailable ? const Color(0xFF8B5CF6) : const Color(0xFF10B981),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isAvailable ? 'Đóng đề thi (Lưu trữ)' : 'Mở lại đề thi',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
                       value: 'change_subject',
                       child: const Row(
                         children: [
@@ -1690,6 +1707,9 @@ class _QuizBankPageState extends State<QuizBankPage> {
                         break;
                       case 'edit':
                         _editQuiz(quizId, data);
+                        break;
+                      case 'toggle_status':
+                        _toggleQuizStatus(quizId, data);
                         break;
                       case 'change_subject':
                         _showChangeQuizSubjectDialog(quizId, data);
@@ -2032,6 +2052,59 @@ class _QuizBankPageState extends State<QuizBankPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã cập nhật Lớp học phần cho đề thi!'), backgroundColor: Color(0xFF047857)),
       );
+    }
+  }
+
+  // ============================================
+  // ĐÓNG / MỞ ĐỀ THI ĐỂ LƯU TRỮ
+  // ============================================
+  Future<void> _toggleQuizStatus(
+    String quizId,
+    Map<String, dynamic> quizData,
+  ) async {
+    final currentStatus = quizData['status'] ?? 'available';
+    final newStatus = currentStatus == 'available' ? 'archived' : 'available';
+
+    try {
+      await FirebaseFirestore.instance.collection('quiz').doc(quizId).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  newStatus == 'available' ? Icons.check_circle : Icons.archive,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  newStatus == 'available'
+                      ? 'Đã mở lại đề thi'
+                      : 'Đã đóng đề thi và chuyển vào lưu trữ',
+                ),
+              ],
+            ),
+            backgroundColor: newStatus == 'available'
+                ? const Color(0xFF047857)
+                : const Color(0xFF4B5563),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi cập nhật trạng thái đề thi: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
     }
   }
 

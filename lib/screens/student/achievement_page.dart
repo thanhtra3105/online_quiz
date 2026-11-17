@@ -22,15 +22,25 @@ class AchievementPage extends StatefulWidget {
 
 class _AchievementPageState extends State<AchievementPage> {
   Map<String, String> _userNames = {};
+  late final Stream<QuerySnapshot> _submissionsStream;
 
   @override
   void initState() {
     super.initState();
+    _submissionsStream = FirebaseFirestore.instance
+        .collection('submissions')
+        .orderBy('timestamp', descending: true)
+        .limit(200)
+        .snapshots();
     _fetchUserNames();
   }
 
-  void _fetchUserNames() {
-    FirebaseFirestore.instance.collection('users').snapshots().listen((snap) {
+  Future<void> _fetchUserNames() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .limit(200)
+          .get();
       if (!mounted) return;
       final map = <String, String>{};
       for (var doc in snap.docs) {
@@ -44,10 +54,14 @@ class _AchievementPageState extends State<AchievementPage> {
           }
         }
       }
-      setState(() {
-        _userNames = map;
-      });
-    });
+      if (mounted) {
+        setState(() {
+          _userNames = map;
+        });
+      }
+    } catch (e) {
+      print('❌ Error fetching user names: $e');
+    }
   }
 
   String _getStudentDisplayName(String sId) {
@@ -102,7 +116,7 @@ class _AchievementPageState extends State<AchievementPage> {
           if (widget.showTopBar) _buildTopBar(context),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('submissions').snapshots(),
+              stream: _submissionsStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
