@@ -6,11 +6,26 @@ import 'class_create_quiz_page.dart';
 import 'quiz_create_from_bank_page.dart';
 import 'edit_quiz_bank_page.dart';
 import '../../services/course_subject_service.dart';
+import '../../services/user_service.dart';
+import '../../services/user_service.dart';
+import '../../services/course_subject_service.dart';
 import '../../utils/constants.dart';
 
 class QuizBankListPage extends StatefulWidget {
   final Function(int)? onNavigate;
-  const QuizBankListPage({super.key, this.onNavigate});
+  final String? initialSubjectId;
+  final String? initialSubjectName;
+  final String? initialSubjectCode;
+  final bool isAssistant;
+
+  const QuizBankListPage({
+    super.key,
+    this.onNavigate,
+    this.initialSubjectId,
+    this.initialSubjectName,
+    this.initialSubjectCode,
+    this.isAssistant = false,
+  });
 
   @override
   State<QuizBankListPage> createState() => _QuizBankListPageState();
@@ -32,6 +47,40 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
   String? _selectedSubjectColorHex;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSubjectId != null) {
+      _selectedSubjectId = widget.initialSubjectId;
+      _selectedSubjectName = widget.initialSubjectName;
+      _selectedSubjectCode = widget.initialSubjectCode;
+    } else if (widget.isAssistant) {
+      _autoLoadAssistantSubject();
+    }
+  }
+
+  Future<void> _autoLoadAssistantSubject() async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    final studentId = UserService.extractStudentId(email);
+    try {
+      final snap = await CourseSubjectService.getSubjectsStream(
+        user?.uid ?? '',
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ).first;
+      if (snap.isNotEmpty && mounted) {
+        final doc = snap.first;
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _selectedSubjectId = doc.id;
+          _selectedSubjectName = data['name'];
+          _selectedSubjectCode = data['code'];
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -57,12 +106,21 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_selectedSubjectId == null) ...[
-                      // CẤP 1: DANH SÁCH LỚP HỌC PHẦN
-                      _buildSubjectsHeader(),
-                      const SizedBox(height: 24),
-                      _buildOverallStats(),
-                      const SizedBox(height: 28),
-                      _buildSubjectsGrid(),
+                      if (widget.isAssistant)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(48),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else ...[
+                        // CẤP 1: DANH SÁCH LỚP HỌC PHẦN
+                        _buildSubjectsHeader(),
+                        const SizedBox(height: 24),
+                        _buildOverallStats(),
+                        const SizedBox(height: 28),
+                        _buildSubjectsGrid(),
+                      ],
                     ] else ...[
                       // CẤP 2: DANH SÁCH NGÂN HÀNG CÂU HỎI THEO HỌC PHẦN
                       _buildBanksHeader(),
@@ -170,9 +228,11 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                     const SizedBox(width: 16),
                     InkWell(
                       onTap: () {
-                        setState(() {
-                          _selectedSubjectId = null;
-                        });
+                        if (!widget.isAssistant) {
+                          setState(() {
+                            _selectedSubjectId = null;
+                          });
+                        }
                         widget.onNavigate?.call(2);
                       },
                       borderRadius: BorderRadius.circular(8),
@@ -271,22 +331,24 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
-        const SizedBox(width: 12),
-        FilledButton.icon(
-          onPressed: () => _showCreateOrEditSubjectDialog(),
-          icon: const Icon(Icons.add_rounded, size: 20),
-          label: const Text(
-            'Thêm học phần mới',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
+        if (!widget.isAssistant) ...[
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: () => _showCreateOrEditSubjectDialog(),
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text(
+              'Thêm học phần mới',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppConstants.brand(context),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 1,
+            ),
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppConstants.brand(context),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            elevation: 1,
-          ),
-        ),
+        ],
       ],
     );
 
@@ -313,7 +375,10 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
   }
 
   Widget _buildOverallStats() {
-    final uid = _auth.currentUser?.uid ?? '';
+    final user = _auth.currentUser;
+    final uid = user?.uid ?? '';
+    final email = user?.email;
+    final studentId = UserService.extractStudentId(email);
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return StreamBuilder<QuerySnapshot>(
@@ -326,10 +391,14 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
           totalQuestions += (data['questionCount'] as num?)?.toInt() ?? 0;
         }
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: CourseSubjectService.getSubjectsStream(uid),
+        return StreamBuilder<List<QueryDocumentSnapshot>>(
+          stream: CourseSubjectService.getSubjectsStream(
+            uid,
+            studentId: studentId.isNotEmpty ? studentId : null,
+            email: email,
+          ),
           builder: (context, subjSnap) {
-            final subjectsCount = subjSnap.data?.docs.length ?? 0;
+            final subjectsCount = subjSnap.data?.length ?? 0;
 
             final card1 = _buildBentoStatCard(
               title: 'Lớp học phần',
@@ -383,10 +452,17 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
   }
 
   Widget _buildSubjectsGrid() {
-    final uid = _auth.currentUser?.uid ?? '';
+    final user = _auth.currentUser;
+    final uid = user?.uid ?? '';
+    final email = user?.email;
+    final studentId = UserService.extractStudentId(email);
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: CourseSubjectService.getSubjectsStream(uid),
+    return StreamBuilder<List<QueryDocumentSnapshot>>(
+      stream: CourseSubjectService.getSubjectsStream(
+        uid,
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -397,7 +473,7 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
           );
         }
 
-        var subjects = snapshot.data?.docs ?? [];
+        var subjects = snapshot.data ?? [];
 
         if (_searchQuery.isNotEmpty) {
           subjects = subjects.where((doc) {
@@ -643,32 +719,49 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                   onSelected: (action) {
                     if (action == 'edit') {
                       _showCreateOrEditSubjectDialog(subjectId, data);
+                    } else if (action == 'assistants') {
+                      _showManageSubjectAssistantsDialog(subjectId, name, code);
                     } else if (action == 'delete') {
                       _confirmDeleteSubject(subjectId, name);
                     }
                   },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 16, color: AppConstants.brand(context)),
-                          const SizedBox(width: 8),
-                          Text('Chỉnh sửa', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
-                        ],
+                  itemBuilder: (context) {
+                    final isOwner = data['teacherId'] == _auth.currentUser?.uid;
+                    return [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 16, color: AppConstants.brand(context)),
+                            const SizedBox(width: 8),
+                            Text('Chỉnh sửa', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFDC2626)),
-                          const SizedBox(width: 8),
-                          Text('Xóa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFDC2626))),
-                        ],
-                      ),
-                    ),
-                  ],
+                      if (isOwner)
+                        PopupMenuItem(
+                          value: 'assistants',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.school_outlined, size: 16, color: Color(0xFF7C3AED)),
+                              const SizedBox(width: 8),
+                              Text('Quản lý trợ giảng', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                            ],
+                          ),
+                        ),
+                      if (isOwner)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 8),
+                              Text('Xóa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFDC2626))),
+                            ],
+                          ),
+                        ),
+                    ];
+                  },
                 ),
               ],
             ),
@@ -754,60 +847,62 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // NÚT TRỞ LẠI TO VÀ RÕ RÀNG
-        InkWell(
-          onTap: () {
-            setState(() {
-              _selectedSubjectId = null;
-              _selectedSubjectName = null;
-              _selectedSubjectCode = null;
-            });
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.arrow_back_rounded, size: 20, color: AppConstants.brand(context)),
-                const SizedBox(width: 8),
-                Text(
-                  'Quay lại Danh sách học phần',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppConstants.brand(context),
-                  ),
-                ),
-                if (_selectedSubjectCode != null && _selectedSubjectCode!.isNotEmpty) ...[
+        if (!widget.isAssistant) ...[
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedSubjectId = null;
+                _selectedSubjectName = null;
+                _selectedSubjectCode = null;
+              });
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back_rounded, size: 20, color: AppConstants.brand(context)),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppConstants.brand(context).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+                  Text(
+                    'Quay lại Danh sách học phần',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.brand(context),
                     ),
-                    child: Text(
-                      _selectedSubjectCode!,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppConstants.brand(context),
+                  ),
+                  if (_selectedSubjectCode != null && _selectedSubjectCode!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppConstants.brand(context).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _selectedSubjectCode!,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.brand(context),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         Row(
           children: [
             Container(
@@ -1330,16 +1425,17 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
                       ],
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'change_subject',
-                    child: Row(
-                      children: [
-                        Icon(Icons.drive_file_move_outlined, color: Colors.orange.shade700, size: 18),
-                        const SizedBox(width: 10),
-                        Text('Đổi học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
-                      ],
+                  if (!widget.isAssistant)
+                    PopupMenuItem(
+                      value: 'change_subject',
+                      child: Row(
+                        children: [
+                          Icon(Icons.drive_file_move_outlined, color: Colors.orange.shade700, size: 18),
+                          const SizedBox(width: 10),
+                          Text('Đổi học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                        ],
+                      ),
                     ),
-                  ),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(
@@ -1397,31 +1493,57 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => QuizCreateFromBankPage(
-                        bankId: id,
-                        bankTitle: title,
-                        questionCount: questionCount,
+              if (isAvailable)
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => QuizCreateFromBankPage(
+                          bankId: id,
+                          bankTitle: title,
+                          questionCount: questionCount,
+                        ),
                       ),
-                    ),
-                  );
-                },
-                icon: Icon(Icons.add_task_rounded, size: 15, color: AppConstants.brand(context)),
-                label: Text(
-                  'Tạo đề thi',
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.brand(context)),
+                    );
+                  },
+                  icon: Icon(Icons.add_task_rounded, size: 15, color: AppConstants.brand(context)),
+                  label: Text(
+                    'Tạo đề thi',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppConstants.brand(context)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppConstants.border(context) : const Color(0xFFBFDBFE)),
+                    backgroundColor: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppConstants.border(context)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.archive_outlined, size: 14, color: AppConstants.txtMuted(context)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đã đóng (Lưu trữ)',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.txtMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: isDark ? AppConstants.border(context) : const Color(0xFFBFDBFE)),
-                  backgroundColor: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
               InkWell(
                 onTap: () {
                   Navigator.push(
@@ -1725,6 +1847,7 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
   }
 
   void _showChangeSubjectDialog(BuildContext context, String bankId, String? currentSubjectId) {
+    if (widget.isAssistant) return;
     final uid = _auth.currentUser?.uid ?? '';
 
     showDialog(
@@ -1925,5 +2048,338 @@ class _QuizBankListPageState extends State<QuizBankListPage> {
         );
       }
     }
+  }
+
+  void _showManageSubjectAssistantsDialog(String subjectId, String subjectName, String subjectCode) {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    String? errorMessage;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDlgState) {
+          final isDark = AppConstants.isDarkMode(context);
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Container(
+              width: 620,
+              constraints: const BoxConstraints(maxHeight: 700),
+              decoration: BoxDecoration(
+                color: AppConstants.surf(context),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppConstants.border(context)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surfLow(context),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.school, color: Color(0xFF7C3AED), size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quản lý Trợ giảng học phần',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppConstants.txt(context),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$subjectName ($subjectCode) • Toàn quyền như giảng viên',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  color: AppConstants.txtMuted(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Color(0xFF7C3AED), size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Trợ giảng sẽ có toàn quyền xem, thêm, sửa bài thi, ngân hàng câu hỏi và quản lý các lớp học trong học phần này.',
+                                    style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppConstants.txt(context), height: 1.4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Thêm trợ giảng mới',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppConstants.txt(context)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: emailCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Email hoặc Mã sinh viên (9 số)',
+                              hintText: 'VD: 102220001@sv.dut.udn.vn hoặc 102220001',
+                              prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: nameCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Họ và tên sinh viên',
+                              hintText: 'VD: Nguyễn Văn A',
+                              prefixIcon: const Icon(Icons.person_outline, size: 20),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                          if (errorMessage != null) ...[
+                            const SizedBox(height: 10),
+                            Text(errorMessage!, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.red)),
+                          ],
+                          const SizedBox(height: 14),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.icon(
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () async {
+                                      final email = emailCtrl.text.trim();
+                                      final name = nameCtrl.text.trim();
+                                      if (email.isEmpty || name.isEmpty) {
+                                        setDlgState(() => errorMessage = 'Vui lòng nhập đầy đủ Email/MSSV và Họ tên');
+                                        return;
+                                      }
+                                      setDlgState(() {
+                                        isSubmitting = true;
+                                        errorMessage = null;
+                                      });
+                                      try {
+                                        String studentId = email;
+                                        final match = RegExp(r'\d{9}').firstMatch(email);
+                                        if (match != null) {
+                                          studentId = match.group(0)!;
+                                        }
+                                        await CourseSubjectService.addAssistantToSubject(
+                                          subjectId: subjectId,
+                                          studentId: studentId,
+                                          studentName: name,
+                                          studentEmail: email,
+                                        );
+                                        emailCtrl.clear();
+                                        nameCtrl.clear();
+                                        setDlgState(() => isSubmitting = false);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Đã thêm trợ giảng $name vào học phần'),
+                                              backgroundColor: const Color(0xFF16A34A),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setDlgState(() {
+                                          isSubmitting = false;
+                                          errorMessage = 'Lỗi: $e';
+                                        });
+                                      }
+                                    },
+                              icon: isSubmitting
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.person_add_alt_1, size: 16),
+                              label: const Text('Gán quyền Trợ giảng'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C3AED),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Divider(color: AppConstants.border(context)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Danh sách trợ giảng hiện tại',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppConstants.txt(context)),
+                          ),
+                          const SizedBox(height: 12),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: CourseSubjectService.getSubjectAssistantsStream(subjectId),
+                            builder: (context, snap) {
+                              if (snap.connectionState == ConnectionState.waiting) {
+                                return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+                              }
+                              final docs = snap.data?.docs ?? [];
+                              if (docs.isEmpty) {
+                                return Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: AppConstants.surfLow(context),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppConstants.border(context)),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Học phần này chưa có trợ giảng nào.',
+                                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: docs.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final doc = docs[index];
+                                  final aData = doc.data() as Map<String, dynamic>;
+                                  final aName = aData['name'] ?? 'Trợ giảng';
+                                  final aEmail = aData['email'] ?? '';
+                                  final aStudentId = aData['studentId'] ?? doc.id;
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppConstants.surfLow(context),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: AppConstants.border(context)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                          child: Text(
+                                            aName.isNotEmpty ? aName[0].toUpperCase() : 'T',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                aName,
+                                                style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, fontWeight: FontWeight.w600, color: AppConstants.txt(context)),
+                                              ),
+                                              Text(
+                                                '$aEmail • MSSV: $aStudentId',
+                                                style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppConstants.txtMuted(context)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                          tooltip: 'Gỡ quyền trợ giảng',
+                                          onPressed: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('Xác nhận gỡ trợ giảng'),
+                                                content: Text('Bạn có chắc muốn gỡ quyền trợ giảng của "$aName" khỏi học phần này không?'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                                  FilledButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                                    child: const Text('Gỡ quyền'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirm == true) {
+                                              await CourseSubjectService.removeAssistantFromSubject(
+                                                subjectId: subjectId,
+                                                studentId: aStudentId,
+                                                studentEmail: aEmail,
+                                              );
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Đã gỡ quyền trợ giảng của $aName')),
+                                                );
+                                              }
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }

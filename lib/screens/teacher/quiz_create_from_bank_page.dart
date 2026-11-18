@@ -812,6 +812,21 @@ class _QuizCreateFromBankPageState extends State<QuizCreateFromBankPage> {
   Future<void> _handleCreateQuiz() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Kiểm tra trạng thái ngân hàng
+    final bankSnap = await FirebaseFirestore.instance.collection('quiz_banks').doc(widget.bankId).get();
+    final bankData = bankSnap.data() ?? {};
+    if (bankData['status'] == 'archived') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Ngân hàng câu hỏi này đã bị đóng (lưu trữ), không thể tạo bài thi!'),
+            backgroundColor: Color(0xFFDC2626),
+          ),
+        );
+      }
+      return;
+    }
+
     if (_selectedMode == 'manual') {
       // Navigate to question selector directly using MaterialPageRoute
       final res = await Navigator.push(

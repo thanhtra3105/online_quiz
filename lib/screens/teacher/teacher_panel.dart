@@ -5,11 +5,26 @@ import 'manage_classes_page.dart';
 import 'quiz_bank_page.dart';
 import 'quiz_bank_list_page.dart';
 import 'teacher_setting_page.dart';
+import '../student/class_list_page.dart';
 import '../auth/login_page.dart';
+import '../../services/user_service.dart';
 import '../../utils/constants.dart';
 
 class TeacherPanel extends StatefulWidget {
-  const TeacherPanel({super.key});
+  final bool isAssistant;
+  final int initialIndex;
+  final String? initialSubjectId;
+  final String? initialSubjectName;
+  final String? initialSubjectCode;
+
+  const TeacherPanel({
+    super.key,
+    this.isAssistant = false,
+    this.initialIndex = 0,
+    this.initialSubjectId,
+    this.initialSubjectName,
+    this.initialSubjectCode,
+  });
 
   @override
   State<TeacherPanel> createState() => _TeacherPanelState();
@@ -18,6 +33,12 @@ class TeacherPanel extends StatefulWidget {
 class _TeacherPanelState extends State<TeacherPanel> {
   int _selectedIndex = 0;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -127,9 +148,36 @@ class _TeacherPanelState extends State<TeacherPanel> {
             child: IndexedStack(
               index: _selectedIndex,
               children: [
-                _buildNavigator(0, ManageClassesPage(onNavigate: _navigateToTab)),
-                _buildNavigator(1, QuizBankPage(onNavigate: _navigateToTab)),
-                _buildNavigator(2, QuizBankListPage(onNavigate: _navigateToTab)),
+                _buildNavigator(
+                  0,
+                  ManageClassesPage(
+                    onNavigate: _navigateToTab,
+                    initialSubjectId: widget.initialSubjectId,
+                    initialSubjectName: widget.initialSubjectName,
+                    initialSubjectCode: widget.initialSubjectCode,
+                    isAssistant: widget.isAssistant,
+                  ),
+                ),
+                _buildNavigator(
+                  1,
+                  QuizBankPage(
+                    onNavigate: _navigateToTab,
+                    initialSubjectId: widget.initialSubjectId,
+                    initialSubjectName: widget.initialSubjectName,
+                    initialSubjectCode: widget.initialSubjectCode,
+                    isAssistant: widget.isAssistant,
+                  ),
+                ),
+                _buildNavigator(
+                  2,
+                  QuizBankListPage(
+                    onNavigate: _navigateToTab,
+                    initialSubjectId: widget.initialSubjectId,
+                    initialSubjectName: widget.initialSubjectName,
+                    initialSubjectCode: widget.initialSubjectCode,
+                    isAssistant: widget.isAssistant,
+                  ),
+                ),
                 _buildNavigator(3, const TeacherSettingPage()),
               ],
             ),
@@ -176,15 +224,33 @@ class _TeacherPanelState extends State<TeacherPanel> {
           ),
           Padding(
             padding: const EdgeInsets.only(left: 24, bottom: 32),
-            child: Text(
-              'Giáo viên',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppConstants.txtMuted(context),
-              ),
-            ),
+            child: widget.isAssistant
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      'Trợ giảng (TA)',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  )
+                : Text(
+                    'Giáo viên',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppConstants.txtMuted(context),
+                    ),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -209,7 +275,7 @@ class _TeacherPanelState extends State<TeacherPanel> {
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
-                    user?.displayName ?? 'Giảng viên',
+                    user?.displayName ?? (widget.isAssistant ? 'Trợ giảng' : 'Giảng viên'),
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
@@ -220,11 +286,12 @@ class _TeacherPanelState extends State<TeacherPanel> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Giáo viên',
+                    widget.isAssistant ? 'Trợ giảng học phần' : 'Giáo viên',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 10,
-                      color: AppConstants.txtMuted(context),
+                      color: widget.isAssistant ? const Color(0xFF7C3AED) : AppConstants.txtMuted(context),
+                      fontWeight: widget.isAssistant ? FontWeight.w600 : FontWeight.normal,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -250,6 +317,28 @@ class _TeacherPanelState extends State<TeacherPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Divider(color: AppConstants.border(context), height: 16),
               ),
+              if (widget.isAssistant)
+                _buildSideNavActionItem(
+                  icon: Icons.school_outlined,
+                  label: 'Giao diện Học viên',
+                  color: const Color(0xFF7C3AED),
+                  hoverColor: const Color(0xFF6D28D9),
+                  onTap: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      final user = _auth.currentUser;
+                      final studentId = UserService.extractStudentId(user?.email);
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => ClassListPage(
+                            studentId: studentId.isNotEmpty ? studentId : (user?.uid ?? ''),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
               _buildSideNavActionItem(icon: Icons.help_outline, label: 'Trung tâm trợ giúp', color: AppConstants.txtMuted(context), hoverColor: AppConstants.brand(context), onTap: () {}),
               _buildSideNavActionItem(icon: Icons.logout_rounded, label: 'Đăng xuất', color: AppConstants.txtMuted(context), hoverColor: const Color(0xFFBA1A1A), onTap: _handleLogout),
             ]),
@@ -354,9 +443,32 @@ class _TeacherPanelState extends State<TeacherPanel> {
         title: Row(children: [
           Icon(Icons.school, color: AppConstants.brand(context), size: 24),
           const SizedBox(width: 8),
-          Text('DUT QuizMaster', style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700, color: AppConstants.brand(context))),
+          Text(
+            widget.isAssistant ? 'DUT Quiz (Trợ giảng)' : 'DUT QuizMaster',
+            style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700, color: AppConstants.brand(context)),
+          ),
         ]),
         actions: [
+          if (widget.isAssistant)
+            IconButton(
+              icon: const Icon(Icons.school_outlined, color: Color(0xFF7C3AED)),
+              tooltip: 'Giao diện Học viên',
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  final user = _auth.currentUser;
+                  final studentId = UserService.extractStudentId(user?.email);
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => ClassListPage(
+                        studentId: studentId.isNotEmpty ? studentId : (user?.uid ?? ''),
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: GestureDetector(
@@ -374,9 +486,36 @@ class _TeacherPanelState extends State<TeacherPanel> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildNavigator(0, ManageClassesPage(onNavigate: _navigateToTab)),
-          _buildNavigator(1, QuizBankPage(onNavigate: _navigateToTab)),
-          _buildNavigator(2, QuizBankListPage(onNavigate: _navigateToTab)),
+          _buildNavigator(
+            0,
+            ManageClassesPage(
+              onNavigate: _navigateToTab,
+              initialSubjectId: widget.initialSubjectId,
+              initialSubjectName: widget.initialSubjectName,
+              initialSubjectCode: widget.initialSubjectCode,
+              isAssistant: widget.isAssistant,
+            ),
+          ),
+          _buildNavigator(
+            1,
+            QuizBankPage(
+              onNavigate: _navigateToTab,
+              initialSubjectId: widget.initialSubjectId,
+              initialSubjectName: widget.initialSubjectName,
+              initialSubjectCode: widget.initialSubjectCode,
+              isAssistant: widget.isAssistant,
+            ),
+          ),
+          _buildNavigator(
+            2,
+            QuizBankListPage(
+              onNavigate: _navigateToTab,
+              initialSubjectId: widget.initialSubjectId,
+              initialSubjectName: widget.initialSubjectName,
+              initialSubjectCode: widget.initialSubjectCode,
+              isAssistant: widget.isAssistant,
+            ),
+          ),
           _buildNavigator(3, const TeacherSettingPage()),
         ],
       ),

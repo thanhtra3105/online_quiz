@@ -7,11 +7,24 @@ import 'quiz_create_from_bank_page.dart';
 import 'edit_quiz_page.dart';
 import 'class_quiz_detail_page.dart';
 import '../../services/course_subject_service.dart';
+import '../../services/user_service.dart';
 import '../../utils/constants.dart';
 
 class QuizBankPage extends StatefulWidget {
   final Function(int)? onNavigate;
-  const QuizBankPage({super.key, this.onNavigate});
+  final String? initialSubjectId;
+  final String? initialSubjectName;
+  final String? initialSubjectCode;
+  final bool isAssistant;
+
+  const QuizBankPage({
+    super.key,
+    this.onNavigate,
+    this.initialSubjectId,
+    this.initialSubjectName,
+    this.initialSubjectCode,
+    this.isAssistant = false,
+  });
 
   @override
   State<QuizBankPage> createState() => _QuizBankPageState();
@@ -29,6 +42,40 @@ class _QuizBankPageState extends State<QuizBankPage> {
   String? _selectedSubjectColorHex;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSubjectId != null) {
+      _selectedSubjectId = widget.initialSubjectId;
+      _selectedSubjectName = widget.initialSubjectName;
+      _selectedSubjectCode = widget.initialSubjectCode;
+    } else if (widget.isAssistant) {
+      _autoLoadAssistantSubject();
+    }
+  }
+
+  Future<void> _autoLoadAssistantSubject() async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    final studentId = UserService.extractStudentId(email);
+    try {
+      final snap = await CourseSubjectService.getSubjectsStream(
+        user?.uid ?? '',
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ).first;
+      if (snap.isNotEmpty && mounted) {
+        final doc = snap.first;
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _selectedSubjectId = doc.id;
+          _selectedSubjectName = data['name'];
+          _selectedSubjectCode = data['code'];
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -54,10 +101,19 @@ class _QuizBankPageState extends State<QuizBankPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_selectedSubjectId == null) ...[
-                      // CẤP 1: DANH SÁCH LỚP HỌC PHẦN
-                      _buildSubjectsHeader(),
-                      const SizedBox(height: 28),
-                      _buildSubjectsGrid(),
+                      if (widget.isAssistant)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(48),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else ...[
+                        // CẤP 1: DANH SÁCH LỚP HỌC PHẦN
+                        _buildSubjectsHeader(),
+                        const SizedBox(height: 28),
+                        _buildSubjectsGrid(),
+                      ],
                     ] else ...[
                       // CẤP 2: DANH SÁCH ĐỀ THI CỦA HỌC PHẦN ĐÃ CHỌN
                       _buildQuizPageHeader(),
@@ -146,9 +202,11 @@ class _QuizBankPageState extends State<QuizBankPage> {
                     const SizedBox(width: 16),
                     InkWell(
                       onTap: () {
-                        setState(() {
-                          _selectedSubjectId = null;
-                        });
+                        if (!widget.isAssistant) {
+                          setState(() {
+                            _selectedSubjectId = null;
+                          });
+                        }
                         widget.onNavigate?.call(1);
                       },
                       borderRadius: BorderRadius.circular(8),
@@ -264,22 +322,24 @@ class _QuizBankPageState extends State<QuizBankPage> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
-        const SizedBox(width: 12),
-        FilledButton.icon(
-          onPressed: () => _showCreateOrEditSubjectDialog(),
-          icon: const Icon(Icons.add_rounded, size: 20),
-          label: const Text(
-            'Thêm học phần mới',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
+        if (!widget.isAssistant) ...[
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: () => _showCreateOrEditSubjectDialog(),
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text(
+              'Thêm học phần mới',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppConstants.brand(context),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 1,
+            ),
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppConstants.brand(context),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            elevation: 1,
-          ),
-        ),
+        ],
       ],
     );
 
@@ -306,10 +366,17 @@ class _QuizBankPageState extends State<QuizBankPage> {
   }
 
   Widget _buildSubjectsGrid() {
-    final uid = _auth.currentUser?.uid ?? '';
+    final user = _auth.currentUser;
+    final uid = user?.uid ?? '';
+    final email = user?.email;
+    final studentId = UserService.extractStudentId(email);
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: CourseSubjectService.getSubjectsStream(uid),
+    return StreamBuilder<List<QueryDocumentSnapshot>>(
+      stream: CourseSubjectService.getSubjectsStream(
+        uid,
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -320,7 +387,7 @@ class _QuizBankPageState extends State<QuizBankPage> {
           );
         }
 
-        var subjects = snapshot.data?.docs ?? [];
+        var subjects = snapshot.data ?? [];
 
         if (_searchQuery.isNotEmpty) {
           subjects = subjects.where((doc) {
@@ -556,28 +623,43 @@ class _QuizBankPageState extends State<QuizBankPage> {
                   constraints: const BoxConstraints(),
                   splashRadius: 18,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_outlined, size: 18, color: Color(0xFFD97706)),
-                          const SizedBox(width: 10),
-                          Text('Chỉnh sửa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
-                        ],
+                  itemBuilder: (context) {
+                    final isOwner = data['teacherId'] == _auth.currentUser?.uid;
+                    return [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit_outlined, size: 18, color: Color(0xFFD97706)),
+                            const SizedBox(width: 10),
+                            Text('Chỉnh sửa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: const Row(
-                        children: [
-                          Icon(Icons.delete_outline, size: 18, color: Color(0xFFDC2626)),
-                          SizedBox(width: 10),
-                          Text('Xóa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFDC2626))),
-                        ],
-                      ),
-                    ),
-                  ],
+                      if (isOwner)
+                        PopupMenuItem(
+                          value: 'assistants',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.school_outlined, size: 18, color: Color(0xFF7C3AED)),
+                              const SizedBox(width: 10),
+                              Text('Quản lý trợ giảng', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context))),
+                            ],
+                          ),
+                        ),
+                      if (isOwner)
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: const Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 18, color: Color(0xFFDC2626)),
+                              SizedBox(width: 10),
+                              Text('Xóa học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFDC2626))),
+                            ],
+                          ),
+                        ),
+                    ];
+                  },
                   onSelected: (val) {
                     if (val == 'edit') {
                       _showCreateOrEditSubjectDialog(
@@ -586,6 +668,8 @@ class _QuizBankPageState extends State<QuizBankPage> {
                         initialCode: code,
                         initialDescription: description,
                       );
+                    } else if (val == 'assistants') {
+                      _showManageSubjectAssistantsDialog(subjectId, name, code);
                     } else if (val == 'delete') {
                       _confirmDeleteSubject(subjectId, name);
                     }
@@ -675,60 +759,62 @@ class _QuizBankPageState extends State<QuizBankPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // NÚT TRỞ LẠI TO VÀ RÕ RÀNG
-        InkWell(
-          onTap: () {
-            setState(() {
-              _selectedSubjectId = null;
-              _selectedSubjectName = null;
-              _selectedSubjectCode = null;
-            });
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.arrow_back_rounded, size: 20, color: AppConstants.brand(context)),
-                const SizedBox(width: 8),
-                Text(
-                  'Quay lại Danh sách học phần',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppConstants.brand(context),
-                  ),
-                ),
-                if (_selectedSubjectCode != null && _selectedSubjectCode!.isNotEmpty) ...[
+        if (!widget.isAssistant) ...[
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedSubjectId = null;
+                _selectedSubjectName = null;
+                _selectedSubjectCode = null;
+              });
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? AppConstants.surfHigh(context) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppConstants.brand(context).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back_rounded, size: 20, color: AppConstants.brand(context)),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppConstants.brand(context).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+                  Text(
+                    'Quay lại Danh sách học phần',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.brand(context),
                     ),
-                    child: Text(
-                      _selectedSubjectCode!,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppConstants.brand(context),
+                  ),
+                  if (_selectedSubjectCode != null && _selectedSubjectCode!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppConstants.brand(context).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _selectedSubjectCode!,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.brand(context),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
+        ],
         Row(
           children: [
             Container(
@@ -1009,9 +1095,6 @@ class _QuizBankPageState extends State<QuizBankPage> {
   void _showSelectBankForSubjectDialog() {
     final searchCtrl = TextEditingController();
     String searchQuery = '';
-    bool showOnlyCurrentSubject = _selectedSubjectId != null &&
-        _selectedSubjectId != '_all' &&
-        _selectedSubjectId != '_uncategorized';
 
     showDialog(
       context: context,
@@ -1020,7 +1103,12 @@ class _QuizBankPageState extends State<QuizBankPage> {
           final isDark = AppConstants.isDarkMode(context);
 
           Stream<QuerySnapshot> stream;
-          if (showOnlyCurrentSubject) {
+          if (_selectedSubjectId == '_uncategorized') {
+            stream = FirebaseFirestore.instance
+                .collection('quiz_banks')
+                .orderBy('createdAt', descending: true)
+                .snapshots();
+          } else if (_selectedSubjectId != null && _selectedSubjectId != '_all') {
             stream = FirebaseFirestore.instance
                 .collection('quiz_banks')
                 .where('courseSubjectId', isEqualTo: _selectedSubjectId)
@@ -1084,7 +1172,9 @@ class _QuizBankPageState extends State<QuizBankPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Tạo đề thi mới cho học phần ${_selectedSubjectName ?? "Chung"}',
+                                    _selectedSubjectName != null
+                                        ? 'Tạo đề thi mới từ ngân hàng của học phần $_selectedSubjectName'
+                                        : 'Tạo đề thi mới từ ngân hàng câu hỏi',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 13,
@@ -1101,57 +1191,29 @@ class _QuizBankPageState extends State<QuizBankPage> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: AppConstants.surfLow(context),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppConstants.border(context)),
-                                ),
-                                child: TextField(
-                                  controller: searchCtrl,
-                                  onChanged: (val) {
-                                    setDlgState(() {
-                                      searchQuery = val.trim().toLowerCase();
-                                    });
-                                  },
-                                  style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
-                                  decoration: InputDecoration(
-                                    hintText: 'Tìm kiếm theo tên ngân hàng...',
-                                    hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
-                                    prefixIcon: Icon(Icons.search, color: AppConstants.txtMuted(context), size: 20),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                  ),
-                                ),
-                              ),
+                        Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppConstants.surfLow(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppConstants.border(context)),
+                          ),
+                          child: TextField(
+                            controller: searchCtrl,
+                            onChanged: (val) {
+                              setDlgState(() {
+                                searchQuery = val.trim().toLowerCase();
+                              });
+                            },
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txt(context)),
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm theo tên ngân hàng...',
+                              hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                              prefixIcon: Icon(Icons.search, color: AppConstants.txtMuted(context), size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
-                            if (_selectedSubjectId != null &&
-                                _selectedSubjectId != '_all' &&
-                                _selectedSubjectId != '_uncategorized') ...[
-                              const SizedBox(width: 12),
-                              FilterChip(
-                                label: Text(
-                                  showOnlyCurrentSubject ? 'Học phần này' : 'Tất cả ngân hàng',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: showOnlyCurrentSubject ? const Color(0xFF7C3AED) : AppConstants.txt(context),
-                                  ),
-                                ),
-                                selected: showOnlyCurrentSubject,
-                                onSelected: (val) {
-                                  setDlgState(() => showOnlyCurrentSubject = val);
-                                },
-                                selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -1172,6 +1234,22 @@ class _QuizBankPageState extends State<QuizBankPage> {
 
                         var banks = snapshot.data?.docs ?? [];
 
+                        // Lọc ngân hàng chưa phân loại nếu chọn _uncategorized
+                        if (_selectedSubjectId == '_uncategorized') {
+                          banks = banks.where((d) {
+                            final data = d.data() as Map<String, dynamic>;
+                            final subId = data['courseSubjectId'];
+                            return subId == null || subId.toString().isEmpty;
+                          }).toList();
+                        }
+
+                        // LỌC BẮT BUỘC: CHỈ LẤY CÁC NGÂN HÀNG ĐANG MỞ (KHÔNG BỊ ĐÓNG / LƯU TRỮ)
+                        banks = banks.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final status = data['status'] ?? 'available';
+                          return status == 'available';
+                        }).toList();
+
                         if (searchQuery.isNotEmpty) {
                           banks = banks.where((doc) {
                             final data = doc.data() as Map<String, dynamic>;
@@ -1188,24 +1266,28 @@ class _QuizBankPageState extends State<QuizBankPage> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.folder_open_rounded, size: 48, color: AppConstants.txtMuted(context)),
+                                  Icon(Icons.inventory_2_outlined, size: 48, color: AppConstants.txtMuted(context)),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'Không tìm thấy ngân hàng câu hỏi nào',
+                                    'Không có ngân hàng câu hỏi nào đang mở trong học phần này',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                       color: AppConstants.txtMuted(context),
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  if (showOnlyCurrentSubject) ...[
-                                    const SizedBox(height: 8),
-                                    TextButton(
-                                      onPressed: () => setDlgState(() => showOnlyCurrentSubject = false),
-                                      child: const Text('Xem tất cả ngân hàng câu hỏi'),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Các ngân hàng đã đóng hoặc thuộc học phần khác sẽ không xuất hiện tại đây.',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12.5,
+                                      color: AppConstants.txtMuted(context),
                                     ),
-                                  ],
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ],
                               ),
                             ),
@@ -1679,16 +1761,17 @@ class _QuizBankPageState extends State<QuizBankPage> {
                         ],
                       ),
                     ),
-                    PopupMenuItem(
-                      value: 'change_subject',
-                      child: const Row(
-                        children: [
-                          Icon(Icons.drive_file_move_outlined, color: Color(0xFF0284C7), size: 18),
-                          SizedBox(width: 10),
-                          Text('Chuyển Lớp học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
-                        ],
+                    if (!widget.isAssistant)
+                      PopupMenuItem(
+                        value: 'change_subject',
+                        child: const Row(
+                          children: [
+                            Icon(Icons.drive_file_move_outlined, color: Color(0xFF0284C7), size: 18),
+                            SizedBox(width: 10),
+                            Text('Chuyển Lớp học phần', style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
+                          ],
+                        ),
                       ),
-                    ),
                     PopupMenuItem(
                       value: 'delete',
                       child: const Row(
@@ -1989,6 +2072,7 @@ class _QuizBankPageState extends State<QuizBankPage> {
   // DIALOG CHUYỂN ĐỀ THI SANG HỌC PHẦN KHÁC
   // ============================================
   Future<void> _showChangeQuizSubjectDialog(String quizId, Map<String, dynamic> quizData) async {
+    if (widget.isAssistant) return;
     final uid = _auth.currentUser?.uid ?? '';
     final subjects = await CourseSubjectService.getSubjects(uid);
 
@@ -2213,5 +2297,338 @@ class _QuizBankPageState extends State<QuizBankPage> {
         );
       }
     }
+  }
+
+  void _showManageSubjectAssistantsDialog(String subjectId, String subjectName, String subjectCode) {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    String? errorMessage;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDlgState) {
+          final isDark = AppConstants.isDarkMode(context);
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Container(
+              width: 620,
+              constraints: const BoxConstraints(maxHeight: 700),
+              decoration: BoxDecoration(
+                color: AppConstants.surf(context),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppConstants.border(context)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surfLow(context),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      border: Border(bottom: BorderSide(color: AppConstants.border(context))),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.school, color: Color(0xFF7C3AED), size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quản lý Trợ giảng học phần',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppConstants.txt(context),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$subjectName ($subjectCode) • Toàn quyền như giảng viên',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  color: AppConstants.txtMuted(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Color(0xFF7C3AED), size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Trợ giảng sẽ có toàn quyền xem, thêm, sửa bài thi, ngân hàng câu hỏi và quản lý các lớp học trong học phần này.',
+                                    style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppConstants.txt(context), height: 1.4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Thêm trợ giảng mới',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppConstants.txt(context)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: emailCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Email hoặc Mã sinh viên (9 số)',
+                              hintText: 'VD: 102220001@sv.dut.udn.vn hoặc 102220001',
+                              prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: nameCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Họ và tên sinh viên',
+                              hintText: 'VD: Nguyễn Văn A',
+                              prefixIcon: const Icon(Icons.person_outline, size: 20),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                          if (errorMessage != null) ...[
+                            const SizedBox(height: 10),
+                            Text(errorMessage!, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.red)),
+                          ],
+                          const SizedBox(height: 14),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.icon(
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () async {
+                                      final email = emailCtrl.text.trim();
+                                      final name = nameCtrl.text.trim();
+                                      if (email.isEmpty || name.isEmpty) {
+                                        setDlgState(() => errorMessage = 'Vui lòng nhập đầy đủ Email/MSSV và Họ tên');
+                                        return;
+                                      }
+                                      setDlgState(() {
+                                        isSubmitting = true;
+                                        errorMessage = null;
+                                      });
+                                      try {
+                                        String studentId = email;
+                                        final match = RegExp(r'\d{9}').firstMatch(email);
+                                        if (match != null) {
+                                          studentId = match.group(0)!;
+                                        }
+                                        await CourseSubjectService.addAssistantToSubject(
+                                          subjectId: subjectId,
+                                          studentId: studentId,
+                                          studentName: name,
+                                          studentEmail: email,
+                                        );
+                                        emailCtrl.clear();
+                                        nameCtrl.clear();
+                                        setDlgState(() => isSubmitting = false);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Đã thêm trợ giảng $name vào học phần'),
+                                              backgroundColor: const Color(0xFF16A34A),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setDlgState(() {
+                                          isSubmitting = false;
+                                          errorMessage = 'Lỗi: $e';
+                                        });
+                                      }
+                                    },
+                              icon: isSubmitting
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.person_add_alt_1, size: 16),
+                              label: const Text('Gán quyền Trợ giảng'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C3AED),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Divider(color: AppConstants.border(context)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Danh sách trợ giảng hiện tại',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppConstants.txt(context)),
+                          ),
+                          const SizedBox(height: 12),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: CourseSubjectService.getSubjectAssistantsStream(subjectId),
+                            builder: (context, snap) {
+                              if (snap.connectionState == ConnectionState.waiting) {
+                                return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+                              }
+                              final docs = snap.data?.docs ?? [];
+                              if (docs.isEmpty) {
+                                return Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: AppConstants.surfLow(context),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppConstants.border(context)),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Học phần này chưa có trợ giảng nào.',
+                                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: docs.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final doc = docs[index];
+                                  final aData = doc.data() as Map<String, dynamic>;
+                                  final aName = aData['name'] ?? 'Trợ giảng';
+                                  final aEmail = aData['email'] ?? '';
+                                  final aStudentId = aData['studentId'] ?? doc.id;
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppConstants.surfLow(context),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: AppConstants.border(context)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                          child: Text(
+                                            aName.isNotEmpty ? aName[0].toUpperCase() : 'T',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                aName,
+                                                style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, fontWeight: FontWeight.w600, color: AppConstants.txt(context)),
+                                              ),
+                                              Text(
+                                                '$aEmail • MSSV: $aStudentId',
+                                                style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppConstants.txtMuted(context)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                          tooltip: 'Gỡ quyền trợ giảng',
+                                          onPressed: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('Xác nhận gỡ trợ giảng'),
+                                                content: Text('Bạn có chắc muốn gỡ quyền trợ giảng của "$aName" khỏi học phần này không?'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                                  FilledButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                                    child: const Text('Gỡ quyền'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirm == true) {
+                                              await CourseSubjectService.removeAssistantFromSubject(
+                                                subjectId: subjectId,
+                                                studentId: aStudentId,
+                                                studentEmail: aEmail,
+                                              );
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Đã gỡ quyền trợ giảng của $aName')),
+                                                );
+                                              }
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }

@@ -11,6 +11,7 @@ import 'class_results_page.dart';
 import 'teacher_attendance_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/course_subject_service.dart';
+import '../../services/user_service.dart';
 import '../../services/quiz_schedule_service.dart';
 import '../../models/quiz_schedule_model.dart';
 import '../../services/firebase_service.dart';
@@ -21,6 +22,9 @@ class ClassDetailPage extends StatefulWidget {
   final String className;
   final bool isAssistant;
   final VoidCallback? onBack;
+  final String? courseSubjectId;
+  final String? courseSubjectName;
+  final String? courseSubjectCode;
 
   const ClassDetailPage({
     super.key,
@@ -28,6 +32,9 @@ class ClassDetailPage extends StatefulWidget {
     required this.className,
     this.isAssistant = false,
     this.onBack,
+    this.courseSubjectId,
+    this.courseSubjectName,
+    this.courseSubjectCode,
   });
 
   @override
@@ -36,6 +43,7 @@ class ClassDetailPage extends StatefulWidget {
 
 class _ClassDetailPageState extends State<ClassDetailPage>
     with SingleTickerProviderStateMixin {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   late TabController _tabController;
   final _studentEmailController = TextEditingController();
   final _studentNameController = TextEditingController();
@@ -46,19 +54,26 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   double _classAverageScore = 0.0;
   bool _isLoadingStats = true;
 
+  String? _classSubjectId;
+  String? _classSubjectName;
+  String? _classSubjectCode;
+
   final _studentSearchController = TextEditingController();
   late Stream<QuerySnapshot> _studentsStream;
-  late Stream<QuerySnapshot> _assistantsStream;
 
   @override
   void initState() {
     super.initState();
+    _classSubjectId = widget.courseSubjectId;
+    _classSubjectName = widget.courseSubjectName;
+    _classSubjectCode = widget.courseSubjectCode;
+    _loadClassSubjectInfo();
+
     _studentsStream = FirebaseFirestore.instance
         .collection('classes')
         .doc(widget.classId)
         .collection('students')
         .snapshots();
-    _assistantsStream = FirebaseService.getClassAssistants(widget.classId);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
@@ -66,6 +81,20 @@ class _ClassDetailPageState extends State<ClassDetailPage>
       }
     });
     _fetchClassStats();
+  }
+
+  Future<void> _loadClassSubjectInfo() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('classes').doc(widget.classId).get();
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _classSubjectId = data['courseSubjectId']?.toString() ?? _classSubjectId;
+          _classSubjectName = data['courseSubjectName']?.toString() ?? _classSubjectName;
+          _classSubjectCode = data['courseSubjectCode']?.toString() ?? _classSubjectCode;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchClassStats() async {
@@ -448,22 +477,6 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                   const SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      if (!widget.isAssistant) ...[
-                                        Expanded(
-                                          child: OutlinedButton.icon(
-                                            onPressed: _showManageAssistantsDialog,
-                                            icon: Icon(Icons.school_outlined, size: 18, color: AppConstants.brand(context)),
-                                            label: const Text('Trợ giảng', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppConstants.brand(context),
-                                              side: BorderSide(color: AppConstants.brand(context)),
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
                                       Expanded(
                                         child: FilledButton.icon(
                                           onPressed: _showAddStudentOptionsDialog,
@@ -566,19 +579,6 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                                     ),
                                     const SizedBox(width: 12),
                                     if (_tabController.index == 0) ...[
-                                      if (!widget.isAssistant) ...[
-                                        OutlinedButton.icon(
-                                          onPressed: _showManageAssistantsDialog,
-                                          icon: Icon(Icons.school_outlined, color: AppConstants.brand(context), size: 18),
-                                          label: Text('Trợ giảng', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppConstants.brand(context))),
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(color: AppConstants.brand(context), width: 1.5),
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                      ],
                                       FilledButton.icon(
                                         onPressed: _showAddStudentOptionsDialog,
                                         icon: const Icon(Icons.person_add),
@@ -756,9 +756,6 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               ),
             const SizedBox(height: 32),
 
-            // Assistants Section
-            _buildAssistantsSection(isMobile),
-            const SizedBox(height: 32),
 
             // Students Table Card
             Container(
@@ -1308,7 +1305,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   void _showAddStudentOptionsDialog() {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
@@ -1486,7 +1483,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(color: AppConstants.border(context), width: 1.5),
@@ -1867,6 +1864,10 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                       ),
                     ),
                   ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: AppConstants.txtMuted(context)),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
                 ],
               ),
               const SizedBox(height: 32),
@@ -2075,7 +2076,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(color: AppConstants.border(context), width: 1.5),
@@ -2336,7 +2337,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
@@ -2491,9 +2492,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   }
 
   void _showSelectQuestionBankDialog() {
-    String? selectedSubjectId;
-    String? selectedSubjectName;
-    String? selectedSubjectCode;
+    String? selectedSubjectId = widget.isAssistant && _classSubjectId != null ? _classSubjectId : null;
+    String? selectedSubjectName = widget.isAssistant && _classSubjectId != null ? _classSubjectName : null;
+    String? selectedSubjectCode = widget.isAssistant && _classSubjectId != null ? _classSubjectCode : null;
     final searchCtrl = TextEditingController();
     String searchQuery = '';
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -2537,7 +2538,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                     child: Row(
                       children: [
-                        if (selectedSubjectId != null) ...[
+                        if (selectedSubjectId != null && !widget.isAssistant) ...[
                           IconButton(
                             icon: const Icon(Icons.arrow_back_rounded),
                             tooltip: 'Quay lại chọn học phần khác',
@@ -2645,8 +2646,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     String teacherId,
     Function(String id, String name, String code) onSelectSubject,
   ) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: CourseSubjectService.getSubjectsStream(teacherId),
+    final email = _auth.currentUser?.email;
+    final studentId = UserService.extractStudentId(email);
+
+    return StreamBuilder<List<QueryDocumentSnapshot>>(
+      stream: CourseSubjectService.getSubjectsStream(
+        teacherId,
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
@@ -2656,40 +2664,35 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           );
         }
 
-        final subjects = snapshot.data?.docs ?? [];
+        var subjects = snapshot.data ?? [];
+        if (_classSubjectId != null && _classSubjectId!.isNotEmpty) {
+          subjects = subjects.where((doc) => doc.id == _classSubjectId).toList();
+        } else {
+          subjects = [];
+        }
 
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // TÙY CHỌN 1: NGÂN HÀNG CHUNG / CHƯA PHÂN LOẠI
-            _buildSubjectRowItem(
-              context,
-              title: 'Ngân hàng chung / Chưa phân loại',
-              code: 'CHUNG',
-              description: 'Các ngân hàng câu hỏi chưa được xếp vào học phần nào',
-              color: Colors.blueGrey,
-              icon: Icons.folder_open_rounded,
-              onTap: () => onSelectSubject('_uncategorized', 'Ngân hàng chung', 'CHUNG'),
-            ),
-            const SizedBox(height: 10),
-
-            // TÙY CHỌN 2: TẤT CẢ NGÂN HÀNG CÂU HỎI
-            _buildSubjectRowItem(
-              context,
-              title: 'Xem tất cả ngân hàng câu hỏi',
-              code: 'TẤT CẢ',
-              description: 'Hiển thị toàn bộ các ngân hàng câu hỏi của bạn',
-              color: const Color(0xFF7C3AED),
-              icon: Icons.storage_rounded,
-              onTap: () => onSelectSubject('_all', 'Tất cả ngân hàng', 'ALL'),
-            ),
-            const SizedBox(height: 16),
+            // TÙY CHỌN: NGÂN HÀNG CHUNG / CHƯA PHÂN LOẠI
+            if (!widget.isAssistant) ...[
+              _buildSubjectRowItem(
+                context,
+                title: 'Ngân hàng chung / Chưa phân loại',
+                code: 'CHUNG',
+                description: 'Các ngân hàng câu hỏi chưa được xếp vào học phần nào',
+                color: Colors.blueGrey,
+                icon: Icons.folder_open_rounded,
+                onTap: () => onSelectSubject('_uncategorized', 'Ngân hàng chung', 'CHUNG'),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             if (subjects.isNotEmpty) ...[
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 10),
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
                 child: Text(
-                  'DANH SÁCH LỚP HỌC PHẦN CỦA BẠN',
+                  'HỌC PHẦN CỦA LỚP HIỆN TẠI',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -2726,6 +2729,32 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   ),
                 );
               }),
+            ] else if (_classSubjectId != null && _classSubjectId!.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text(
+                  'HỌC PHẦN CỦA LỚP HIỆN TẠI',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: AppConstants.txtMuted(context),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildSubjectRowItem(
+                  context,
+                  title: _classSubjectName ?? 'Học phần',
+                  code: _classSubjectCode ?? '',
+                  description: 'Nhấn để xem ngân hàng câu hỏi',
+                  color: const Color(0xFF7C3AED),
+                  icon: Icons.collections_bookmark_rounded,
+                  onTap: () => onSelectSubject(_classSubjectId!, _classSubjectName ?? '', _classSubjectCode ?? ''),
+                ),
+              ),
             ],
           ],
         );
@@ -2745,12 +2774,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     Function(String) onSearchChanged,
   ) {
     Stream<QuerySnapshot> stream;
-    if (subjectId == '_all') {
-      stream = FirebaseFirestore.instance
-          .collection('quiz_banks')
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-    } else if (subjectId == '_uncategorized') {
+    if (subjectId == '_uncategorized') {
       stream = FirebaseFirestore.instance
           .collection('quiz_banks')
           .orderBy('createdAt', descending: true)
@@ -2804,12 +2828,27 @@ class _ClassDetailPageState extends State<ClassDetailPage>
 
               var banks = snapshot.data?.docs ?? [];
 
-              // Lọc chưa phân loại nếu chọn _uncategorized
+              // Lọc ngân hàng chưa phân loại nếu chọn _uncategorized
               if (subjectId == '_uncategorized') {
                 banks = banks.where((d) {
                   final data = d.data() as Map<String, dynamic>;
                   final subId = data['courseSubjectId'];
                   return subId == null || subId.toString().isEmpty;
+                }).toList();
+              }
+
+              // LỌC BẮT BUỘC: CHỈ LẤY CÁC NGÂN HÀNG ĐANG MỞ (KHÔNG BỊ ĐÓNG / LƯU TRỮ)
+              banks = banks.where((d) {
+                final data = d.data() as Map<String, dynamic>;
+                final status = data['status'] ?? 'available';
+                return status == 'available';
+              }).toList();
+
+              // Nếu là trợ giảng: Bắt buộc chỉ lấy ngân hàng thuộc học phần của lớp này
+              if (widget.isAssistant) {
+                banks = banks.where((d) {
+                  final data = d.data() as Map<String, dynamic>;
+                  return data['courseSubjectId'] == _classSubjectId;
                 }).toList();
               }
 
@@ -2989,9 +3028,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
   }
 
   void _showAssignQuizDialog() {
-    String? selectedSubjectId;
-    String? selectedSubjectName;
-    String? selectedSubjectCode;
+    String? selectedSubjectId = widget.isAssistant && _classSubjectId != null ? _classSubjectId : null;
+    String? selectedSubjectName = widget.isAssistant && _classSubjectId != null ? _classSubjectName : null;
+    String? selectedSubjectCode = widget.isAssistant && _classSubjectId != null ? _classSubjectCode : null;
     String quizSearch = '';
     final searchCtrl = TextEditingController();
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -3036,7 +3075,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                     ),
                     child: Row(
                       children: [
-                        if (selectedSubjectId != null) ...[
+                        if (selectedSubjectId != null && !widget.isAssistant) ...[
                           IconButton(
                             icon: const Icon(Icons.arrow_back_rounded),
                             tooltip: 'Quay lại chọn học phần khác',
@@ -3143,8 +3182,15 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     String teacherId,
     Function(String id, String name, String code) onSelectSubject,
   ) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: CourseSubjectService.getSubjectsStream(teacherId),
+    final email = _auth.currentUser?.email;
+    final studentId = UserService.extractStudentId(email);
+
+    return StreamBuilder<List<QueryDocumentSnapshot>>(
+      stream: CourseSubjectService.getSubjectsStream(
+        teacherId,
+        studentId: studentId.isNotEmpty ? studentId : null,
+        email: email,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
@@ -3154,40 +3200,35 @@ class _ClassDetailPageState extends State<ClassDetailPage>
           );
         }
 
-        final subjects = snapshot.data?.docs ?? [];
+        var subjects = snapshot.data ?? [];
+        if (_classSubjectId != null && _classSubjectId!.isNotEmpty) {
+          subjects = subjects.where((doc) => doc.id == _classSubjectId).toList();
+        } else {
+          subjects = [];
+        }
 
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // TÙY CHỌN 1: ĐỀ THI CHUNG / CHƯA PHÂN LOẠI
-            _buildSubjectRowItem(
-              context,
-              title: 'Đề thi chung / Chưa phân loại',
-              code: 'CHUNG',
-              description: 'Các bài thi chưa được xếp vào học phần nào',
-              color: Colors.blueGrey,
-              icon: Icons.folder_open_rounded,
-              onTap: () => onSelectSubject('_uncategorized', 'Đề thi chung', 'CHUNG'),
-            ),
-            const SizedBox(height: 10),
-
-            // TÙY CHỌN 2: TẤT CẢ BÀI THI
-            _buildSubjectRowItem(
-              context,
-              title: 'Xem tất cả bài thi khả dụng',
-              code: 'TẤT CẢ',
-              description: 'Hiển thị toàn bộ các bài thi của bạn',
-              color: AppConstants.brand(context),
-              icon: Icons.list_alt_rounded,
-              onTap: () => onSelectSubject('_all', 'Tất cả bài thi', 'ALL'),
-            ),
-            const SizedBox(height: 16),
+            // TÙY CHỌN: ĐỀ THI CHUNG / CHƯA PHÂN LOẠI
+            if (!widget.isAssistant) ...[
+              _buildSubjectRowItem(
+                context,
+                title: 'Đề thi chung / Chưa phân loại',
+                code: 'CHUNG',
+                description: 'Các bài thi chưa được xếp vào học phần nào',
+                color: Colors.blueGrey,
+                icon: Icons.folder_open_rounded,
+                onTap: () => onSelectSubject('_uncategorized', 'Đề thi chung', 'CHUNG'),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             if (subjects.isNotEmpty) ...[
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 10),
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
                 child: Text(
-                  'DANH SÁCH LỚP HỌC PHẦN CỦA BẠN',
+                  'HỌC PHẦN CỦA LỚP HIỆN TẠI',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -3224,6 +3265,32 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                   ),
                 );
               }),
+            ] else if (_classSubjectId != null && _classSubjectId!.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text(
+                  'HỌC PHẦN CỦA LỚP HIỆN TẠI',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: AppConstants.txtMuted(context),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildSubjectRowItem(
+                  context,
+                  title: _classSubjectName ?? 'Học phần',
+                  code: _classSubjectCode ?? '',
+                  description: 'Nhấn để xem danh sách bài thi',
+                  color: AppConstants.brand(context),
+                  icon: Icons.collections_bookmark_rounded,
+                  onTap: () => onSelectSubject(_classSubjectId!, _classSubjectName ?? '', _classSubjectCode ?? ''),
+                ),
+              ),
             ],
           ],
         );
@@ -3335,12 +3402,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     Function(String) onSearchChanged,
   ) {
     Stream<QuerySnapshot> stream;
-    if (subjectId == '_all') {
-      stream = FirebaseFirestore.instance
-          .collection('quiz')
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-    } else if (subjectId == '_uncategorized') {
+    if (subjectId == '_uncategorized') {
       stream = FirebaseFirestore.instance
           .collection('quiz')
           .orderBy('createdAt', descending: true)
@@ -3394,7 +3456,7 @@ class _ClassDetailPageState extends State<ClassDetailPage>
 
               var quizzes = snapshot.data?.docs ?? [];
 
-              // Lọc chưa phân loại nếu chọn _uncategorized
+              // Lọc đề thi chưa phân loại nếu chọn _uncategorized
               if (subjectId == '_uncategorized') {
                 quizzes = quizzes.where((d) {
                   final data = d.data() as Map<String, dynamic>;
@@ -3409,6 +3471,14 @@ class _ClassDetailPageState extends State<ClassDetailPage>
                 final status = data['status'] ?? 'available';
                 return status == 'available';
               }).toList();
+
+              // Nếu là trợ giảng: Bắt buộc chỉ lấy đề thi thuộc học phần của lớp này
+              if (widget.isAssistant) {
+                quizzes = quizzes.where((d) {
+                  final data = d.data() as Map<String, dynamic>;
+                  return data['courseSubjectId'] == _classSubjectId;
+                }).toList();
+              }
 
               // Lọc tìm kiếm
               if (searchQuery.isNotEmpty) {
@@ -3847,6 +3917,23 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     Map<String, dynamic> quizData,
   ) async {
     try {
+      final quizStatus = quizData['status'] ?? 'available';
+      if (quizStatus == 'archived') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('⚠️ Đề thi này đã đóng (lưu trữ), không thể gán vào lớp học!'),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final existingQuiz = await FirebaseFirestore.instance
           .collection('classes')
           .doc(widget.classId)
@@ -4084,606 +4171,9 @@ class _ClassDetailPageState extends State<ClassDetailPage>
     }
   }
 
-  // ================= TEACHING ASSISTANTS SECTION & DIALOGS =================
 
-  Widget _buildAssistantsSection(bool isMobile) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _assistantsStream,
-      builder: (context, snapshot) {
-        final assistants = snapshot.data?.docs ?? [];
 
-        return Container(
-          decoration: BoxDecoration(
-            color: AppConstants.surf(context),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppConstants.border(context)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppConstants.surfLow(context),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  border: Border(bottom: BorderSide(color: AppConstants.border(context))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.school, color: Color(0xFF7C3AED), size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Trợ giảng lớp học',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppConstants.txt(context),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${assistants.length}',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF7C3AED),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (!widget.isAssistant)
-                      FilledButton.icon(
-                        onPressed: _showManageAssistantsDialog,
-                        icon: const Icon(Icons.person_add_alt_1, size: 16),
-                        label: const Text('Thêm trợ giảng', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF7C3AED),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
 
-              // Content
-              Padding(
-                padding: EdgeInsets.all(isMobile ? 16 : 24),
-                child: assistants.isEmpty
-                    ? Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 18, color: AppConstants.txtMuted(context)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Lớp học chưa có trợ giảng nào được gán. Trợ giảng có thể giúp tạo đề, quản lý sinh viên và thống kê điểm.',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                                color: AppConstants.txtMuted(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        children: assistants.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final name = data['name'] ?? 'Trợ giảng';
-                          final email = data['email'] ?? '';
-                          final studentId = data['studentId'] ?? '';
 
-                          return Container(
-                            constraints: const BoxConstraints(minWidth: 240, maxWidth: 340),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppConstants.surfLow(context),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppConstants.border(context)),
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: const Color(0xFF7C3AED),
-                                  child: Text(
-                                    name.isNotEmpty ? name[0].toUpperCase() : 'T',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: TextStyle(
-                                          fontFamily: 'Inter',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppConstants.txt(context),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'MSSV: $studentId',
-                                        style: TextStyle(
-                                          fontFamily: 'Inter',
-                                          fontSize: 12,
-                                          color: AppConstants.txtMuted(context),
-                                        ),
-                                      ),
-                                      if (email.isNotEmpty)
-                                        Text(
-                                          email,
-                                          style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            fontSize: 11,
-                                            color: AppConstants.txtMuted(context),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                if (!widget.isAssistant)
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
-                                    tooltip: 'Gỡ quyền trợ giảng',
-                                    onPressed: () => _confirmRemoveAssistant(studentId, name, email),
-                                  ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
-  void _showManageAssistantsDialog() {
-    final emailCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
-    String? errorMessage;
-    bool isSubmitting = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Container(
-                width: 600,
-                constraints: const BoxConstraints(maxHeight: 700),
-                decoration: BoxDecoration(
-                  color: AppConstants.surf(context),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppConstants.border(context)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                      decoration: BoxDecoration(
-                        color: AppConstants.surfLow(context),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(20),
-                        ),
-                        border: Border(bottom: BorderSide(color: AppConstants.border(context))),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.school, color: Color(0xFF7C3AED), size: 24),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Gán Trợ giảng cho lớp',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppConstants.txt(context),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Trợ giảng sẽ có quyền hỗ trợ đề thi, quản lý sinh viên và xem điểm',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12,
-                                    color: AppConstants.txtMuted(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Body
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Gợi ý chọn từ sinh viên trong lớp
-                            StreamBuilder<QuerySnapshot>(
-                              stream: _studentsStream,
-                              builder: (context, studentSnap) {
-                                final studentDocs = studentSnap.data?.docs ?? [];
-                                if (studentDocs.isEmpty) return const SizedBox.shrink();
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Chọn nhanh từ học sinh trong lớp:',
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppConstants.txt(context),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                                      decoration: BoxDecoration(
-                                        color: AppConstants.surfLow(context),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: AppConstants.border(context)),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          hint: Text(
-                                            '-- Chọn sinh viên làm trợ giảng --',
-                                            style: TextStyle(
-                                              fontFamily: 'Inter',
-                                              fontSize: 13,
-                                              color: AppConstants.txtMuted(context),
-                                            ),
-                                          ),
-                                          items: studentDocs.map((doc) {
-                                            final sData = doc.data() as Map<String, dynamic>;
-                                            final sName = sData['name'] ?? '';
-                                            final sId = sData['studentId'] ?? '';
-                                            return DropdownMenuItem<String>(
-                                              value: doc.id,
-                                              child: Text(
-                                                '$sName ($sId)',
-                                                style: TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 13,
-                                                  color: AppConstants.txt(context),
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (selectedDocId) {
-                                            if (selectedDocId == null) return;
-                                            final selectedDoc = studentDocs.firstWhere((d) => d.id == selectedDocId);
-                                            final sData = selectedDoc.data() as Map<String, dynamic>;
-                                            setStateDialog(() {
-                                              nameCtrl.text = sData['name'] ?? '';
-                                              emailCtrl.text = sData['email'] ?? (sData['studentId'] ?? '');
-                                              errorMessage = null;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        Expanded(child: Divider(color: AppConstants.border(context))),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          child: Text(
-                                            'hoặc nhập thủ công',
-                                            style: TextStyle(
-                                              fontFamily: 'Inter',
-                                              fontSize: 11,
-                                              color: AppConstants.txtMuted(context),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(child: Divider(color: AppConstants.border(context))),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-                                );
-                              },
-                            ),
-
-                            // Input Email/MSSV
-                            Text(
-                              'Email hoặc MSSV sinh viên *',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppConstants.txt(context),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: emailCtrl,
-                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
-                              decoration: InputDecoration(
-                                hintText: 'Ví dụ: 102210123@sv1.dut.udn.vn hoặc 102210123',
-                                hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
-                                prefixIcon: Icon(Icons.email_outlined, size: 20, color: AppConstants.txtMuted(context)),
-                                filled: true,
-                                fillColor: AppConstants.surfLow(context),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5)),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Input Họ và tên
-                            Text(
-                              'Họ và tên Trợ giảng *',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppConstants.txt(context),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: nameCtrl,
-                              style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppConstants.txt(context)),
-                              decoration: InputDecoration(
-                                hintText: 'Ví dụ: Nguyễn Văn A',
-                                hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppConstants.txtMuted(context)),
-                                prefixIcon: Icon(Icons.person_outline, size: 20, color: AppConstants.txtMuted(context)),
-                                filled: true,
-                                fillColor: AppConstants.surfLow(context),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppConstants.border(context))),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5)),
-                              ),
-                            ),
-
-                            if (errorMessage != null) ...[
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        errorMessage!,
-                                        style: const TextStyle(fontFamily: 'Inter', color: Colors.red, fontSize: 12),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: isSubmitting
-                                    ? null
-                                    : () async {
-                                        final inputEmail = emailCtrl.text.trim();
-                                        final inputName = nameCtrl.text.trim();
-
-                                        if (inputEmail.isEmpty) {
-                                          setStateDialog(() => errorMessage = 'Vui lòng nhập email hoặc MSSV');
-                                          return;
-                                        }
-                                        if (inputName.isEmpty) {
-                                          setStateDialog(() => errorMessage = 'Vui lòng nhập họ tên trợ giảng');
-                                          return;
-                                        }
-
-                                        String studentId = _extractStudentId(inputEmail);
-                                        if (studentId.isEmpty) {
-                                          final digits = inputEmail.replaceAll(RegExp(r'[^0-9]'), '');
-                                          if (digits.length >= 8) {
-                                            studentId = digits;
-                                          }
-                                        }
-
-                                        if (studentId.length < 8) {
-                                          setStateDialog(() => errorMessage = 'Email hoặc MSSV không hợp lệ (cần ít nhất 8-9 chữ số MSSV)');
-                                          return;
-                                        }
-
-                                        setStateDialog(() {
-                                          isSubmitting = true;
-                                          errorMessage = null;
-                                        });
-
-                                        try {
-                                          await FirebaseService.addAssistantToClass(
-                                            classId: widget.classId,
-                                            studentId: studentId,
-                                            name: inputName,
-                                            email: inputEmail.contains('@') ? inputEmail : '$studentId@sv1.dut.udn.vn',
-                                          );
-
-                                          if (context.mounted) {
-                                            Navigator.pop(context);
-                                            ScaffoldMessenger.of(this.context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('✅ Đã gán trợ giảng thành công: $inputName ($studentId)'),
-                                                backgroundColor: Colors.green.shade600,
-                                                behavior: SnackBarBehavior.floating,
-                                              ),
-                                            );
-                                          }
-                                        } catch (err) {
-                                          setStateDialog(() {
-                                            isSubmitting = false;
-                                            errorMessage = err.toString().replaceAll('Exception: ', '');
-                                          });
-                                        }
-                                      },
-                                icon: isSubmitting
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.check, size: 18),
-                                label: Text(
-                                  isSubmitting ? 'Đang lưu...' : 'Xác nhận gán Trợ giảng',
-                                  style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
-                                ),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF7C3AED),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _confirmRemoveAssistant(String studentId, String name, String email) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: AppConstants.surf(context),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.red),
-            const SizedBox(width: 8),
-            Text(
-              'Gỡ quyền Trợ giảng',
-              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: AppConstants.txt(context)),
-            ),
-          ],
-        ),
-        content: Text(
-          'Bạn có chắc chắn muốn gỡ quyền trợ giảng của sinh viên "$name" (MSSV: $studentId)?\nSinh viên này sẽ không còn quyền quản lý lớp học này nữa.',
-          style: TextStyle(fontFamily: 'Inter', color: AppConstants.txt(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Hủy', style: TextStyle(fontFamily: 'Inter', color: AppConstants.txtMuted(context))),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await FirebaseService.removeAssistantFromClass(
-                  classId: widget.classId,
-                  studentId: studentId,
-                  email: email,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Đã gỡ quyền trợ giảng của $name'),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Lỗi: $e'),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              }
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xác nhận gỡ', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
 }

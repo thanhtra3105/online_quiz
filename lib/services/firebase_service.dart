@@ -424,6 +424,33 @@ class FirebaseService {
           'assistantEmails': FieldValue.arrayUnion([normalizedEmail]),
       });
 
+      // Nếu lớp thuộc học phần, tự động cấp quyền trợ giảng cho học phần
+      try {
+        final classDoc = await _firestore.collection('classes').doc(classId).get();
+        final subjectId = classDoc.data()?['courseSubjectId'] as String?;
+        if (subjectId != null && subjectId.isNotEmpty) {
+          await _firestore
+              .collection('course_subjects')
+              .doc(subjectId)
+              .collection('assistants')
+              .doc(studentId)
+              .set({
+            'studentId': studentId,
+            'name': name,
+            'email': normalizedEmail,
+            'role': 'assistant',
+            'assignedAt': FieldValue.serverTimestamp(),
+          });
+
+          await _firestore.collection('course_subjects').doc(subjectId).update({
+            'assistantIds': FieldValue.arrayUnion([studentId]),
+            if (normalizedEmail.isNotEmpty)
+              'assistantEmails': FieldValue.arrayUnion([normalizedEmail]),
+            'managerIds': FieldValue.arrayUnion([studentId]),
+          });
+        }
+      } catch (_) {}
+
       print('✅ Teaching assistant added successfully');
     } catch (e) {
       _handleFirebaseError(e, 'addAssistantToClass');

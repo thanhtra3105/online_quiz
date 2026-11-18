@@ -2,11 +2,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firebase_service.dart';
+import '../../services/course_subject_service.dart';
 import '../../utils/constants.dart';
 import 'student_panel.dart';
 import '../auth/login_page.dart';
 import '../teacher/class_detail_page.dart';
+import '../teacher/teacher_panel.dart';
 import 'achievement_page.dart';
 import 'schedule_page.dart';
 import 'setting_page.dart';
@@ -25,13 +28,12 @@ class _ClassListPageState extends State<ClassListPage> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  Map<String, dynamic>? _selectedAssistantClass;
 
   List<Map<String, dynamic>> _studentClasses = [];
-  List<Map<String, dynamic>> _assistantClasses = [];
+  List<QueryDocumentSnapshot> _assistantSubjects = [];
   bool _isLoading = true;
   StreamSubscription<List<Map<String, dynamic>>>? _studentSub;
-  StreamSubscription<List<Map<String, dynamic>>>? _assistantSub;
+  StreamSubscription<List<QueryDocumentSnapshot>>? _assistantSubjectsSub;
 
   @override
   void initState() {
@@ -40,16 +42,17 @@ class _ClassListPageState extends State<ClassListPage> {
   }
 
   void _subscribeClasses() {
-    _assistantSub?.cancel();
     _studentSub?.cancel();
+    _assistantSubjectsSub?.cancel();
 
-    _assistantSub = FirebaseService.getAssistantClasses(
+    _assistantSubjectsSub = CourseSubjectService.getSubjectsStream(
       widget.studentId,
+      studentId: widget.studentId,
       email: _auth.currentUser?.email,
-    ).listen((classes) {
+    ).listen((subjects) {
       if (mounted) {
         setState(() {
-          _assistantClasses = classes;
+          _assistantSubjects = subjects;
           _isLoading = false;
         });
       }
@@ -71,7 +74,7 @@ class _ClassListPageState extends State<ClassListPage> {
 
   @override
   void dispose() {
-    _assistantSub?.cancel();
+    _assistantSubjectsSub?.cancel();
     _studentSub?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -174,7 +177,7 @@ class _ClassListPageState extends State<ClassListPage> {
               : _buildMobileLayout(context),
           bottomNavigationBar: isDesktop
               ? null
-              : (_selectedAssistantClass != null ? null : _buildBottomNav()),
+              : _buildBottomNav(),
         );
       },
     );
@@ -288,10 +291,9 @@ class _ClassListPageState extends State<ClassListPage> {
                   _buildNavItem(
                     icon: _selectedIndex == 0 ? Icons.school : Icons.school_outlined,
                     label: 'Lớp của tôi',
-                    isActive: _selectedIndex == 0 && _selectedAssistantClass == null,
+                    isActive: _selectedIndex == 0,
                     onTap: () => setState(() {
                       _selectedIndex = 0;
-                      _selectedAssistantClass = null;
                     }),
                   ),
                   _buildNavItem(
@@ -300,7 +302,6 @@ class _ClassListPageState extends State<ClassListPage> {
                     isActive: _selectedIndex == 1,
                     onTap: () => setState(() {
                       _selectedIndex = 1;
-                      _selectedAssistantClass = null;
                     }),
                   ),
                   _buildNavItem(
@@ -309,7 +310,6 @@ class _ClassListPageState extends State<ClassListPage> {
                     isActive: _selectedIndex == 2,
                     onTap: () => setState(() {
                       _selectedIndex = 2;
-                      _selectedAssistantClass = null;
                     }),
                   ),
                 ],
@@ -329,7 +329,6 @@ class _ClassListPageState extends State<ClassListPage> {
                   isActive: _selectedIndex == 3,
                   onTap: () => setState(() {
                     _selectedIndex = 3;
-                    _selectedAssistantClass = null;
                   }),
                 ),
                 _buildNavItem(
@@ -394,9 +393,6 @@ class _ClassListPageState extends State<ClassListPage> {
 
   // ===================== MOBILE =====================
   Widget _buildMobileLayout(BuildContext context) {
-    if (_selectedAssistantClass != null) {
-      return _buildMainContent(context, isDesktop: false);
-    }
     final user = _auth.currentUser;
     return Column(
       children: [
@@ -527,7 +523,6 @@ class _ClassListPageState extends State<ClassListPage> {
         child: InkWell(
           onTap: () => setState(() {
             _selectedIndex = index;
-            _selectedAssistantClass = null;
           }),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -565,14 +560,6 @@ class _ClassListPageState extends State<ClassListPage> {
   Widget _buildMainContent(BuildContext context, {required bool isDesktop}) {
     switch (_selectedIndex) {
       case 0:
-        if (_selectedAssistantClass != null) {
-          return ClassDetailPage(
-            classId: _selectedAssistantClass!['id'] as String,
-            className: _selectedAssistantClass!['name'] as String,
-            isAssistant: true,
-            onBack: () => setState(() => _selectedAssistantClass = null),
-          );
-        }
         return _buildClassGrid(context, isDesktop: isDesktop);
       case 1:
         return AchievementPage(
@@ -590,14 +577,6 @@ class _ClassListPageState extends State<ClassListPage> {
           showTopBar: isDesktop,
         );
       default:
-        if (_selectedAssistantClass != null) {
-          return ClassDetailPage(
-            classId: _selectedAssistantClass!['id'] as String,
-            className: _selectedAssistantClass!['name'] as String,
-            isAssistant: true,
-            onBack: () => setState(() => _selectedAssistantClass = null),
-          );
-        }
         return _buildClassGrid(context, isDesktop: isDesktop);
     }
   }
@@ -610,16 +589,19 @@ class _ClassListPageState extends State<ClassListPage> {
       );
     }
 
-    if (_assistantClasses.isEmpty && _studentClasses.isEmpty) {
+    if (_assistantSubjects.isEmpty && _studentClasses.isEmpty) {
       return _buildEmptyState(context);
     }
 
     final query = _searchQuery.toLowerCase().trim();
-    final filteredAssistantClasses = _assistantClasses.where((classData) {
+
+    final filteredAssistantSubjects = _assistantSubjects.where((subDoc) {
       if (query.isEmpty) return true;
-      final name = (classData['name'] ?? '').toString().toLowerCase();
-      final desc = (classData['description'] ?? '').toString().toLowerCase();
-      return name.contains(query) || desc.contains(query);
+      final data = subDoc.data() as Map<String, dynamic>;
+      final name = (data['name'] ?? '').toString().toLowerCase();
+      final code = (data['code'] ?? '').toString().toLowerCase();
+      final desc = (data['description'] ?? '').toString().toLowerCase();
+      return name.contains(query) || code.contains(query) || desc.contains(query);
     }).toList();
 
     final filteredStudentClasses = _studentClasses.where((classData) {
@@ -720,77 +702,98 @@ class _ClassListPageState extends State<ClassListPage> {
               ),
 
               // Nội dung danh sách lớp hoặc thông báo rỗng khi tìm kiếm
-              if (filteredAssistantClasses.isEmpty && filteredStudentClasses.isEmpty)
+              if (filteredAssistantSubjects.isEmpty && filteredStudentClasses.isEmpty)
                 _buildSearchEmptyState(context)
               else ...[
-                // SECTION 1: LỚP HỌC TRỢ GIẢNG (Nếu có)
-                if (filteredAssistantClasses.isNotEmpty) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED),
-                            borderRadius: BorderRadius.circular(8),
+                // SECTION 1: HỌC PHẦN PHỤ TRÁCH TRỢ GIẢNG (Nếu có)
+                if (filteredAssistantSubjects.isNotEmpty) ...[
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      final firstDoc = filteredAssistantSubjects.first;
+                      final fData = firstDoc.data() as Map<String, dynamic>;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TeacherPanel(
+                            isAssistant: true,
+                            initialIndex: 0,
+                            initialSubjectId: firstDoc.id,
+                            initialSubjectName: fData['name'] ?? 'Lớp học phần',
+                            initialSubjectCode: (fData['code'] ?? '').toString(),
                           ),
-                          child: const Icon(Icons.school, color: Colors.white, size: 20),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Lớp học phụ trách Trợ giảng',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppConstants.txt(context),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF7C3AED),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${filteredAssistantClasses.length}',
-                                      style: const TextStyle(
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Học phần phụ trách Trợ giảng (TA)',
+                                      style: TextStyle(
                                         fontFamily: 'Inter',
-                                        fontSize: 11,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                                        color: AppConstants.txt(context),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Bạn có quyền hỗ trợ tạo/sửa đề thi, thêm & quản lý sinh viên, xem thống kê điểm.',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12,
-                                  color: AppConstants.txtMuted(context),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '${filteredAssistantSubjects.length}',
+                                        style: const TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Bạn có toàn quyền: Quản lý lớp học, Tạo/sửa Đề thi & Ngân hàng câu hỏi trong học phần.',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    color: AppConstants.txtMuted(context),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppConstants.txtMuted(context)),
+                        ],
+                      ),
                     ),
                   ),
                   LayoutBuilder(
@@ -799,20 +802,17 @@ class _ClassListPageState extends State<ClassListPage> {
                       return Wrap(
                         spacing: 24,
                         runSpacing: 24,
-                        children: filteredAssistantClasses.asMap().entries.map((entry) {
-                          final i = entry.key;
-                          final classData = entry.value;
-                          final classId = classData['id'] as String;
+                        children: filteredAssistantSubjects.map((subDoc) {
+                          final data = subDoc.data() as Map<String, dynamic>;
+                          final subjectId = subDoc.id;
                           return SizedBox(
                             width: cols == 2
                                 ? (constraints.maxWidth - 24) / 2
                                 : constraints.maxWidth,
-                            child: _buildClassCard(
+                            child: _buildAssistantSubjectCard(
                               context,
-                              classId,
-                              classData,
-                              i,
-                              isAssistant: true,
+                              subjectId,
+                              data,
                             ),
                           );
                         }).toList(),
@@ -824,7 +824,7 @@ class _ClassListPageState extends State<ClassListPage> {
 
                 // SECTION 2: LỚP HỌC ĐANG THEO HỌC (Nếu có)
                 if (filteredStudentClasses.isNotEmpty) ...[
-                  if (filteredAssistantClasses.isNotEmpty) ...[
+                  if (filteredAssistantSubjects.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
@@ -874,6 +874,221 @@ class _ClassListPageState extends State<ClassListPage> {
     );
   }
 
+  Widget _buildAssistantSubjectCard(
+    BuildContext context,
+    String subjectId,
+    Map<String, dynamic> data,
+  ) {
+    final name = data['name'] ?? 'Lớp học phần';
+    final code = (data['code'] ?? '').toString();
+    final description = (data['description'] ?? 'Không có mô tả cho học phần này.').toString();
+
+    void openClassesTab() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TeacherPanel(
+            isAssistant: true,
+            initialIndex: 0,
+            initialSubjectId: subjectId,
+            initialSubjectName: name,
+            initialSubjectCode: code,
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        hoverColor: const Color(0xFF7C3AED).withValues(alpha: 0.04),
+        onTap: openClassesTab,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppConstants.surf(context),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
+                    ),
+                    child: Text(
+                      code.isNotEmpty ? code : 'HP',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.stars_rounded, size: 14, color: Color(0xFF7C3AED)),
+                        SizedBox(width: 4),
+                        Text(
+                          'Toàn quyền Trợ giảng',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                name,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppConstants.txt(context),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                description,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12.5,
+                  color: AppConstants.txtMuted(context),
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 18),
+              Divider(height: 1, color: AppConstants.border(context)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildSubjectActionButton(
+                    context: context,
+                    icon: Icons.groups_rounded,
+                    label: 'Lớp học',
+                    onTap: openClassesTab,
+                  ),
+                  _buildSubjectActionButton(
+                    context: context,
+                    icon: Icons.quiz_outlined,
+                    label: 'Bài thi',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TeacherPanel(
+                            isAssistant: true,
+                            initialIndex: 1,
+                            initialSubjectId: subjectId,
+                            initialSubjectName: name,
+                            initialSubjectCode: code,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSubjectActionButton(
+                    context: context,
+                    icon: Icons.storage_outlined,
+                    label: 'Ngân hàng',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TeacherPanel(
+                            isAssistant: true,
+                            initialIndex: 2,
+                            initialSubjectId: subjectId,
+                            initialSubjectName: name,
+                            initialSubjectCode: code,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubjectActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: const Color(0xFF7C3AED)),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF7C3AED),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildClassCard(
     BuildContext context,
     String classId,
@@ -916,12 +1131,19 @@ class _ClassListPageState extends State<ClassListPage> {
               : AppConstants.surfLow(context),
           onTap: () {
             if (isAssistant) {
-              setState(() {
-                _selectedAssistantClass = {
-                  'id': classId,
-                  'name': className,
-                };
-              });
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ClassDetailPage(
+                    classId: classId,
+                    className: className,
+                    isAssistant: true,
+                    courseSubjectId: data['courseSubjectId'],
+                    courseSubjectName: data['courseSubjectName'],
+                    courseSubjectCode: data['courseSubjectCode'],
+                  ),
+                ),
+              );
             } else {
               Navigator.push(
                 context,
@@ -1052,12 +1274,19 @@ class _ClassListPageState extends State<ClassListPage> {
                   child: ElevatedButton(
                     onPressed: () {
                       if (isAssistant) {
-                        setState(() {
-                          _selectedAssistantClass = {
-                            'id': classId,
-                            'name': className,
-                          };
-                        });
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ClassDetailPage(
+                              classId: classId,
+                              className: className,
+                              isAssistant: true,
+                              courseSubjectId: data['courseSubjectId'],
+                              courseSubjectName: data['courseSubjectName'],
+                              courseSubjectCode: data['courseSubjectCode'],
+                            ),
+                          ),
+                        );
                       } else {
                         Navigator.push(
                           context,
